@@ -32,3 +32,4 @@ export function ToastList({ toasts, onDismiss, onAction }: ToastListProps) {
     </div>
   );
 }
+

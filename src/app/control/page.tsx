@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
 import { ActivityLog } from "@/components/control/ActivityLog";
 import { CctvFocusModal } from "@/components/control/CctvFocusModal";
 import { DemoControls } from "@/components/control/DemoControls";
@@ -24,32 +26,11 @@ import type {
 } from "@/components/control/controlTypes";
 import "./styles.css";
 
-const navigation = [
-  "통합 관제",
-  "CCTV 관제",
-  "위험 사건",
-  "출동 관리",
-  "신고 관리",
-  "통계 분석",
-  "시스템 상태",
-  "도로보GO Assist"
-];
-
 const initialSearch = "";
 const initialFilter: FilterOption = "all";
 const initialSort: SortOption = "risk";
 
 const normalizeText = (value: string) => value.toLowerCase().replace(/\s+/g, "");
-
-const parseTimeLabel = (timeLabel: string) => {
-  const [hours, minutes] = timeLabel.split(":").map(Number);
-  const date = new Date();
-  date.setHours(hours, minutes, 0, 0);
-  if (date > new Date()) {
-    date.setDate(date.getDate() - 1);
-  }
-  return date;
-};
 
 const formatDuration = (seconds: number) => {
   const hours = Math.floor(seconds / 3600);
@@ -61,8 +42,17 @@ const formatDuration = (seconds: number) => {
   return `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 };
 
-const getElapsedSeconds = (start: Date, stop?: Date) => {
-  return Math.max(0, Math.round(((stop ?? new Date()).getTime() - start.getTime()) / 1000));
+const getElapsedSeconds = (start: Date, currentTime: number, stop?: Date) => {
+  return Math.max(0, Math.round(((stop?.getTime() ?? currentTime) - start.getTime()) / 1000));
+};
+
+const computeElapsedDuration = (startTs: string, currentTime: number, stopTs?: string) => {
+  const startDate = new Date(startTs);
+  if (Number.isNaN(startDate.getTime())) {
+    return null;
+  }
+  const stopDate = stopTs ? new Date(stopTs) : undefined;
+  return formatDuration(getElapsedSeconds(startDate, currentTime, stopDate));
 };
 
 const parseWaitDuration = (waiting: string) => {
@@ -70,49 +60,19 @@ const parseWaitDuration = (waiting: string) => {
   return (minutes || 0) * 60 + (seconds || 0);
 };
 
-function ElapsedTimer({
-  label,
-  startTs,
-  stopTs,
-  fallback
-}: {
-  label: string;
-  startTs?: string;
-  stopTs?: string;
-  fallback?: string;
-}) {
-  const [elapsed, setElapsed] = useState(0);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    if (!startTs) return;
-    const startDate = new Date(startTs);
-    const update = () => {
-      setElapsed(getElapsedSeconds(startDate, stopTs ? new Date(stopTs) : undefined));
+const getTimerForIncident = (incident: Incident, currentTime: number | null) => {
+  if (currentTime === null) {
+    return {
+      detection: "--:--",
+      claim: null,
+      dispatch: null
     };
-    update();
-    setMounted(true);
-    const interval = window.setInterval(update, 1000);
-    return () => window.clearInterval(interval);
-  }, [startTs, stopTs]);
-
-  if (!startTs) {
-    return <span>{fallback ?? "--:--"}</span>;
   }
 
-  return <span>{label} {mounted ? formatDuration(elapsed) : fallback ?? "--:--"}</span>;
-}
-
-const getTimerForIncident = (incident: Incident) => {
-  const detectedAt = parseTimeLabel(incident.detectedAt);
-  const detectedSeconds = getElapsedSeconds(detectedAt);
-  const claimSeconds = incident.claimedAtTs ? getElapsedSeconds(new Date(incident.claimedAtTs), incident.status === "falsePositive" || incident.status === "resolved" ? new Date(incident.claimedAtTs) : undefined) : null;
-  const dispatchSeconds = incident.dispatchRequestedAtTs ? getElapsedSeconds(new Date(incident.dispatchRequestedAtTs), incident.status === "falsePositive" || incident.status === "resolved" ? new Date(incident.dispatchRequestedAtTs) : undefined) : null;
-
   return {
-    detection: formatDuration(detectedSeconds),
-    claim: claimSeconds !== null ? formatDuration(claimSeconds) : null,
-    dispatch: dispatchSeconds !== null ? formatDuration(dispatchSeconds) : null
+    detection: incident.detectedAtTs ? computeElapsedDuration(incident.detectedAtTs, currentTime) ?? "--:--" : "--:--",
+    claim: incident.claimedAtTs ? computeElapsedDuration(incident.claimedAtTs, currentTime) : null,
+    dispatch: incident.dispatchRequestedAtTs ? computeElapsedDuration(incident.dispatchRequestedAtTs, currentTime) : null
   };
 };
 
@@ -162,16 +122,6 @@ const sortIncidents = (a: Incident, b: Incident, sortOption: SortOption) => {
   return b.detectedAt.localeCompare(a.detectedAt);
 };
 
-const statusText: Record<Incident["status"], string> = {
-  new: "신규 탐지",
-  claimed: "선점됨",
-  confirmed: "실제 위험",
-  falsePositive: "오탐",
-  dispatchRequested: "출동 요청됨",
-  dispatched: "출동 진행 중",
-  resolved: "조치 완료"
-};
-
 export default function ControlPage() {
   const [incidents, setIncidents] = useState<Incident[]>(initialIncidents);
   const [cctvFeeds] = useState<CctvFeed[]>(initialCctvFeeds);
@@ -186,8 +136,24 @@ export default function ControlPage() {
   const [filterOption, setFilterOption] = useState<FilterOption>(initialFilter);
   const [sortOption, setSortOption] = useState<SortOption>(initialSort);
   const [focusMode, setFocusMode] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [currentUser] = useState({ name: "운영자_01", role: "관제 관리자" });
   const [demoCount, setDemoCount] = useState(0);
+  const [currentTime, setCurrentTime] = useState<number | null>(null);
   const lastFocusedRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const updateTime = () => {
+      setCurrentTime(Date.now());
+    };
+
+    updateTime();
+    const intervalId = window.setInterval(updateTime, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   const selectedIncident = incidents.find((item) => item.id === selectedIncidentId) ?? null;
   const selectedCctv = cctvFeeds.find((feed) => feed.id === selectedCctvId) ?? cctvFeeds[0];
@@ -206,7 +172,6 @@ export default function ControlPage() {
   const dispatchCount = incidents.filter((incident) => incident.status === "dispatchRequested" || incident.status === "dispatched").length;
 
   useEffect(() => {
-    const openDetail = detailOpen || modalOpen;
     document.body.style.overflow = modalOpen ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
@@ -220,12 +185,14 @@ export default function ControlPage() {
         closeCctvModal();
       } else if (detailOpen) {
         closeIncidentPanel();
+      } else if (sidebarOpen) {
+        setSidebarOpen(false);
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [modalOpen, detailOpen]);
+  }, [modalOpen, detailOpen, sidebarOpen]);
 
   useEffect(() => {
     if (!selectedIncidentId) return;
@@ -550,77 +517,91 @@ export default function ControlPage() {
     <main className={`control-page ${focusMode ? "control-focus" : ""}`}>
       <ToastList toasts={toastList} onDismiss={handleToastRemove} onAction={handleToastActionClick} />
       <div className="control-shell">
-        <aside className="control-sidebar" aria-label="사이드바 메뉴">
-            <div className="control-sidebar__brand">
-              <img
-                src="/brand/roadbogo-logo-final.png"
-                alt="도로보GO 로고"
-                className="control-sidebar__logo"
-              />
-              <div>
-                <p className="control-sidebar__title">도로보GO</p>
-                <p className="control-sidebar__mode">Control Mode</p>
+        <header className="control-header control-header--main">
+          <div className="control-header__lead">
+            <button
+              type="button"
+              className="control-header__menu"
+              aria-label={sidebarOpen ? "사이드바 닫기" : "사이드바 열기"}
+              aria-expanded={sidebarOpen}
+              aria-controls="control-sidebar"
+              onClick={() => setSidebarOpen((v) => !v)}
+            >
+              <span aria-hidden="true">☰</span>
+            </button>
+            <a href="/control" className="control-brand-box">
+              <Image src="/brand/roadbogo-logo-final.png" alt="도로보GO 로고" width={170} height={48} className="control-brand-box__logo" priority />
+              <div className="control-brand-box__text">
+                <span className="control-brand-box__name">도로보GO</span>
               </div>
-            </div>
-            <nav className="control-nav" aria-label="메인 메뉴">
-              {navigation.map((item, index) => (
-                <button
-                  key={item}
-                  type="button"
-                  className={`control-nav__item ${index === 0 ? "control-nav__item--active" : ""}`}
-                >
-                  {item}
-                </button>
-              ))}
-            </nav>
-
-            <div className="control-sidebar__panel">
-            <p className="control-sidebar__panel-title">시스템 상태</p>
-            <div className="control-sidebar__panel-item">
-              <span>AI 서버</span>
-              <strong>정상</strong>
-            </div>
-            <div className="control-sidebar__panel-item">
-              <span>CCTV 연결</span>
-              <strong>{totalCctv}/6</strong>
+            </a>
+            <div className="control-brand-title">
+              <p className="control-eyebrow">통합 관제</p>
+              <h1 className="control-title">실시간 도로 위험 탐지와 현장 대응</h1>
+              <p className="control-subtitle">AI 탐지부터 관제 판단, 출동과 현장 조치까지 하나의 흐름으로 연결합니다.</p>
             </div>
           </div>
-        </aside>
 
-        <section className="control-area">
-          <header className="control-header">
-            <div className="control-header__lead">
-              <button type="button" className="control-header__menu" aria-label="메뉴 열기">
-                ☰
-              </button>
-              <div>
-                <p className="control-eyebrow">통합 관제</p>
-                <h1 className="control-title">실시간 도로 위험 탐지와 현장 대응</h1>
-                <p className="control-subtitle">
-                  CCTV 영상, AI 탐지, 출동 현황을 한눈에 확인할 수 있는 고밀도 관제 마스터 화면입니다.
-                </p>
-              </div>
-            </div>
-
-            <div className="control-header__meta">
-              <button
-                type="button"
-                className={`control-focus-toggle ${focusMode ? "control-focus-toggle--active" : ""}`}
-                onClick={handleToggleFocusMode}
-                aria-pressed={focusMode}
-              >
-                {focusMode ? "일반 화면으로 복귀" : "집중 관제"}
-              </button>
-              <div className="control-chip control-chip--info">CCTV 정상 {totalCctv}/6</div>
-              <div className="control-chip control-chip--info">AI 서버 정상</div>
-              <div className="control-chip control-chip--accent">알림 {toastList.length}</div>
-              <div className="control-chip control-chip--profile">운영자_01</div>
-            </div>
-          </header>
-
-          <div className={`control-urgent-line ${urgentIncidents ? "control-urgent-line--active" : "control-urgent-line--inactive"}`}>
-            {urgentSummary}
+          <div className="control-header__meta">
+            <button
+              type="button"
+              className={`control-focus-toggle ${focusMode ? "control-focus-toggle--active" : ""}`}
+              onClick={handleToggleFocusMode}
+              aria-pressed={focusMode}
+            >
+              {focusMode ? "일반 화면으로 복귀" : "집중 관제"}
+            </button>
+            <div className="control-chip control-chip--info">CCTV 정상 {totalCctv}/6</div>
+            <div className="control-chip control-chip--info">AI 서버 정상</div>
+            <div className="control-chip control-chip--accent">알림 {toastList.length}</div>
+            <div className="control-chip control-chip--profile">{currentUser.name}</div>
           </div>
+        </header>
+
+        {/* Sidebar (toggleable) */}
+        <nav id="control-sidebar" className={`control-sidebar ${sidebarOpen ? "control-sidebar--open" : "control-sidebar--closed"}`} aria-label="사이드 네비게이션">
+          <Link className="control-sidebar__brand" href="/" aria-label="도로보GO 메인으로 이동">
+            <Image src="/brand/roadbogo-logo-final.png" alt="도로보GO" width={162} height={46} priority />
+          </Link>
+          <div className="control-sidebar__profile">
+            <strong>{currentUser.name}</strong>
+            <small>{currentUser.role}</small>
+          </div>
+          <ul className="control-sidebar__nav">
+            <li>
+              <button type="button">
+                <span className="nav-icon">🏠</span>
+                <span className="nav-label">대시보드</span>
+              </button>
+            </li>
+            <li>
+              <button type="button">
+                <span className="nav-icon">📋</span>
+                <span className="nav-label">사건 목록</span>
+              </button>
+            </li>
+            <li>
+              <button type="button">
+                <span className="nav-icon">📷</span>
+                <span className="nav-label">CCTV 관리</span>
+              </button>
+            </li>
+            <li>
+              <button type="button">
+                <span className="nav-icon">⚙️</span>
+                <span className="nav-label">설정</span>
+              </button>
+            </li>
+          </ul>
+          <div className="control-sidebar__footer">
+            <button type="button" onClick={() => setSidebarOpen(false)}>닫기</button>
+          </div>
+        </nav>
+        <button type="button" className={`control-sidebar-overlay ${sidebarOpen ? "is-open" : ""}`} aria-label="사이드바 닫기" tabIndex={sidebarOpen ? 0 : -1} onClick={() => setSidebarOpen(false)} />
+
+        <div className={`control-urgent-line ${urgentIncidents ? "control-urgent-line--active" : "control-urgent-line--inactive"}`}>
+          {urgentSummary}
+        </div>
 
           {focusMode ? (
             <div className="control-kpi-summary">
@@ -673,7 +654,10 @@ export default function ControlPage() {
                       <span>{feed.id}</span>
                       <strong>{feed.event}</strong>
                     </div>
-                    <div className="cctv-card__view" />
+                    <div className="cctv-card__view">
+                      <span className="cctv-card__live">{feed.event ? "AI 탐지" : "LIVE"}</span>
+                      {feed.event ? <span className="cctv-detection-box" aria-hidden="true" /> : null}
+                    </div>
                     <div className="cctv-card__info">
                       <p>{feed.label}</p>
                       <span>{feed.duration}</span>
@@ -716,7 +700,7 @@ export default function ControlPage() {
               <div className="queue-list">
                 {filteredIncidents.length > 0 ? (
                   filteredIncidents.map((incident) => {
-                    const timer = getTimerForIncident(incident);
+                    const timer = getTimerForIncident(incident, currentTime);
                     return (
                       <article
                         key={incident.id}
@@ -826,17 +810,6 @@ export default function ControlPage() {
               <ActivityLog logs={activityLogs} onLogActivate={(incidentId) => openIncidentPanel(incidentId, document.body as HTMLElement)} />
             </article>
           </section>
-
-          <section className="control-flow">
-            <div className="flow-step flow-step--active">탐지</div>
-            <div className="flow-connector" />
-            <div className="flow-step">판단</div>
-            <div className="flow-connector" />
-            <div className="flow-step">출동</div>
-            <div className="flow-connector" />
-            <div className="flow-step">대응</div>
-          </section>
-        </section>
       </div>
       <IncidentDetailPanel
         incident={selectedIncident}

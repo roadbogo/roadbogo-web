@@ -1,12 +1,79 @@
 :root {
   color-scheme: light;
-  --background: #f7f8fb;
-  --foreground: #151821;
-  --muted: #5e6678;
-  --panel: #ffffff;
-  --line: #dde2eb;
-  --accent: #0f766e;
-  --accent-strong: #115e59;
+  --road-blue: #3C6FE8;
+  --signal-teal: #26999E;
+  --signal-amber: #D89A3D;
+  --warm-sand: #E8DCC8;
+  --deep-ink: #193345;
+  --page-background: #EEF2F0;
+  --background-main: #EEF2F0;
+  --section-background: #F3F5F4;
+  --background-section: #F3F5F4;
+  --default-card: #F6F7F4;
+  --card-default: #F6F7F4;
+  --blue-card: #E8EDF7;
+  --card-blue: #E8EDF7;
+  --teal-card: #E5F0ED;
+  --card-teal: #E5F0ED;
+  --warm-card: #F3EDE3;
+  --modal-background: #FCFCFA;
+  --border-color: #D8E1E0;
+  --border-default: #D8E1E0;
+  --divider-color: #E2E7E6;
+  --divider: #E2E7E6;
+  --text-primary: #1A2A37;
+  --text-secondary: #5E6F7B;
+  --text-tertiary: #8A98A3;
+  --icon-default: #4B5B66;
+  --icon-subtle: #9AA8AE;
+  --focus-ring: #3C6FE8;
+  --danger: #DF595D;
+  --emergency-red: #DF595D;
+  --warning: #D89A3D;
+  --review: #718394;
+  --in-progress: #3C6FE8;
+  --status-progress: #3C6FE8;
+  --complete: #26947E;
+  --status-complete: #26947E;
+  --disconnected: #87949B;
+  --brand-gradient: linear-gradient(90deg, var(--road-blue) 0%, var(--signal-teal) 100%);
+
+  /* Derived / semantic tokens */
+  --signal-teal-600: #1F8B88; /* darker teal for accents */
+  --status-success: var(--complete);
+  --danger-surface: #FCE7E9;
+  --warning-surface: #F9EEDC;
+  --review-surface: #E8EDF7;
+  --progress-surface: #E8EDF7;
+  --complete-surface: #E5F0ED;
+  --disconnected-surface: #F3F5F4;
+
+  /* Legacy aliases use the same final palette. */
+  --accent-strong: var(--road-blue);
+  --muted: var(--text-secondary);
+  --line: var(--border-color);
+  --panel: var(--default-card);
+
+  /* Toast border tokens */
+  --toast-success-border: #c7ebdd;
+  --toast-info-border: #bfdff5;
+  --toast-warning-border: #f2d49a;
+  --toast-urgent-border: #f2c7c9;
+
+  /* Typography tokens */
+  --type-scale-title: 28px;
+  --type-weight-strong: 700;
+  --type-weight-medium: 600;
+
+  /* Spacing / shape */
+  --space-unit: 8px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 24px;
+
+  /* Elevation */
+  --shadow-soft: 0 6px 18px rgba(13,26,43,0.06);
+  --shadow-medium: 0 18px 50px rgba(25,51,69,0.08);
 }
 
 * {
@@ -20,12 +87,9 @@ body {
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family:
-    Arial,
-    Helvetica,
-    sans-serif;
+  background: var(--page-background);
+  color: var(--text-primary);
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 .page {
