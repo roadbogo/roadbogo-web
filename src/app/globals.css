@@ -86,6 +86,8 @@ body {
   min-height: 100%;
 }
 
+.auth-check{min-height:100svh;display:flex;align-items:center;justify-content:center;gap:10px;margin:0;background:#EEF2F0;color:#5E6F7B;font-size:14px;font-weight:600}.auth-check span{width:16px;height:16px;border:2px solid #D8E1E0;border-top-color:#3C6FE8;border-radius:50%;animation:auth-check-spin .8s linear infinite}@keyframes auth-check-spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.auth-check span{animation:none}}
+
 body {
   background: var(--page-background);
   color: var(--text-primary);

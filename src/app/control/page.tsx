@@ -9,6 +9,8 @@ import { DemoControls } from "@/components/control/DemoControls";
 import { IncidentControls } from "@/components/control/IncidentControls";
 import { IncidentDetailPanel } from "@/components/control/IncidentDetailPanel";
 import { ToastList } from "@/components/control/ToastList";
+import { useAuth } from "@/components/auth/AuthContext";
+import { getWorkMenu } from "@/components/navigation/navigationConfig";
 import {
   initialActivityLog,
   initialCctvFeeds,
@@ -123,6 +125,7 @@ const sortIncidents = (a: Incident, b: Incident, sortOption: SortOption) => {
 };
 
 export default function ControlPage() {
+  const { user } = useAuth();
   const [incidents, setIncidents] = useState<Incident[]>(initialIncidents);
   const [cctvFeeds] = useState<CctvFeed[]>(initialCctvFeeds);
   const [dispatchTeams, setDispatchTeams] = useState(initialDispatchTeams);
@@ -137,7 +140,8 @@ export default function ControlPage() {
   const [sortOption, setSortOption] = useState<SortOption>(initialSort);
   const [focusMode, setFocusMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [currentUser] = useState({ name: "운영자_01", role: "관제 관리자" });
+  const workMenu = useMemo(() => getWorkMenu(user?.roles, user?.permissions), [user?.roles, user?.permissions]);
+  const currentUser = { name: user?.name ?? "비로그인", role: user?.role ?? "권한 없음" };
   const [demoCount, setDemoCount] = useState(0);
   const [currentTime, setCurrentTime] = useState<number | null>(null);
   const lastFocusedRef = useRef<HTMLElement | null>(null);
@@ -568,30 +572,10 @@ export default function ControlPage() {
             <small>{currentUser.role}</small>
           </div>
           <ul className="control-sidebar__nav">
-            <li>
-              <button type="button">
-                <span className="nav-icon">🏠</span>
-                <span className="nav-label">대시보드</span>
-              </button>
-            </li>
-            <li>
-              <button type="button">
-                <span className="nav-icon">📋</span>
-                <span className="nav-label">사건 목록</span>
-              </button>
-            </li>
-            <li>
-              <button type="button">
-                <span className="nav-icon">📷</span>
-                <span className="nav-label">CCTV 관리</span>
-              </button>
-            </li>
-            <li>
-              <button type="button">
-                <span className="nav-icon">⚙️</span>
-                <span className="nav-label">설정</span>
-              </button>
-            </li>
+            {workMenu.map(item => <li key={item.key}>{item.href
+              ? <Link href={item.href}><span className="nav-icon">{item.icon}</span><span className="nav-label">{item.label}</span></Link>
+              : <button type="button"><span className="nav-icon">{item.icon}</span><span className="nav-label">{item.label}</span></button>}
+            </li>)}
           </ul>
           <div className="control-sidebar__footer">
             <button type="button" onClick={() => setSidebarOpen(false)}>닫기</button>

@@ -16,10 +16,11 @@ const steps = [
   { title: "현장 조치", time: "08:26:47" },
 ] as const;
 const rail = ["AI 탐지", "사건 생성", "관제 판단", "출동 연결", "현장 대응"];
-const railTimes = ["08:26:47", "08:26:49", "08:27:18", "08:28:02", "08:34:12"];
+const railDescriptions = ["위험 객체 분류 완료", "사건 정보 자동 구성", "AI 근거 검토 및 판정", "대응팀 연결 준비", "현장 조치 대기"];
 const controlStates = ["AI 분석 중", "확인 대기", "관제 검토 중", "대응팀 연결", "현장 조치 중"];
 const recommendedActions = ["사건 생성 준비", "관제 판단 진행", "위험 여부 승인", "출동 정보 확인", "조치 결과 확인"];
 const INITIAL_TIME = 8 * 60 * 60 + 21 * 60 + 4;
+const ChevronIcon = ({direction}:{direction:"left"|"right"}) => <svg viewBox="0 0 24 24" aria-hidden="true"><path d={direction==="left"?"m15 18-6-6 6-6":"m9 18 6-6-6-6"}/></svg>;
 
 function formatTime(totalSeconds: number) {
   const normalized = totalSeconds % (24 * 60 * 60);
@@ -102,17 +103,17 @@ export function LandingCarousel() {
   const transitionKey = `${scenario.id}-${animationKey}`;
 
   return <section id="incident-stage" tabIndex={0} onKeyDown={(event) => { if (event.key === "ArrowLeft") move(-1); if (event.key === "ArrowRight") move(1); }} className={`incident-stage incident-stage--${activeScene}`} aria-label="라이브 사건 처리 시연">
-    <div className="incident-top"><div key={`heading-${scenario.id}`} className="scenario-fade"><span className="live-dot" /> LIVE INCIDENT <small>{scenario.incident}</small></div><div id="detection-types" className="scenario-picker" aria-label="탐지 유형">{incidentData.map((item, index) => <button key={item.id} className={scenarioIndex === index ? "is-active" : ""} aria-pressed={scenarioIndex === index} onClick={() => selectScenario(index)}>{item.label}</button>)}</div></div>
-    <div className="incident-body"><div className="cctv-frame"><div className="cctv-meta"><span>CAM 07 · 중부고속도로 137.4K · LIVE</span><span>2026.07.14 · {formatTime(currentTime)}</span></div><div className="road-scene"><span className="road-line road-line--one" /><span className="road-line road-line--two" /><div key={transitionKey} className={`detected-object detected-object--${scenario.position}`}><span className="road-pulse" /><Image src={scenario.image} alt={scenario.label} width={92} height={72} /><strong>{scenario.detectionLabel} · {confidence}%</strong></div><div className="vehicle-box vehicle-box--one">vehicle · 98%</div><div className="vehicle-box vehicle-box--two">vehicle · 97%</div><div className="vehicle-box vehicle-box--three">vehicle · 96%</div><span className="camera-label">AI TRACKING · Objects 12 · Risk 01</span></div></div><article className="incident-card response-panel scenario-fade" key={`card-${scenario.id}`}>
-      <section className="response-summary" aria-labelledby={`incident-${scenario.id}`}><div className="response-kicker"><span>LIVE INCIDENT</span><small>{scenario.incident}</small></div><h2 id={`incident-${scenario.id}`}>{scenario.detectionLabel}</h2><div className="response-chips"><span className="response-chip response-chip--danger">위험도 높음</span><span className="response-chip response-chip--score">AI {confidence}%</span><span className="response-chip">{formatTime(currentTime)}</span></div></section>
+    <div className="incident-top"><div key={`heading-${scenario.id}`} className="scenario-fade"><span className="live-dot" /> AI 탐지 시연 <small>AI 위험 탐지 시연 · {scenario.incident}</small></div><div id="detection-types" className="scenario-picker" aria-label="탐지 유형">{incidentData.map((item, index) => <button key={item.id} className={scenarioIndex === index ? "is-active" : ""} aria-pressed={scenarioIndex === index} onClick={() => selectScenario(index)}>{item.label}</button>)}</div></div>
+    <div className="incident-body"><div className="cctv-frame"><div className="cctv-meta"><span>CAM 07 · 중부고속도로 137.4K · DEMO</span><span>2026.07.14 · {formatTime(currentTime)}</span></div><div className="road-scene"><span className="road-line road-line--one" /><span className="road-line road-line--two" /><div key={transitionKey} className={`detected-object detected-object--${scenario.position}`}><span className="road-pulse" /><Image src={scenario.image} alt={scenario.label} width={92} height={72} /><strong>{scenario.detectionLabel} · {confidence}%</strong></div><div className="vehicle-box vehicle-box--one">vehicle · 98%</div><div className="vehicle-box vehicle-box--two">vehicle · 97%</div><div className="vehicle-box vehicle-box--three">vehicle · 96%</div><span className="camera-label">AI TRACKING DEMO · Objects 12 · Risk 01</span></div></div><article className="incident-card response-panel scenario-fade" key={`card-${scenario.id}`}>
+      <section className="response-summary" aria-labelledby={`incident-${scenario.id}`}><div className="response-kicker"><span>AI 탐지 시연</span><small>데모 데이터 · {scenario.incident}</small></div><h2 id={`incident-${scenario.id}`}>{scenario.detectionLabel}</h2><div className="response-chips"><span className="response-chip response-chip--danger">위험도 높음</span><span className="response-chip response-chip--score">AI {confidence}%</span><span className="response-chip">{formatTime(currentTime)}</span></div></section>
       <section className="response-field" aria-label="현장 정보"><h3>현장 정보</h3><ul><li><span>위치</span><strong>중부고속도로</strong></li><li><span>카메라</span><strong>CAM 07</strong></li><li><span>구간</span><strong>{scenario.lane}</strong></li><li><span>객체 상태</span><strong>{scenario.objectStatus}</strong></li></ul></section>
-      <section className="response-status" aria-label="대응 상태"><div className="response-status__head"><span>대응 상태</span><i>LIVE</i></div><dl><div><dt>현재 단계</dt><dd>{rail[currentStep]}</dd></div><div><dt>관제 상태</dt><dd>{controlStates[currentStep]}</dd></div><div><dt>추천 조치</dt><dd>{recommendedActions[currentStep]}</dd></div></dl></section>
+      <section className="response-status" aria-label="대응 상태"><div className="response-status__head"><span>대응 상태</span><i>DEMO</i></div><dl><div><dt>현재 단계</dt><dd>{rail[currentStep]}</dd></div><div><dt>관제 상태</dt><dd>{controlStates[currentStep]}</dd></div><div><dt>추천 조치</dt><dd>{recommendedActions[currentStep]}</dd></div></dl></section>
     </article></div>
-    <div className="flow-rail" aria-label="처리 진행 단계">{rail.map((item, index) => <div key={item} className={index < currentStep ? "is-complete" : index === currentStep ? "is-current" : "is-pending"}><span>{index + 1}</span><strong>{item}</strong><small>{railTimes[index]}</small></div>)}</div>
+    <div className="flow-rail" aria-label="처리 진행 단계">{rail.map((item, index) => <div key={item} className={index < currentStep ? "is-complete" : index === currentStep ? "is-current" : "is-pending"}><span>{index + 1}</span><strong>{item}</strong><small>{railDescriptions[index]}</small></div>)}</div>
     <div className="incident-carousel-controls" aria-label="사건 처리 장면 제어">
-      <button type="button" className="incident-arrow" onClick={() => move(-1)} aria-label="이전 장면">←</button>
+      <button type="button" className="incident-arrow" onClick={() => move(-1)} aria-label="이전 장면"><ChevronIcon direction="left"/></button>
       <div className="incident-step-buttons">{steps.map((step, index) => <button type="button" key={step.title} className={activeScene === index ? "is-active" : ""} aria-pressed={activeScene === index} onClick={() => selectStep(index)}><span>0{index + 1}</span>{step.title}</button>)}</div>
-      <button type="button" className="incident-arrow" onClick={() => move(1)} aria-label="다음 장면">→</button>
+      <button type="button" className="incident-arrow" onClick={() => move(1)} aria-label="다음 장면"><ChevronIcon direction="right"/></button>
     </div>
   </section>;
 }
