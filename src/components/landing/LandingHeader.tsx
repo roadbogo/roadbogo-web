@@ -2,72 +2,130 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthContext";
+import { useSystemHealth } from "@/hooks/useSystemHealth";
+import { SystemHealthPanel } from "./SystemHealthPanel";
+import { getLandingSidebarMenus, type SidebarIconName, type SidebarMenuItem } from "./sidebarMenuConfig";
+import type { UserRole } from "@/types/auth";
 
 const MenuIcon = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>;
 const BellIcon = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>;
-type RailIconType = "home" | "monitor";
-const RailIcon = ({ type }: { type: RailIconType }) => {
+const RailIcon = ({ type }: { type: SidebarIconName }) => {
   const paths = {
     home: <path d="m4 11 8-7 8 7v9h-6v-6h-4v6H4Z" />,
-    monitor: <><rect x="3" y="5" width="18" height="12" rx="2" /><path d="M8 21h8M12 17v4" /></>,
+    flow: <><circle cx="5" cy="12" r="2" /><circle cx="19" cy="6" r="2" /><circle cx="19" cy="18" r="2" /><path d="M7 12h4a4 4 0 0 0 4-4M11 12a4 4 0 0 1 4 4" /></>,
+    login: <><path d="M10 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5"/><path d="m14 8 4 4-4 4M18 12H8"/></>,
+    profile: <><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></>,
   };
   return <svg viewBox="0 0 24 24" aria-hidden="true">{paths[type]}</svg>;
 };
 const sections = [
-  { key: "home", id: "home", label: "홈", icon: "home" },
-  { key: "monitor", id: "incident-stage", label: "실시간 관제", icon: "monitor" },
+  { key: "home", id: "home", label: "서비스 소개", icon: "home" },
+  { key: "platform", id: "platform-operations", label: "통합 사건 운영 체계", icon: "flow" },
 ] as const;
 
 export function LandingHeader() {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [compactNavigation, setCompactNavigation] = useState(false);
   const [profile, setProfile] = useState(false);
+  const [healthPanelOpen, setHealthPanelOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("home");
+  const activeSectionRef = useRef("home");
+  const sidebarRef = useRef<HTMLElement>(null);
+  const sidebarToggleRef = useRef<HTMLButtonElement>(null);
+  const mobileTriggerRef = useRef<HTMLButtonElement>(null);
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+  const [tooltip, setTooltip] = useState<{ label: string; top: number } | null>(null);
+  const health = useSystemHealth();
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") { setSidebarOpen(false); setProfile(false); }
+      if (event.key === "Escape") { setSidebarOpen(false); setProfile(false); setHealthPanelOpen(false); if (compactNavigation) mobileTriggerRef.current?.focus(); }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
+  }, [compactNavigation]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)");
+    const sync = () => { setCompactNavigation(media.matches); setSidebarOpen(false); setTooltip(null); };
+    sync(); media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
   }, []);
+
+  useEffect(() => {
+    if (!compactNavigation || !sidebarOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.requestAnimationFrame(() => sidebarToggleRef.current?.focus());
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [compactNavigation, sidebarOpen]);
 
   useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
       const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
       if (!visible) return;
-      setActiveSection(visible.target.id === "incident-stage" ? "monitor" : "home");
+      const key=sections.find((section) => section.id === visible.target.id)?.key ?? "home";
+      activeSectionRef.current=key;setActiveSection(key);
     }, { rootMargin: "-20% 0px -55%", threshold: [0, 0.2, 0.5] });
-    ["home", "incident-stage"].forEach((id) => { const element = document.getElementById(id); if (element) observer.observe(element); });
+    [...new Set(sections.map(({id})=>id))].forEach((id) => { const element = document.getElementById(id); if (element) observer.observe(element); });
     return () => observer.disconnect();
   }, []);
 
-  const close = () => setSidebarOpen(false);
+  const close = (restoreFocus = false) => { setSidebarOpen(false); setTooltip(null); if (restoreFocus && compactNavigation) window.requestAnimationFrame(() => mobileTriggerRef.current?.focus()); };
   const scrollTo = (id: string, key: string) => {
-    setActiveSection(key);
+    activeSectionRef.current=key;setActiveSection(key);
+    if(key==="platform")window.dispatchEvent(new CustomEvent("roadbogo:platform-slide",{detail:{key:"operation"}}));
     close();
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
   const signout = () => { logout(); setProfile(false); close(); router.push("/"); };
+  const isPublicHome = pathname === "/";
+  const showPublicSidebar = isPublicHome;
+  const showPublicDrawer = showPublicSidebar && compactNavigation;
+  const role = (["SYSTEM_ADMIN","CONTROL_MANAGER","CONTROLLER","RESPONDER","GENERAL_USER"] as UserRole[]).includes(user?.role as UserRole) ? user?.role as UserRole : "GENERAL_USER";
+  const sidebarMenus = useMemo(() => getLandingSidebarMenus(role, Boolean(user)), [role, user]);
+  const groupedMenus = useMemo(() => sidebarMenus.reduce<Record<string, SidebarMenuItem[]>>((groups, item) => { const section = item.section ?? "메뉴"; (groups[section] ??= []).push(item); return groups; }, {}), [sidebarMenus]);
+  const isAdmin = Boolean(user?.permissions?.includes("users:manage") || user?.roles?.includes("SYSTEM_ADMIN"));
+  const healthLabel = health.isLoading ? "상태 확인 중" : health.status === "healthy" ? "시스템 정상" : health.status === "degraded" ? "일부 기능 점검 중" : "시스템 연결 확인 필요";
+
+  useEffect(() => {
+    setOpenGroups((current) => {
+      const next = new Set(current);
+      sidebarMenus.forEach((item) => {
+        if (item.children?.some((child) => child.href === pathname || (child.href !== "/" && pathname.startsWith(child.href ?? "\u0000")))) next.add(item.id);
+      });
+      return next.size === current.size && [...next].every((id) => current.has(id)) ? current : next;
+    });
+  }, [pathname, sidebarMenus]);
 
   return <>
-    <Link className="standalone-sidebar-brand" href="/" aria-label="도로보GO 홈"><Image src="/brand/roadbogo-logo-final.png" alt="도로보GO" width={170} height={48} priority /></Link>
-    <aside id="landing-sidebar" className={`landing-sidebar ${sidebarOpen ? "is-open" : "is-collapsed"}`} aria-label="페이지 섹션 메뉴">
-      <button type="button" className="landing-sidebar__toggle" aria-label="페이지 메뉴 열기" aria-expanded={sidebarOpen} aria-controls="landing-sidebar-nav" onClick={() => setSidebarOpen((value) => !value)}><MenuIcon /><span>전체 메뉴</span></button>
-      <nav id="landing-sidebar-nav" aria-label="페이지 바로가기">
-        {sections.map((section) => <button type="button" key={section.key} className={activeSection === section.key ? "is-active" : ""} aria-current={activeSection === section.key ? "location" : undefined} onClick={() => scrollTo(section.id, section.key)}><RailIcon type={section.icon} /><span>{section.label}</span></button>)}
-      </nav>
-      <div className="landing-sidebar__status"><i /><div><strong>시스템 정상</strong><span>실시간 연결 상태</span></div></div>
-    </aside>
-    <button type="button" className={`landing-sidebar-backdrop ${sidebarOpen ? "is-open" : ""}`} onClick={close} aria-label="메뉴 닫기" tabIndex={sidebarOpen ? 0 : -1} />
+    {showPublicSidebar && <aside ref={sidebarRef} id="landing-sidebar" className={`landing-sidebar landing-public-drawer ${sidebarOpen ? "is-open" : "is-collapsed"}`} aria-label="공개 페이지 메뉴" onKeyDown={(event)=>{if(!compactNavigation||event.key!=="Tab")return;const focusable=sidebarRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]),a[href]');if(!focusable?.length)return;const first=focusable[0],last=focusable[focusable.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}}}>
+      <div className="landing-sidebar__frame">
+        <div className="landing-sidebar__header"><button ref={sidebarToggleRef} type="button" className="landing-sidebar__toggle" aria-label={compactNavigation?(sidebarOpen?"메뉴 닫기":"메뉴 열기"):(sidebarOpen?"사이드바 접기":"사이드바 펼치기")} aria-expanded={sidebarOpen} aria-controls="landing-sidebar-nav" onClick={() => compactNavigation && sidebarOpen ? close(true) : setSidebarOpen((value) => !value)}><MenuIcon /><span>전체 메뉴</span></button></div>
+        <nav id="landing-sidebar-nav" className="landing-sidebar__navigation" aria-label="페이지 바로가기">
+          {Object.entries(groupedMenus).map(([section, items])=><div className="landing-sidebar__group" key={section}><p>{section}</p>{items.map((item)=>{const isActive=item.targetSection?activeSection===item.id:pathname===item.href;const hasChildren=Boolean(item.children?.length);const expanded=openGroups.has(item.id);const activate=()=>{if(hasChildren){setOpenGroups(current=>{const next=new Set(current);if(next.has(item.id))next.delete(item.id);else next.add(item.id);return next});return}if(item.targetSection){scrollTo(item.targetSection,item.id)}else if(item.href){close();if(item.isExternal)window.open(item.href,"_blank","noopener,noreferrer");else router.push(item.href)}};return <div className="landing-sidebar__menu" key={item.id}><button type="button" className={isActive?"is-active":""} aria-current={isActive?"page":undefined} aria-expanded={hasChildren?expanded:undefined} onClick={activate} onMouseEnter={(event)=>{if(!compactNavigation&&!sidebarOpen){const rect=event.currentTarget.getBoundingClientRect();setTooltip({label:item.label,top:rect.top+rect.height/2})}}} onMouseLeave={()=>setTooltip(null)} onFocus={(event)=>{if(!compactNavigation&&!sidebarOpen){const rect=event.currentTarget.getBoundingClientRect();setTooltip({label:item.label,top:rect.top+rect.height/2})}}} onBlur={()=>setTooltip(null)}><span className="landing-sidebar__icon"><RailIcon type={item.icon}/></span><span className="landing-sidebar__menu-text"><strong>{item.label}</strong>{item.description&&<small>{item.description}</small>}</span>{item.badge!=null&&<b>{item.badge}</b>}{hasChildren&&<i className={expanded?"is-expanded":""}>⌄</i>}</button>{hasChildren&&expanded&&<div className="landing-sidebar__children">{item.children?.map(child=><button type="button" key={child.id} onClick={()=>child.href&&router.push(child.href)}><span className="landing-sidebar__menu-text"><strong>{child.label}</strong>{child.description&&<small>{child.description}</small>}</span></button>)}</div>}</div>})}</div>)}
+        </nav>
+        <div className="landing-sidebar__footer"><button type="button" className={`landing-sidebar__status landing-sidebar__health is-${health.isLoading?"loading":health.status}`} onClick={()=>setHealthPanelOpen(true)} aria-label={`${healthLabel}, 시스템 현황 열기`}><i/><div><strong>{healthLabel}</strong><span>시스템 현황 보기</span></div></button></div>
+      </div>
+      {tooltip&&<span className="landing-sidebar__tooltip" style={{top:tooltip.top}} role="tooltip">{tooltip.label}</span>}
+    </aside>}
+    {showPublicSidebar && <button type="button" className={`landing-sidebar-backdrop ${sidebarOpen ? "is-open" : ""}`} onClick={()=>close(true)} aria-label="메뉴 닫기" tabIndex={sidebarOpen&&compactNavigation ? 0 : -1} />}
     <header className="main-header"><div className="main-header__inner">
-      <div aria-hidden="true" />
-      <nav className="main-header__account" aria-label="계정 메뉴">{!user ? <><Link href="/signup">회원가입</Link><Link href="/login" className="main-header__login">로그인</Link><Link href="/login" className="main-header__cta">실시간 관제 보기 <span>→</span></Link></> : <><Link href="/mypage">마이페이지</Link><button className="header-bell" aria-label="알림"><BellIcon /></button><div className="profile-wrap"><button className="profile-trigger" aria-expanded={profile} onClick={() => setProfile((value) => !value)}><b>관</b><span><strong>{user.name}</strong><small>{user.role}</small></span></button>{profile && <div className="profile-popover"><div><strong>{user.name}</strong><span>{user.email}</span><small>{user.role}</small></div><Link href="/control">실시간 관제 보기</Link><Link href="/mypage">마이페이지</Link><Link href="/mypage/edit">회원정보 수정</Link><button onClick={signout}>로그아웃</button></div>}</div><Link href="/control" className="main-header__cta">실시간 관제 보기 <span>→</span></Link></>}</nav>
-      <button type="button" className="mobile-menu-trigger" aria-label="메뉴 열기" aria-expanded={sidebarOpen} aria-controls="landing-sidebar" onClick={() => setSidebarOpen(true)}><MenuIcon /></button>
+      <Link className="standalone-sidebar-brand" href="/" aria-label="도로보GO 홈">
+        <Image className="standalone-sidebar-brand__full" src="/brand/roadbogo-logo-final.png" alt="도로보GO" width={170} height={48} priority />
+        <Image className="standalone-sidebar-brand__mark" src="/brand/roadbogo-symbol.png" alt="" width={48} height={48} aria-hidden="true" priority />
+        <span className="standalone-sidebar-brand__mobile-copy"><strong>도로보GO</strong><small>AI 기반 도로 안전 대응</small></span>
+      </Link>
+      {!compactNavigation && <nav className="main-header__sections" aria-label="서비스 섹션">{sections.map((section) => <button type="button" key={section.key} className={activeSection === section.key ? "is-active" : ""} aria-current={activeSection === section.key ? "location" : undefined} onClick={() => scrollTo(section.id, section.key)}>{section.label}</button>)}</nav>}
+      <div className="main-header__right"><nav className="main-header__account" aria-label="계정 메뉴">{!user ? <><Link href="/login?intent=general" className="main-header__login">로그인</Link><Link href="/login?intent=operations" className="main-header__cta">실시간 관제 보기</Link></> : <><button type="button" className="header-bell" aria-label="알림"><BellIcon /></button>{isAdmin && <Link href="/control">관리자</Link>}<Link href="/mypage">마이페이지</Link><div className="profile-wrap"><button className="profile-trigger" aria-label={`${user.name} 프로필 메뉴`} aria-expanded={profile} onClick={() => setProfile((value) => !value)}><b>{user.name.slice(0, 1)}</b><span><strong>{user.name}</strong><small>{user.role}</small></span></button>{profile && <div className="profile-popover"><div><strong>{user.name}</strong><span>{user.email}</span><small>{user.role}</small></div><Link href="/control">실시간 관제 보기</Link><Link href="/mypage">마이페이지</Link><Link href="/mypage/edit">회원정보 수정</Link><button onClick={signout}>로그아웃</button></div>}</div></>}</nav></div>
+      {showPublicDrawer && <button ref={mobileTriggerRef} type="button" className="mobile-menu-trigger" aria-label="메뉴 열기" aria-expanded={sidebarOpen} aria-controls="landing-sidebar" onClick={() => setSidebarOpen(true)}><MenuIcon /></button>}
     </div></header>
+    <SystemHealthPanel open={healthPanelOpen} status={health.status} api={health.api} database={health.database} checkedAt={health.checkedAt} isLoading={health.isLoading} onRefresh={()=>void health.refresh()} onClose={()=>setHealthPanelOpen(false)}/>
   </>;
 }
