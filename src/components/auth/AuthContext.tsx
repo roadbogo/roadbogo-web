@@ -6,8 +6,8 @@ import type { AuthUser, UserRole } from "@/types/auth";
 import { clearClientAuth, ACCESS_TOKEN_KEY, storeAuthUser } from "@/lib/auth/authStorage";
 import { authApi, toAuthUser } from "@/lib/authApi";
 
-export interface DemoUser { name: string; role: string; email: string; roles?: AppRole[]; permissions?: AppPermission[]; }
-interface AuthValue { user: DemoUser | null; ready: boolean; login: () => void; logout: () => void; updateUser: (user: DemoUser) => void; setAuthenticatedUser: (user: AuthUser) => void; }
+export interface DemoUser { publicId?: string; name: string; role: string; email: string; phone?: string; accountStatus?: string; organization?: AuthUser["organization"]; lastLoginAt?: string | null; roles?: AppRole[]; permissions?: AppPermission[]; }
+interface AuthValue { user: DemoUser | null; ready: boolean; login: () => void; clearAuth: () => void; updateUser: (user: DemoUser) => void; setAuthenticatedUser: (user: AuthUser) => void; }
 
 const demoUser: DemoUser = {
   name: "관리자", role: "관제 관리자", email: "admin@roadbogo.demo",
@@ -25,7 +25,8 @@ const validUserRoles=new Set<UserRole>(["SYSTEM_ADMIN","CONTROL_MANAGER","CONTRO
 function toDemoUser(user:AuthUser):DemoUser{
   const roles=user.roles.filter(role=>validUserRoles.has(role));
   const access=roles.reduce((result,role)=>({appRoles:[...new Set([...result.appRoles,...permissionMap[role].appRoles])],permissions:[...new Set([...result.permissions,...permissionMap[role].permissions])]}),{appRoles:[] as AppRole[],permissions:[] as AppPermission[]});
-  return{name:user.userName,role:roles[0]??"GENERAL_USER",email:user.email,roles:access.appRoles,permissions:access.permissions};
+  const apiPermissions = user.permissions.filter((permission): permission is AppPermission => access.permissions.includes(permission as AppPermission));
+  return{publicId:user.publicId,name:user.userName,role:roles[0]??"GENERAL_USER",email:user.email,phone:user.phone,accountStatus:user.accountStatus,organization:user.organization,lastLoginAt:user.lastLoginAt,roles:access.appRoles,permissions:apiPermissions};
 }
 const AuthContext = createContext<AuthValue | null>(null);
 
@@ -41,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<AuthValue>(() => ({
     user, ready,
     login: () => { localStorage.setItem("roadbogo-demo-auth", "true"); setUser(demoUser); },
-    logout: () => { clearClientAuth(); setUser(null); },
+    clearAuth: () => { clearClientAuth(); setUser(null); },
     updateUser: (next) => setUser(next),
     setAuthenticatedUser: (next) => setUser(toDemoUser(next)),
   }), [user, ready]);

@@ -14,5 +14,14 @@ export function authenticateMockAccount(email:string,password:string):LoginResul
   if(!account)return{ok:false,reason:"email_not_found"};
   if(account.password!==password)return{ok:false,reason:"invalid_password"};
   if(account.active===false)return{ok:false,reason:"inactive_account"};
-  return{ok:true,user:{email:account.email,userName:account.userName,roles:[...account.roles]}};
+  return{ok:true,user:{
+    publicId:`mock:${account.email}`,
+    email:account.email,
+    userName:account.userName,
+    accountStatus:"ACTIVE",
+    organization:null,
+    roles:[...account.roles],
+    permissions:[],
+    lastLoginAt:null,
+  }};
 }

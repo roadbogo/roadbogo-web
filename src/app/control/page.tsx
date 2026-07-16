@@ -10,6 +10,7 @@ import { IncidentControls } from "@/components/control/IncidentControls";
 import { IncidentDetailPanel } from "@/components/control/IncidentDetailPanel";
 import { ToastList } from "@/components/control/ToastList";
 import { useAuth } from "@/components/auth/AuthContext";
+import { AccountMenu } from "@/components/auth/AccountMenu";
 import { getWorkMenu } from "@/components/navigation/navigationConfig";
 import {
   initialActivityLog,
@@ -558,7 +559,7 @@ export default function ControlPage() {
             <div className="control-chip control-chip--info">CCTV 정상 {totalCctv}/6</div>
             <div className="control-chip control-chip--info">AI 서버 정상</div>
             <div className="control-chip control-chip--accent">알림 {toastList.length}</div>
-            <div className="control-chip control-chip--profile">{currentUser.name}</div>
+            <AccountMenu compact />
           </div>
         </header>
 
