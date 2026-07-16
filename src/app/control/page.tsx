@@ -141,7 +141,7 @@ export default function ControlPage() {
   const [sortOption, setSortOption] = useState<SortOption>(initialSort);
   const [focusMode, setFocusMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const workMenu = useMemo(() => getWorkMenu(user?.roles, user?.permissions), [user?.roles, user?.permissions]);
+  const workMenu = useMemo(() => getWorkMenu(user?.uiRoles, user?.uiPermissions), [user?.uiRoles, user?.uiPermissions]);
   const currentUser = { name: user?.name ?? "비로그인", role: user?.role ?? "권한 없음" };
   const [demoCount, setDemoCount] = useState(0);
   const [currentTime, setCurrentTime] = useState<number | null>(null);

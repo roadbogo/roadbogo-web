@@ -91,7 +91,7 @@ export function LandingHeader() {
   const role = (["SYSTEM_ADMIN","CONTROL_MANAGER","CONTROLLER","RESPONDER","GENERAL_USER"] as UserRole[]).includes(user?.role as UserRole) ? user?.role as UserRole : "GENERAL_USER";
   const sidebarMenus = useMemo(() => getLandingSidebarMenus(role, Boolean(user)), [role, user]);
   const groupedMenus = useMemo(() => sidebarMenus.reduce<Record<string, SidebarMenuItem[]>>((groups, item) => { const section = item.section ?? "메뉴"; (groups[section] ??= []).push(item); return groups; }, {}), [sidebarMenus]);
-  const isAdmin = Boolean(user?.permissions?.includes("users:manage") || user?.roles?.includes("SYSTEM_ADMIN"));
+  const isAdmin = Boolean(user?.uiPermissions.includes("users:manage") || user?.uiRoles.includes("SYSTEM_ADMIN"));
   const healthLabel = health.isLoading ? "상태 확인 중" : health.status === "healthy" ? "서버 정상" : health.status === "degraded" ? "일부 기능 점검" : "서버 연결 확인";
 
   useEffect(() => {

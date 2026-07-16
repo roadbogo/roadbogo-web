@@ -41,7 +41,7 @@ export default function MyPage() {
     setPhone(user.phone ?? "");
   }, [user]);
 
-  const shortcuts = useMemo(() => getShortcuts(user?.roles, user?.permissions), [user?.permissions, user?.roles]);
+  const shortcuts = useMemo(() => getShortcuts(user?.uiRoles, user?.uiPermissions), [user?.uiPermissions, user?.uiRoles]);
   if (!ready) return <main className="auth-check" role="status"><span />계정 정보를 확인하고 있습니다.</main>;
   if (!user) return null;
 
@@ -106,7 +106,7 @@ export default function MyPage() {
           <dl className={styles.infoRows}>
             <div><dt>소속 조직</dt><dd>{user.organization?.name ?? "소속 기관 없음"}</dd></div>
             <div><dt>현재 역할</dt><dd>{roleLabel}</dd></div>
-            <div><dt>권한</dt><dd>{user.permissions?.length ? `${user.permissions.length}개 권한` : "정보를 확인할 수 없습니다."}</dd></div>
+            <div><dt>권한</dt><dd>{user.apiPermissions.length ? `${user.apiPermissions.length}개 API 권한` : "등록된 API 권한 없음"}</dd></div>
           </dl>
         </section>
 
