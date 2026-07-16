@@ -14,8 +14,6 @@ export type ApiUser = {
   last_login_at: string | null;
 };
 export type LoginResponse = { access_token: string; token_type: "Bearer"; user: ApiUser };
-export type RegisterRequest = { email: string; user_name: string; password: string; password_confirmation: string };
-export type RegisterResponse = { user: ApiUser };
 
 export type UserResponse = { user: ApiUser };
 export type PasswordResetRequestResponse = { accepted: boolean; debug_reset_url?: string };
@@ -35,7 +33,6 @@ export function toAuthUser(user: ApiUser): AuthUser {
 }
 
 export const authApi = {
-  register: (body: RegisterRequest) => apiRequest<RegisterResponse>("/auth/register", { method: "POST", auth: false, retryAuth: false, body }),
   login: (email: string, password: string, rememberMe = false) => apiRequest<LoginResponse>("/auth/login", { method: "POST", auth: false, retryAuth: false, body: { email, password, remember_me: rememberMe } }),
   logout: () => apiRequest<null>("/auth/logout", { method: "POST", retryAuth: false }),
   refresh: () => apiRequest<{ access_token: string }>("/auth/refresh", { method: "POST", auth: false, retryAuth: false }),
