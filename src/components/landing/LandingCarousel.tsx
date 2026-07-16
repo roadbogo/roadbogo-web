@@ -109,10 +109,10 @@ export function LandingCarousel() {
       <section className="response-field" aria-label="현장 정보"><h3>현장 정보</h3><ul><li><span>위치</span><strong>중부고속도로</strong></li><li><span>카메라</span><strong>CAM 07</strong></li><li><span>구간</span><strong>{scenario.lane}</strong></li><li><span>객체 상태</span><strong>{scenario.objectStatus}</strong></li></ul></section>
       <section className="response-status" aria-label="대응 상태"><div className="response-status__head"><span>대응 상태</span><i>DEMO</i></div><dl><div><dt>현재 단계</dt><dd>{rail[currentStep]}</dd></div><div><dt>관제 상태</dt><dd>{controlStates[currentStep]}</dd></div><div><dt>추천 조치</dt><dd>{recommendedActions[currentStep]}</dd></div></dl></section>
     </article></div>
-    <div className="flow-rail" aria-label="처리 진행 단계">{rail.map((item, index) => <div key={item} className={index < currentStep ? "is-complete" : index === currentStep ? "is-current" : "is-pending"}><span>{index + 1}</span><strong>{item}</strong><small>{railDescriptions[index]}</small></div>)}</div>
+    <div className="flow-rail" aria-label="실제 처리 진행 상태">{rail.map((item, index) => <div key={item} className={index < currentStep ? "is-complete" : index === currentStep ? "is-current" : "is-pending"} aria-current={index === currentStep ? "step" : undefined}><span>{index + 1}</span><strong>{item}</strong>{index === currentStep && <small>{railDescriptions[index]}</small>}</div>)}</div>
     <div className="incident-carousel-controls" aria-label="사건 처리 장면 제어">
       <button type="button" className="incident-arrow" onClick={() => move(-1)} aria-label="이전 장면"><ChevronIcon direction="left"/></button>
-      <div className="incident-step-buttons">{steps.map((step, index) => <button type="button" key={step.title} className={activeScene === index ? "is-active" : ""} aria-pressed={activeScene === index} onClick={() => selectStep(index)}><span>0{index + 1}</span>{step.title}</button>)}</div>
+      <div className="incident-step-buttons" aria-label="시연 장면 선택">{steps.map((step, index) => <button type="button" key={step.title} className={activeScene === index ? "is-active" : ""} aria-pressed={activeScene === index} onClick={() => selectStep(index)}><span>0{index + 1}</span>{step.title}</button>)}</div>
       <button type="button" className="incident-arrow" onClick={() => move(1)} aria-label="다음 장면"><ChevronIcon direction="right"/></button>
     </div>
   </section>;

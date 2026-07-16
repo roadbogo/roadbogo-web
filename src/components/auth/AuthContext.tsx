@@ -3,7 +3,8 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { AppPermission, AppRole } from "@/components/navigation/navigationConfig";
 import type { AuthUser, UserRole } from "@/types/auth";
-import { clearClientAuth, readStoredAuthUser } from "@/lib/auth/authStorage";
+import { clearClientAuth, ACCESS_TOKEN_KEY, storeAuthUser } from "@/lib/auth/authStorage";
+import { authApi, toAuthUser } from "@/lib/authApi";
 
 export interface DemoUser { name: string; role: string; email: string; roles?: AppRole[]; permissions?: AppPermission[]; }
 interface AuthValue { user: DemoUser | null; ready: boolean; login: () => void; logout: () => void; updateUser: (user: DemoUser) => void; setAuthenticatedUser: (user: AuthUser) => void; }
@@ -32,8 +33,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<DemoUser | null>(null);
   const [ready, setReady] = useState(false);
   useEffect(() => {
-    try { const stored=readStoredAuthUser();if(stored)setUser(toDemoUser(stored));else if(localStorage.getItem("roadbogo-demo-auth") === "true")setUser(demoUser); } finally { setReady(true); }
-    const expire=()=>{setUser(null);setReady(true)};window.addEventListener("roadbogo:auth-expired",expire);return()=>window.removeEventListener("roadbogo:auth-expired",expire);
+    let active=true;
+    const restore=async()=>{try{if(!localStorage.getItem(ACCESS_TOKEN_KEY)){clearClientAuth();return}const apiUser=await authApi.me();const restored=toAuthUser(apiUser);storeAuthUser(restored);if(active)setUser(toDemoUser(restored))}catch{clearClientAuth();if(active)setUser(null)}finally{if(active)setReady(true)}};
+    void restore();
+    const expire=()=>{setUser(null);setReady(true)};window.addEventListener("roadbogo:auth-expired",expire);return()=>{active=false;window.removeEventListener("roadbogo:auth-expired",expire)};
   }, []);
   const value = useMemo<AuthValue>(() => ({
     user, ready,
