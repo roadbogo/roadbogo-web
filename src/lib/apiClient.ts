@@ -20,6 +20,7 @@ type RequestOptions = Omit<RequestInit, "body"> & {
 };
 
 let refreshPromise: Promise<string> | null = null;
+let refreshController: AbortController | null = null;
 
 function readAccessToken() {
   return typeof window === "undefined" ? null : localStorage.getItem(ACCESS_TOKEN_KEY);
@@ -41,8 +42,9 @@ async function parseEnvelope<T>(response: Response): Promise<ApiEnvelope<T>> {
 
 async function refreshAccessToken(): Promise<string> {
   if (!refreshPromise) {
+    refreshController = new AbortController();
     refreshPromise = (async () => {
-      const response = await fetch(`${API_V1_URL}/auth/refresh`, { method: "POST", credentials: "include", headers: { "X-Request-ID": crypto.randomUUID() } });
+      const response = await fetch(`${API_V1_URL}/auth/refresh`, { method: "POST", credentials: "include", headers: { "X-Request-ID": crypto.randomUUID() }, signal: refreshController?.signal });
       const envelope = await parseEnvelope<{ access_token: string }>(response);
       if (!response.ok || !envelope.success || !envelope.data?.access_token) {
         if (!envelope.success) throw new ApiError(envelope.error.code, envelope.error.message, envelope.error.details ?? null, envelope.trace_id, response.status);
@@ -50,9 +52,15 @@ async function refreshAccessToken(): Promise<string> {
       }
       storeAccessToken(envelope.data.access_token);
       return envelope.data.access_token;
-    })().finally(() => { refreshPromise = null; });
+    })().finally(() => { refreshPromise = null; refreshController = null; });
   }
   return refreshPromise;
+}
+
+export function cancelPendingAuthRequests() {
+  refreshController?.abort();
+  refreshController = null;
+  refreshPromise = null;
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {

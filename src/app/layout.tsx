@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/AuthContext";
+import { LogoutProvider } from "@/components/auth/LogoutProvider";
 
 export const metadata: Metadata = {
   title: "Roadbogo",
@@ -14,7 +15,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body><AuthProvider>{children}</AuthProvider></body>
+      <body><AuthProvider><LogoutProvider>{children}</LogoutProvider></AuthProvider></body>
     </html>
   );
 }

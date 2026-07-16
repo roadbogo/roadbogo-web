@@ -10,6 +10,7 @@ import { IncidentControls } from "@/components/control/IncidentControls";
 import { IncidentDetailPanel } from "@/components/control/IncidentDetailPanel";
 import { ToastList } from "@/components/control/ToastList";
 import { useAuth } from "@/components/auth/AuthContext";
+import { AccountMenu } from "@/components/auth/AccountMenu";
 import { getWorkMenu } from "@/components/navigation/navigationConfig";
 import {
   initialActivityLog,
@@ -140,7 +141,7 @@ export default function ControlPage() {
   const [sortOption, setSortOption] = useState<SortOption>(initialSort);
   const [focusMode, setFocusMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const workMenu = useMemo(() => getWorkMenu(user?.roles, user?.permissions), [user?.roles, user?.permissions]);
+  const workMenu = useMemo(() => getWorkMenu(user?.uiRoles, user?.uiPermissions), [user?.uiRoles, user?.uiPermissions]);
   const currentUser = { name: user?.name ?? "비로그인", role: user?.role ?? "권한 없음" };
   const [demoCount, setDemoCount] = useState(0);
   const [currentTime, setCurrentTime] = useState<number | null>(null);
@@ -558,7 +559,7 @@ export default function ControlPage() {
             <div className="control-chip control-chip--info">CCTV 정상 {totalCctv}/6</div>
             <div className="control-chip control-chip--info">AI 서버 정상</div>
             <div className="control-chip control-chip--accent">알림 {toastList.length}</div>
-            <div className="control-chip control-chip--profile">{currentUser.name}</div>
+            <AccountMenu compact />
           </div>
         </header>
 

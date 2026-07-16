@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthContext";
+import { AccountMenu } from "@/components/auth/AccountMenu";
 import { useSystemHealth } from "@/hooks/useSystemHealth";
 import { SystemHealthPanel } from "./SystemHealthPanel";
 import { getLandingSidebarMenus, type SidebarIconName, type SidebarMenuItem } from "./sidebarMenuConfig";
@@ -28,12 +29,11 @@ const sections = [
 ] as const;
 
 export function LandingHeader() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [compactNavigation, setCompactNavigation] = useState(false);
-  const [profile, setProfile] = useState(false);
   const [healthPanelOpen, setHealthPanelOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("home");
   const activeSectionRef = useRef("home");
@@ -46,7 +46,7 @@ export function LandingHeader() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") { setSidebarOpen(false); setProfile(false); setHealthPanelOpen(false); if (compactNavigation) mobileTriggerRef.current?.focus(); }
+      if (event.key === "Escape") { setSidebarOpen(false); setHealthPanelOpen(false); if (compactNavigation) mobileTriggerRef.current?.focus(); }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -85,14 +85,13 @@ export function LandingHeader() {
     close();
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
-  const signout = () => { logout(); setProfile(false); close(); router.push("/"); };
   const isPublicHome = pathname === "/";
   const showPublicSidebar = isPublicHome;
   const showPublicDrawer = showPublicSidebar && compactNavigation;
   const role = (["SYSTEM_ADMIN","CONTROL_MANAGER","CONTROLLER","RESPONDER","GENERAL_USER"] as UserRole[]).includes(user?.role as UserRole) ? user?.role as UserRole : "GENERAL_USER";
   const sidebarMenus = useMemo(() => getLandingSidebarMenus(role, Boolean(user)), [role, user]);
   const groupedMenus = useMemo(() => sidebarMenus.reduce<Record<string, SidebarMenuItem[]>>((groups, item) => { const section = item.section ?? "메뉴"; (groups[section] ??= []).push(item); return groups; }, {}), [sidebarMenus]);
-  const isAdmin = Boolean(user?.permissions?.includes("users:manage") || user?.roles?.includes("SYSTEM_ADMIN"));
+  const isAdmin = Boolean(user?.uiPermissions.includes("users:manage") || user?.uiRoles.includes("SYSTEM_ADMIN"));
   const healthLabel = health.isLoading ? "상태 확인 중" : health.status === "healthy" ? "서버 정상" : health.status === "degraded" ? "일부 기능 점검" : "서버 연결 확인";
 
   useEffect(() => {
@@ -124,7 +123,7 @@ export function LandingHeader() {
         <span className="standalone-sidebar-brand__mobile-copy"><strong>도로보GO</strong><small>AI 기반 도로 안전 대응</small></span>
       </Link>
       {!compactNavigation && <nav className="main-header__sections" aria-label="서비스 섹션">{sections.map((section) => <button type="button" key={section.key} className={activeSection === section.key ? "is-active" : ""} aria-current={activeSection === section.key ? "location" : undefined} onClick={() => scrollTo(section.id, section.key)}>{section.label}</button>)}</nav>}
-      <div className="main-header__right"><nav className="main-header__account" aria-label="계정 메뉴">{!user ? <><Link href="/login?intent=general" className="main-header__login">로그인</Link><Link href="/login?intent=operations" className="main-header__cta">실시간 관제 보기</Link></> : <><button type="button" className="header-bell" aria-label="알림"><BellIcon /></button>{isAdmin && <Link href="/control">관리자</Link>}<Link href="/mypage">마이페이지</Link><div className="profile-wrap"><button className="profile-trigger" aria-label={`${user.name} 프로필 메뉴`} aria-expanded={profile} onClick={() => setProfile((value) => !value)}><b>{user.name.slice(0, 1)}</b><span><strong>{user.name}</strong><small>{user.role}</small></span></button>{profile && <div className="profile-popover"><div><strong>{user.name}</strong><span>{user.email}</span><small>{user.role}</small></div><Link href="/control">실시간 관제 보기</Link><Link href="/mypage">마이페이지</Link><Link href="/mypage/edit">회원정보 수정</Link><button onClick={signout}>로그아웃</button></div>}</div></>}</nav></div>
+      <div className="main-header__right"><nav className="main-header__account" aria-label="계정 메뉴">{!user ? <><Link href="/login?intent=general" className="main-header__login">로그인</Link><Link href="/login?intent=operations" className="main-header__cta">실시간 관제 보기</Link></> : <><button type="button" className="header-bell" aria-label="알림"><BellIcon /></button>{isAdmin && <Link href="/control">관리자</Link>}<AccountMenu /></>}</nav></div>
       {showPublicDrawer && <button ref={mobileTriggerRef} type="button" className="mobile-menu-trigger" aria-label="메뉴 열기" aria-expanded={sidebarOpen} aria-controls="landing-sidebar" onClick={() => setSidebarOpen(true)}><MenuIcon /></button>}
     </div></header>
     <SystemHealthPanel open={healthPanelOpen} status={health.status} api={health.api} database={health.database} checkedAt={health.checkedAt} isLoading={health.isLoading} onRefresh={()=>void health.refresh()} onClose={()=>setHealthPanelOpen(false)}/>
