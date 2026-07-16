@@ -1,0 +1,7 @@
+.tabs{position:relative;height:50px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);margin-bottom:25px;border-bottom:1px solid #d8e1e0;background:#f6f7f4}
+.tabs button{position:relative;z-index:2;min-width:0;padding:0 8px;border:0;background:transparent;color:#5e6f7b;font:inherit;font-size:14px;font-weight:650;white-space:nowrap;cursor:pointer;transition:color .2s ease,background .2s ease}
+.tabs button:hover{background:#e8edf7;color:#193345}.tabs button:focus-visible{outline:3px solid rgba(60,111,232,.2);outline-offset:-3px}.tabs button[aria-selected="true"]{color:#142a37;font-weight:750}
+.indicator{position:absolute;z-index:3;bottom:-1px;left:0;width:50%;height:3px;background:#26999e;transition:transform .2s ease}.indicator[data-position="operations"]{transform:translateX(100%)}
+@media(max-width:767px){.tabs{height:48px;margin-bottom:22px}.tabs button{font-size:14px}}
+@media(max-width:340px){.tabs button{padding-inline:4px;font-size:13px}}
+@media(prefers-reduced-motion:reduce){.tabs button,.indicator{transition:none}}
