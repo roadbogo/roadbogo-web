@@ -4,18 +4,18 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { AppPermission, AppRole } from "@/components/navigation/navigationConfig";
 import type { AuthUser, UserRole } from "@/types/auth";
 import { clearClientAuth } from "@/lib/auth/authStorage";
-import { refreshAccessToken } from "@/lib/apiClient";
+import { refreshAccessToken, resetAuthSession } from "@/lib/apiClient";
 import { authApi, toAuthUser } from "@/lib/authApi";
 import { mapApiPermissionsToUiPermissions, mapApiRolesToUiAccess, normalizeApiRoles } from "@/lib/auth/accessMapping";
 
-export interface AuthenticatedUser { publicId?: string; name: string; role: UserRole; email: string; phone?: string; accountStatus?: string; organization?: AuthUser["organization"]; lastLoginAt?: string | null; apiPermissions: string[]; uiRoles: AppRole[]; uiPermissions: AppPermission[]; }
+export interface AuthenticatedUser { publicId?: string; name: string; role: UserRole; email: string; phone?: string; accountStatus?: string; organization?: AuthUser["organization"]; lastLoginAt?: string | null; updatedAt?: string; apiPermissions: string[]; uiRoles: AppRole[]; uiPermissions: AppPermission[]; }
 interface AuthValue { user: AuthenticatedUser | null; ready: boolean; clearAuth: () => void; updateUser: (user: AuthenticatedUser) => void; setAuthenticatedUser: (user: AuthUser) => void; }
 
 function toAuthenticatedUser(user:AuthUser):AuthenticatedUser{
   const roles=normalizeApiRoles(user.roles);
   const roleAccess=mapApiRolesToUiAccess(roles);
   const permissionAccess=mapApiPermissionsToUiPermissions(user.permissions);
-  return{publicId:user.publicId,name:user.userName,role:roles[0]??"GENERAL_USER",email:user.email,phone:user.phone,accountStatus:user.accountStatus,organization:user.organization,lastLoginAt:user.lastLoginAt,apiPermissions:[...user.permissions],uiRoles:roleAccess.uiRoles,uiPermissions:[...new Set([...roleAccess.uiPermissions,...permissionAccess])]};
+  return{publicId:user.publicId,name:user.userName,role:roles[0]??"GENERAL_USER",email:user.email,phone:user.phone,accountStatus:user.accountStatus,organization:user.organization,lastLoginAt:user.lastLoginAt,updatedAt:user.updatedAt,apiPermissions:[...user.permissions],uiRoles:roleAccess.uiRoles,uiPermissions:[...new Set([...roleAccess.uiPermissions,...permissionAccess])]};
 }
 const AuthContext = createContext<AuthValue | null>(null);
 
@@ -24,7 +24,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   useEffect(() => {
     let active=true;
-    const restore=async()=>{try{clearClientAuth();await refreshAccessToken();const apiUser=await authApi.me(false);const restored=toAuthUser(apiUser);if(active)setUser(toAuthenticatedUser(restored))}catch{clearClientAuth();if(active)setUser(null)}finally{if(active)setReady(true)}};
+    const restore=async()=>{try{clearClientAuth();await refreshAccessToken();const apiUser=await authApi.me(false);const restored=toAuthUser(apiUser);if(active)setUser(toAuthenticatedUser(restored))}catch{resetAuthSession();if(active)setUser(null)}finally{if(active)setReady(true)}};
     void restore();
     const expire=()=>{setUser(null);setReady(true)};window.addEventListener("roadbogo:auth-expired",expire);return()=>{active=false;window.removeEventListener("roadbogo:auth-expired",expire)};
   }, []);

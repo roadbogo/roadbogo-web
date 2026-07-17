@@ -1,4 +1,4 @@
-import { apiRequest, logoutWithRefreshRetry, refreshAccessToken } from "@/lib/apiClient";
+import { apiRequest, beginLoginAttempt, completeLogin, logoutWithRefreshRetry, refreshAccessToken } from "@/lib/apiClient";
 import type { AuthUser, UserRole } from "@/types/auth";
 
 export type ApiOrganization = { public_id: string; organization_name: string; organization_type: string };
@@ -6,12 +6,13 @@ export type ApiUser = {
   public_id: string;
   email: string;
   user_name: string;
-  phone?: string | null;
+  phone: string | null;
   account_status: string;
-  organization?: ApiOrganization | null;
+  organization: ApiOrganization | null;
   roles: UserRole[];
   permissions: string[];
-  last_login_at?: string | null;
+  last_login_at: string | null;
+  updated_at: string;
 };
 export type LoginResponse = { access_token: string; token_type: "Bearer"; user: ApiUser };
 
@@ -29,11 +30,17 @@ export function toAuthUser(user: ApiUser): AuthUser {
     roles: user.roles,
     permissions: user.permissions,
     lastLoginAt: user.last_login_at ?? null,
+    updatedAt: user.updated_at,
   };
 }
 
 export const authApi = {
-  login: (email: string, password: string, rememberMe = false) => apiRequest<LoginResponse>("/auth/login", { method: "POST", auth: false, retryAuth: false, body: { email, password, remember_me: rememberMe } }),
+  login: async (email: string, password: string, rememberMe = false) => {
+    const loginEpoch = beginLoginAttempt();
+    const result = await apiRequest<LoginResponse>("/auth/login", { method: "POST", auth: false, retryAuth: false, body: { email, password, remember_me: rememberMe } });
+    completeLogin(result.access_token, loginEpoch);
+    return result;
+  },
   logout: () => logoutWithRefreshRetry(),
   refresh: async () => ({ access_token: await refreshAccessToken() }),
   me: async (retryAuth = true) => (await apiRequest<UserResponse>("/auth/me", { retryAuth })).user,
