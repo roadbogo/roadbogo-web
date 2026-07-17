@@ -1,4 +1,4 @@
-import { apiRequest } from "@/lib/apiClient";
+import { apiRequest, beginLoginAttempt, completeLogin, logoutWithRefreshRetry, refreshAccessToken } from "@/lib/apiClient";
 import type { AuthUser, UserRole } from "@/types/auth";
 
 export type ApiOrganization = { public_id: string; organization_name: string; organization_type: string };
@@ -12,6 +12,7 @@ export type ApiUser = {
   roles: UserRole[];
   permissions: string[];
   last_login_at: string | null;
+  updated_at: string;
 };
 export type LoginResponse = { access_token: string; token_type: "Bearer"; user: ApiUser };
 
@@ -28,15 +29,21 @@ export function toAuthUser(user: ApiUser): AuthUser {
     organization: user.organization ? { publicId: user.organization.public_id, name: user.organization.organization_name, type: user.organization.organization_type } : null,
     roles: user.roles,
     permissions: user.permissions,
-    lastLoginAt: user.last_login_at,
+    lastLoginAt: user.last_login_at ?? null,
+    updatedAt: user.updated_at,
   };
 }
 
 export const authApi = {
-  login: (email: string, password: string, rememberMe = false) => apiRequest<LoginResponse>("/auth/login", { method: "POST", auth: false, retryAuth: false, body: { email, password, remember_me: rememberMe } }),
-  logout: () => apiRequest<null>("/auth/logout", { method: "POST", retryAuth: false }),
-  refresh: () => apiRequest<{ access_token: string }>("/auth/refresh", { method: "POST", auth: false, retryAuth: false }),
-  me: async () => (await apiRequest<UserResponse>("/auth/me")).user,
+  login: async (email: string, password: string, rememberMe = false) => {
+    const loginEpoch = beginLoginAttempt();
+    const result = await apiRequest<LoginResponse>("/auth/login", { method: "POST", auth: false, retryAuth: false, body: { email, password, remember_me: rememberMe } });
+    completeLogin(result.access_token, loginEpoch);
+    return result;
+  },
+  logout: () => logoutWithRefreshRetry(),
+  refresh: async () => ({ access_token: await refreshAccessToken() }),
+  me: async (retryAuth = true) => (await apiRequest<UserResponse>("/auth/me", { retryAuth })).user,
   updateMe: async (body: { user_name?: string; phone?: string | null }) => (await apiRequest<UserResponse>("/auth/me", { method: "PATCH", body })).user,
   requestPasswordReset: (email: string) => apiRequest<PasswordResetRequestResponse>("/auth/password-reset/request", { method: "POST", auth: false, retryAuth: false, body: { email } }),
   confirmPasswordReset: (token: string, newPassword: string, confirmation: string) => apiRequest<null>("/auth/password-reset/confirm", { method: "POST", auth: false, retryAuth: false, body: { token, new_password: newPassword, new_password_confirmation: confirmation } }),

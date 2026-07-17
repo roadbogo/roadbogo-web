@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth/AuthContext";
 import { getRoleRedirect, getSafeNextPath } from "@/lib/auth/roleRedirect";
 import type { AuthUser, LoginIntent } from "@/types/auth";
-import { AUTH_EXPIRED_KEY, clearClientAuth, storeAuthUser } from "@/lib/auth/authStorage";
+import { AUTH_EXPIRED_KEY, clearClientAuth } from "@/lib/auth/authStorage";
 import { ApiError, storeAccessToken } from "@/lib/apiClient";
 import { authApi, toAuthUser } from "@/lib/authApi";
 import { PasswordField } from "./PasswordField";
@@ -17,7 +17,7 @@ export function LoginForm({ intent }: { intent: LoginIntent }){
  const[email,setEmail]=useState("");const[password,setPassword]=useState("");const[remember,setRemember]=useState(false);const[errors,setErrors]=useState<{email?:string;password?:string}>({});const[accountError,setAccountError]=useState("");const[isSubmitting,setIsSubmitting]=useState(false);const[isSuccess,setIsSuccess]=useState(false);const[pendingLogin,setPendingLogin]=useState<{user:AuthUser;accessToken:string}|null>(null);
  useEffect(()=>{const params=new URLSearchParams(window.location.search);if(params.get("reason")==="expired"||sessionStorage.getItem(AUTH_EXPIRED_KEY)==="true"){setAccountError("로그인 시간이 만료되었습니다. 안전한 이용을 위해 다시 로그인해주세요.");sessionStorage.removeItem(AUTH_EXPIRED_KEY)}},[]);
  useEffect(()=>{setAccountError("")},[intent]);
- const finishLogin=(user:AuthUser,destination?:string)=>{storeAuthUser(user);setAuthenticatedUser(user);router.replace(destination??getRoleRedirect(user.roles))};
+ const finishLogin=(user:AuthUser,destination?:string)=>{setAuthenticatedUser(user);router.replace(destination??getRoleRedirect(user.roles))};
  const submit=async(event:React.FormEvent<HTMLFormElement>)=>{event.preventDefault();if(isSubmitting)return;setAccountError("");setPendingLogin(null);if(!email.trim()){setErrors({email:"이메일을 입력해주세요."});return}if(!EMAIL_PATTERN.test(email.trim())){setErrors({email:"올바른 이메일 형식을 입력해주세요."});return}if(!password){setErrors({password:"비밀번호를 입력해주세요."});return}setErrors({});setIsSubmitting(true);try{const result=await authApi.login(email.trim(),password,remember);const user=toAuthUser(result.user);if(intent==="operations"&&user.roles.every(role=>role==="GENERAL_USER")){clearClientAuth();setPendingLogin({user,accessToken:result.access_token});setIsSubmitting(false);return}storeAccessToken(result.access_token);const params=new URLSearchParams(window.location.search);const destination=getSafeNextPath(params.get("next"))??getRoleRedirect(user.roles);setIsSuccess(true);finishLogin(user,destination)}catch(error){clearClientAuth();if(error instanceof ApiError){if(error.httpStatus===401)setAccountError("이메일 또는 비밀번호가 올바르지 않습니다.");else if(error.httpStatus===403)setAccountError("현재 사용할 수 없는 계정입니다. 관리자에게 문의해주세요.");else if(error.httpStatus===0)setAccountError("로그인 서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.");else setAccountError("로그인 요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.")}else setAccountError("로그인 서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.");setIsSubmitting(false)}};
  const useGeneralService=()=>{if(!pendingLogin)return;storeAccessToken(pendingLogin.accessToken);finishLogin(pendingLogin.user,"/")};
  const handleAnotherAccount=async()=>{if(isSubmitting)return;setIsSubmitting(true);try{await authApi.logout()}catch{}finally{clearClientAuth();setPendingLogin(null);setPassword("");setIsSubmitting(false)}};
