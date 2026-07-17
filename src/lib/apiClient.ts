@@ -143,8 +143,15 @@ function isUnauthorized(error: unknown): error is ApiError {
   return error instanceof ApiError && error.httpStatus === 401;
 }
 
-function isAbortError(error: unknown) {
-  return error instanceof DOMException && error.name === "AbortError";
+export function isAbortError(error: unknown) {
+  return (
+    typeof DOMException !== "undefined"
+    && error instanceof DOMException
+    && error.name === "AbortError"
+  ) || (
+    error instanceof Error
+    && error.name === "AbortError"
+  );
 }
 
 async function fetchWithAuthTracking(url: string, init: RequestInit, auth: boolean) {
