@@ -7,6 +7,7 @@ import { AccountMenu } from "@/components/auth/AccountMenu";
 import { useAuth } from "@/components/auth/AuthContext";
 import { useLogout } from "@/components/auth/LogoutProvider";
 import { getRoleLabel } from "@/lib/auth/roleLabels";
+import { ApiError } from "@/lib/apiClient";
 import { authApi, toAuthUser } from "@/lib/authApi";
 import styles from "./mypage.module.css";
 
@@ -59,7 +60,11 @@ export default function MyPage() {
       const updated = await authApi.updateMe(update);
       setAuthenticatedUser(toAuthUser(updated));
       setEditing(false);
-    } catch { setSaveError("회원정보를 수정하지 못했습니다. 입력 내용을 확인하고 다시 시도해 주세요."); }
+    } catch (error) {
+      setSaveError(error instanceof ApiError && error.httpStatus === 405
+        ? "현재 서버에서는 회원 정보 수정을 지원하지 않습니다. 백엔드 기능이 배포된 후 다시 시도해 주세요."
+        : "회원정보를 수정하지 못했습니다. 입력 내용을 확인하고 다시 시도해 주세요.");
+    }
     finally { setSaving(false); }
   };
 

@@ -3,7 +3,8 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { AppPermission, AppRole } from "@/components/navigation/navigationConfig";
 import type { AuthUser, UserRole } from "@/types/auth";
-import { clearClientAuth, ACCESS_TOKEN_KEY, storeAuthUser } from "@/lib/auth/authStorage";
+import { clearClientAuth } from "@/lib/auth/authStorage";
+import { refreshAccessToken } from "@/lib/apiClient";
 import { authApi, toAuthUser } from "@/lib/authApi";
 import { mapApiPermissionsToUiPermissions, mapApiRolesToUiAccess, normalizeApiRoles } from "@/lib/auth/accessMapping";
 
@@ -23,7 +24,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   useEffect(() => {
     let active=true;
-    const restore=async()=>{try{if(!localStorage.getItem(ACCESS_TOKEN_KEY)){clearClientAuth();return}const apiUser=await authApi.me();const restored=toAuthUser(apiUser);storeAuthUser(restored);if(active)setUser(toAuthenticatedUser(restored))}catch{clearClientAuth();if(active)setUser(null)}finally{if(active)setReady(true)}};
+    const restore=async()=>{try{clearClientAuth();await refreshAccessToken();const apiUser=await authApi.me(false);const restored=toAuthUser(apiUser);if(active)setUser(toAuthenticatedUser(restored))}catch{clearClientAuth();if(active)setUser(null)}finally{if(active)setReady(true)}};
     void restore();
     const expire=()=>{setUser(null);setReady(true)};window.addEventListener("roadbogo:auth-expired",expire);return()=>{active=false;window.removeEventListener("roadbogo:auth-expired",expire)};
   }, []);
