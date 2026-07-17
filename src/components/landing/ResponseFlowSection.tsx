@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { DetectionOverlay } from "./DetectionOverlay";
+import { DetectionOverlay, type NormalizedBBox } from "./DetectionOverlay";
 
 const steps = [
  {number:"01",title:"AI 실시간 탐지",shortDescription:"CCTV 기반 위험 객체 분류",description:"CCTV 영상에서 낙하물, 야생동물, 이륜차 위험을 실시간으로 분류합니다.",tags:["실시간 분석","AI 탐지","위험 객체 분류"],kind:"detection",input:"CCTV 실시간 영상",process:"위험 객체 탐지 및 유형 분류",result:"탐지 이미지와 신뢰도 생성"},
@@ -15,12 +15,12 @@ type DetectionOverlayData = {
  type:"normal"|"danger";
  label:string;
  confidence:number;
- box:{left:number;top:number;width:number;height:number};
+ bbox:NormalizedBBox;
  labelPosition:"top-left"|"top-right";
 };
 const detectionOverlays:DetectionOverlayData[]=[
- {id:"vehicle",type:"normal",label:"vehicle",confidence:96,box:{left:47,top:43,width:14,height:15},labelPosition:"top-left"},
- {id:"motorcycle",type:"danger",label:"motorcycle",confidence:92,box:{left:74.5,top:38.5,width:7.5,height:19},labelPosition:"top-left"},
+ {id:"vehicle",type:"normal",label:"vehicle",confidence:96,bbox:{x:.493,y:.405,width:.09,height:.105},labelPosition:"top-left"},
+ {id:"motorcycle",type:"danger",label:"motorcycle",confidence:92,bbox:{x:.697,y:.39,width:.035,height:.105},labelPosition:"top-left"},
 ];
 function DetailIcon({type}:{type:"input"|"process"|"result"}){
  if(type==="input")return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="m17 10 4-2v8l-4-2z"/></svg>;
@@ -31,7 +31,7 @@ function RoadbogoLocationMarker(){
  return <div className="brand-map-marker" aria-hidden="true"><span className="brand-map-marker__pulse brand-map-marker__pulse--one"/><span className="brand-map-marker__pulse brand-map-marker__pulse--two"/><svg className="brand-map-marker__pin" viewBox="0 0 30 40" aria-hidden="true"><defs><linearGradient id="roadbogo-marker-gradient" x1="3" y1="3" x2="27" y2="38" gradientUnits="userSpaceOnUse"><stop stopColor="#3C6FE8"/><stop offset="1" stopColor="#26999E"/></linearGradient></defs><path fill="url(#roadbogo-marker-gradient)" d="M15 1C7.3 1 1.5 7 1.5 14.4 1.5 24.8 15 39 15 39s13.5-14.2 13.5-24.6C28.5 7 22.7 1 15 1Z"/><circle cx="15" cy="14" r="4.5" fill="#FCFCFA"/></svg></div>;
 }
 function ProductPreview({kind}:{kind:(typeof steps)[number]["kind"]}){
- if(kind==="detection")return <div className="flow-preview flow-preview--camera"><div className="flow-camera__top"><span><i/> CAM 07 · LIVE</span><small>AI VISION ACTIVE</small></div><div className="flow-camera__scene">{detectionOverlays.map(overlay=><DetectionOverlay key={overlay.id} variant={overlay.type} label={overlay.label} confidence={overlay.confidence} className={`response-detection response-detection--label-${overlay.labelPosition}`} style={{left:`${overlay.box.left}%`,top:`${overlay.box.top}%`,width:`${overlay.box.width}%`,height:`${overlay.box.height}%`}}/>)}<b>서해안고속도로 · 서울 방향</b></div></div>;
+ if(kind==="detection")return <div className="flow-preview flow-preview--camera"><div className="flow-camera__top"><span><i/> CAM 07 · LIVE</span><small>AI VISION ACTIVE</small></div><div className="flow-camera__scene">{detectionOverlays.map(overlay=><DetectionOverlay key={overlay.id} objectType={overlay.id} variant={overlay.type} label={overlay.label} confidence={overlay.confidence} bbox={overlay.bbox} className={`response-detection response-detection--label-${overlay.labelPosition}`} compactLabel/>)}<b>서해안고속도로 · 서울 방향</b></div></div>;
  if(kind==="incident")return <div className="flow-preview flow-preview--incident"><div className="flow-ui-head"><span>NEW INCIDENT</span><b>자동 생성 완료</b></div><strong>INC-2026-0715</strong><div className="flow-data-grid"><span>위험 점수<b>92 · 높음</b></span><span>객체 유형<b>이륜차</b></span><span>탐지 위치<b>서해안선 23.4km</b></span><span>근거 영상<b>CAM 07 연결</b></span></div></div>;
  if(kind==="control")return <div className="flow-preview flow-preview--control"><div className="flow-ui-head"><span>CONTROL REVIEW</span><b>검토 중</b></div><div className="flow-score"><span>AI 신뢰도<strong>92%</strong></span><i><b/></i></div><div className="flow-review-row"><span>객체 추적 안정</span><span>차로 진입 위험</span></div><div className="flow-decision"><button type="button">오탐 처리</button><button type="button">실제 위험 확인</button></div></div>;
  if(kind==="dispatch")return <div className="flow-preview flow-preview--dispatch"><div className="flow-map"><RoadbogoLocationMarker/><span>사건 위치</span><b>강북 2팀 · 4.2km</b><em>예상 7분</em></div><div className="flow-team"><span>추천 대응팀<strong>강북 현장대응 2팀</strong></span><button type="button">출동 연결</button></div></div>;
