@@ -20,9 +20,9 @@ function toAuthenticatedUser(user:AuthUser):AuthenticatedUser{
 const AuthContext = createContext<AuthValue | null>(null);
 
 export function handleAuthRestoreError(error: unknown, active: boolean, clearUser: () => void) {
-  if (isAbortError(error)) return;
+  if (!active || isAbortError(error)) return;
   resetAuthSession();
-  if (active) clearUser();
+  clearUser();
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {

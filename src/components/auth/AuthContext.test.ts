@@ -48,6 +48,23 @@ describe("AuthProvider startup restore errors", () => {
     expect(() => completeLogin("new-login-token", loginEpoch)).not.toThrow();
   });
 
+  it("does not reset auth from an inactive stale restore", () => {
+    const clearUser = vi.fn();
+    const loginEpoch = beginLoginAttempt();
+
+    completeLogin("new-login-token", loginEpoch);
+
+    handleAuthRestoreError(
+      new Error("stale restore failed"),
+      false,
+      clearUser,
+    );
+
+    expect(clearUser).not.toHaveBeenCalled();
+    expect(getAccessToken()).toBe("new-login-token");
+    expect(() => completeLogin("newer-token")).not.toThrow();
+  });
+
   it("resets authentication and clears the user for a regular restore error", async () => {
     const clearUser = vi.fn();
     completeLogin("existing-token");
