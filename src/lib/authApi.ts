@@ -14,7 +14,7 @@ export type ApiUser = {
   last_login_at: string | null;
   updated_at: string;
 };
-export type LoginResponse = { access_token: string; token_type: "Bearer"; user: ApiUser };
+export type LoginResponse = { access_token: string; token_type: "Bearer"; expires_in: number; user: ApiUser };
 
 export type UserResponse = { user: ApiUser };
 export type PasswordResetRequestResponse = { accepted: boolean; debug_reset_url?: string };
