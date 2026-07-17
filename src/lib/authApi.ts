@@ -1,5 +1,5 @@
 import { apiRequest } from "@/lib/apiClient";
-import type { AuthUser, UserRole } from "@/types/auth";
+import type { AuthUser, RegisterRequest, UserRole } from "@/types/auth";
 
 export type ApiOrganization = { public_id: string; organization_name: string; organization_type: string };
 export type ApiUser = {
@@ -12,6 +12,7 @@ export type ApiUser = {
   roles: UserRole[];
   permissions: string[];
   last_login_at: string | null;
+  updated_at: string;
 };
 export type LoginResponse = { access_token: string; token_type: "Bearer"; user: ApiUser };
 
@@ -33,6 +34,10 @@ export function toAuthUser(user: ApiUser): AuthUser {
 }
 
 export const authApi = {
+  register: (email: string, userName: string, password: string, passwordConfirmation: string) => {
+    const body: RegisterRequest = { email, user_name: userName, password, password_confirmation: passwordConfirmation };
+    return apiRequest<UserResponse>("/auth/register", { method: "POST", auth: false, retryAuth: false, credentials: "omit", body });
+  },
   login: (email: string, password: string, rememberMe = false) => apiRequest<LoginResponse>("/auth/login", { method: "POST", auth: false, retryAuth: false, body: { email, password, remember_me: rememberMe } }),
   logout: () => apiRequest<null>("/auth/logout", { method: "POST", retryAuth: false }),
   refresh: () => apiRequest<{ access_token: string }>("/auth/refresh", { method: "POST", auth: false, retryAuth: false }),
