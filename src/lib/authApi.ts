@@ -1,4 +1,4 @@
-import { apiRequest, refreshAccessToken } from "@/lib/apiClient";
+import { apiRequest, logoutWithRefreshRetry, refreshAccessToken } from "@/lib/apiClient";
 import type { AuthUser, UserRole } from "@/types/auth";
 
 export type ApiOrganization = { public_id: string; organization_name: string; organization_type: string };
@@ -34,7 +34,7 @@ export function toAuthUser(user: ApiUser): AuthUser {
 
 export const authApi = {
   login: (email: string, password: string, rememberMe = false) => apiRequest<LoginResponse>("/auth/login", { method: "POST", auth: false, retryAuth: false, body: { email, password, remember_me: rememberMe } }),
-  logout: () => apiRequest<null>("/auth/logout", { method: "POST", retryAuth: false }),
+  logout: () => logoutWithRefreshRetry(),
   refresh: async () => ({ access_token: await refreshAccessToken() }),
   me: async (retryAuth = true) => (await apiRequest<UserResponse>("/auth/me", { retryAuth })).user,
   updateMe: async (body: { user_name?: string; phone?: string | null }) => (await apiRequest<UserResponse>("/auth/me", { method: "PATCH", body })).user,

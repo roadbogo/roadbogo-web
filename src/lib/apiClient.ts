@@ -1,4 +1,4 @@
-import { clearClientAuth } from "@/lib/auth/authStorage";
+import { AUTH_EXPIRED_KEY, clearClientAuth } from "@/lib/auth/authStorage";
 import { getAccessToken, setAccessToken } from "@/lib/auth/accessToken";
 import { API_V1_URL } from "@/lib/api";
 
@@ -22,6 +22,7 @@ type RequestOptions = Omit<RequestInit, "body"> & {
 
 let refreshPromise: Promise<string> | null = null;
 let refreshController: AbortController | null = null;
+let refreshGeneration = 0;
 
 export function storeAccessToken(token: string) {
   setAccessToken(token);
@@ -29,7 +30,7 @@ export function storeAccessToken(token: string) {
 
 function expireSession() {
   clearClientAuth();
-  sessionStorage.setItem("roadbogo_auth_expired", "true");
+  sessionStorage.setItem(AUTH_EXPIRED_KEY, "true");
   window.dispatchEvent(new Event("roadbogo:auth-expired"));
   if (window.location.pathname !== "/login") window.location.replace("/login?reason=expired");
 }
@@ -41,25 +42,41 @@ async function parseEnvelope<T>(response: Response): Promise<ApiEnvelope<T>> {
 
 export async function refreshAccessToken(): Promise<string> {
   if (!refreshPromise) {
-    refreshController = new AbortController();
-    refreshPromise = (async () => {
-      const response = await fetch(`${API_V1_URL}/auth/refresh`, { method: "POST", credentials: "include", headers: { "X-Request-ID": crypto.randomUUID() }, signal: refreshController?.signal });
+    const controller = new AbortController();
+    const generation = refreshGeneration;
+    const promise = (async () => {
+      const response = await fetch(`${API_V1_URL}/auth/refresh`, { method: "POST", credentials: "include", headers: { "X-Request-ID": crypto.randomUUID() }, signal: controller.signal });
       const envelope = await parseEnvelope<{ access_token: string }>(response);
       if (!response.ok || !envelope.success || !envelope.data?.access_token) {
         if (!envelope.success) throw new ApiError(envelope.error.code, envelope.error.message, envelope.error.details ?? null, envelope.trace_id, response.status);
         throw new ApiError("AUTH_REFRESH_FAILED", "로그인 세션을 갱신할 수 없습니다.", null, envelope.trace_id, response.status);
       }
+      if (generation !== refreshGeneration) throw new DOMException("Refresh request was cancelled.", "AbortError");
       setAccessToken(envelope.data.access_token);
       return envelope.data.access_token;
-    })().finally(() => { refreshPromise = null; refreshController = null; });
+    })().finally(() => {
+      if (refreshPromise === promise) refreshPromise = null;
+      if (refreshController === controller) refreshController = null;
+    });
+    refreshController = controller;
+    refreshPromise = promise;
   }
   return refreshPromise;
 }
 
 export function cancelPendingAuthRequests() {
+  refreshGeneration += 1;
   refreshController?.abort();
   refreshController = null;
   refreshPromise = null;
+}
+
+function isUnauthorized(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.httpStatus === 401;
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === "AbortError";
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -83,15 +100,33 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   if (response.status === 401 && retryAuth && path !== "/auth/login" && path !== "/auth/refresh") {
     try {
       if (!getAccessToken() || getAccessToken() === requestAccessToken) await refreshAccessToken();
-      return apiRequest<T>(path, { ...options, retryAuth: false });
+    } catch (error) {
+      if (!isAbortError(error)) expireSession();
+      throw error;
     }
-    catch (error) { expireSession(); throw error; }
+    try {
+      return await apiRequest<T>(path, { ...options, retryAuth: false });
+    } catch (error) {
+      if (isUnauthorized(error)) expireSession();
+      throw error;
+    }
   }
   if (!response.ok || !envelope.success) {
     if (!envelope.success) throw new ApiError(envelope.error.code, envelope.error.message, envelope.error.details ?? null, envelope.trace_id, response.status);
     throw new ApiError("HTTP_ERROR", "요청을 처리할 수 없습니다.", null, envelope.trace_id, response.status);
   }
   return envelope.data;
+}
+
+export async function logoutWithRefreshRetry(): Promise<null> {
+  const requestAccessToken = getAccessToken();
+  try {
+    return await apiRequest<null>("/auth/logout", { method: "POST", retryAuth: false });
+  } catch (error) {
+    if (!isUnauthorized(error)) throw error;
+  }
+  if (!getAccessToken() || getAccessToken() === requestAccessToken) await refreshAccessToken();
+  return await apiRequest<null>("/auth/logout", { method: "POST", retryAuth: false });
 }
 
 export function createIdempotencyKey() { return crypto.randomUUID(); }
