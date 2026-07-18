@@ -53,42 +53,43 @@ export type AccountShortcut = { href: string; label: string; description: string
 
 export function getAccountShortcuts(permissions: string[]): AccountShortcut[] {
   const allowed = new Set(permissions);
-  const shortcuts: AccountShortcut[] = [
-    { href: "/", label: "일반 홈", description: "도로보GO 서비스 홈" },
-    { href: "#profile-info", label: "내 정보 수정", description: "사용자명과 전화번호 관리" },
-    { href: "/forgot-password", label: "비밀번호 재설정", description: "이메일로 재설정 안내 받기" },
-    { href: "#access-scope", label: "이용 범위", description: "역할과 접근 범위 확인" },
-  ];
+  const shortcuts: AccountShortcut[] = [];
   if (permissions.some(permission => ["CCTV.READ", "INCIDENT.READ_ALL", "INCIDENT.READ_ASSIGNED", "INCIDENT.CLAIM", "INCIDENT.DECIDE"].includes(permission))) {
-    shortcuts.push({ href: "/control", label: "관제 대시보드", description: "CCTV와 사건 업무" });
+    shortcuts.push({ href: "/control", label: "실시간 관제", description: "CCTV와 사건 업무 확인" });
   }
   if (permissions.some(permission => ["DISPATCH.READ_OWN", "DISPATCH.UPDATE_OWN", "DISPATCH.ASSIGN"].includes(permission))) {
-    shortcuts.push({ href: "/dispatch", label: "출동 현황", description: "배정된 출동 업무" });
+    shortcuts.push({ href: "/dispatch", label: "출동 관리", description: "배정된 출동 업무 확인" });
   }
-  if (allowed.has("USER.READ_ALL") || allowed.has("ROLE.MANAGE")) {
-    shortcuts.push({ href: "/admin", label: "시스템 관리", description: "사용자와 역할 관리" });
+  if (allowed.has("USER.READ_ALL") || allowed.has("USER.WRITE") || allowed.has("ROLE.MANAGE")) {
+    shortcuts.push({ href: "/admin", label: "사용자 관리", description: "사용자와 역할 관리" });
   }
   return shortcuts;
 }
 
-export type PermissionGroup = {
+export type PermissionSummary = {
   label: string;
-  state: "사용 가능" | "담당 범위만 가능" | "접근 제한";
   description: string;
 };
 
-export function getPermissionGroups(permissions: string[], generalUser: boolean): PermissionGroup[] {
-  const has = (...codes: string[]) => codes.some(code => permissions.includes(code));
-  const scoped = (...codes: string[]) => has(...codes) ? "담당 범위만 가능" as const : "접근 제한" as const;
-  return [
-    { label: "계정 관리", state: "사용 가능", description: "본인 계정 정보 조회 및 수정" },
-    { label: "CCTV 조회", state: has("CCTV.READ") ? "사용 가능" : "접근 제한", description: has("CCTV.READ") ? "CCTV 관제 화면 조회" : generalUser ? "운영 계정 전용 기능" : "현재 부여된 권한 없음" },
-    { label: "사건 조회", state: has("INCIDENT.READ_ALL") ? "사용 가능" : scoped("INCIDENT.READ_ASSIGNED"), description: has("INCIDENT.READ_ALL") ? "전체 사건 조회 가능" : has("INCIDENT.READ_ASSIGNED") ? "내가 담당하는 사건만 조회 가능" : "현재 부여된 권한 없음" },
-    { label: "사건 처리", state: has("INCIDENT.CLAIM", "INCIDENT.DECIDE") ? "사용 가능" : "접근 제한", description: has("INCIDENT.CLAIM", "INCIDENT.DECIDE") ? "사건 담당 및 판단 업무" : "현재 부여된 권한 없음" },
-    { label: "출동 관리", state: has("DISPATCH.ASSIGN") ? "사용 가능" : scoped("DISPATCH.READ_OWN", "DISPATCH.UPDATE_OWN"), description: has("DISPATCH.ASSIGN") ? "출동 배정 및 현황 관리" : has("DISPATCH.READ_OWN", "DISPATCH.UPDATE_OWN") ? "내게 배정된 출동만 조회·처리 가능" : "현재 부여된 권한 없음" },
-    { label: "사용자·역할 관리", state: has("USER.READ_ALL", "ROLE.MANAGE") ? "사용 가능" : "접근 제한", description: has("USER.READ_ALL", "ROLE.MANAGE") ? "사용자 또는 역할 관리" : "시스템 관리자 전용 기능" },
-    { label: "알림", state: has("NOTIFICATION.READ_OWN") ? "담당 범위만 가능" : "접근 제한", description: has("NOTIFICATION.READ_OWN") ? "내 알림 조회 가능" : "알림 권한 또는 화면 준비 필요" },
-  ];
+const permissionLabels: Record<string, PermissionSummary> = {
+  "CCTV.READ": { label: "CCTV 조회", description: "실시간 CCTV 관제 화면 조회" },
+  "INCIDENT.READ_ALL": { label: "전체 사건 조회", description: "등록된 모든 사건 정보 조회" },
+  "INCIDENT.READ_ASSIGNED": { label: "담당 사건 조회", description: "본인에게 배정된 사건 조회" },
+  "INCIDENT.CLAIM": { label: "사건 담당", description: "사건 담당자로 배정 및 인계" },
+  "INCIDENT.DECIDE": { label: "사건 판단", description: "위험 여부와 대응 필요성 판단" },
+  "DISPATCH.ASSIGN": { label: "출동 배정", description: "현장 대응 담당자 배정" },
+  "DISPATCH.READ_OWN": { label: "내 출동 조회", description: "본인에게 배정된 출동 업무 조회" },
+  "DISPATCH.UPDATE_OWN": { label: "출동 상태 관리", description: "본인의 출동 및 현장 조치 상태 변경" },
+  "USER.READ_ALL": { label: "사용자 조회", description: "서비스 사용자 정보 조회" },
+  "USER.WRITE": { label: "사용자 관리", description: "서비스 사용자 정보 관리" },
+  "ROLE.MANAGE": { label: "역할 관리", description: "사용자 역할과 권한 관리" },
+  "NOTIFICATION.READ_OWN": { label: "내 알림 조회", description: "본인에게 전달된 알림 조회" },
+};
+
+export function getPermissionSummaries(permissions: string[]): PermissionSummary[] {
+  return permissions
+    .map(permission => permissionLabels[permission])
+    .filter((summary): summary is PermissionSummary => Boolean(summary));
 }
 
 export function getAccountStatusLabel(status?: string) {
