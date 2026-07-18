@@ -883,3 +883,758 @@
     transition: none;
   }
 }
+
+/* Account workspace */
+.page {
+  min-height: 100dvh;
+  padding: 0;
+  background: #f3f5f4;
+  color: #193345;
+}
+
+.workspace {
+  width: min(1180px, calc(100% - 64px));
+  margin: 0 auto;
+  padding: 54px 0 80px;
+}
+
+.pageHeading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+  margin-bottom: 30px;
+}
+
+.pageHeading nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  color: #718394;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.pageHeading nav a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.pageHeading nav a:hover {
+  color: #3c6fe8;
+}
+
+.pageHeading p,
+.panelHeading p,
+.drawer header p {
+  margin: 0 0 8px;
+  color: #26999e;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .14em;
+}
+
+.pageHeading h1 {
+  margin: 0;
+  color: #193345;
+  font-size: clamp(38px, 4vw, 54px);
+  line-height: 1.08;
+  letter-spacing: -.045em;
+}
+
+.pageHeading > div > span {
+  display: block;
+  margin-top: 12px;
+  color: #5e6f7b;
+  font-size: 17px;
+  line-height: 1.55;
+}
+
+.primaryAction {
+  min-width: 148px;
+  min-height: 48px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(110deg, #3c6fe8, #26999e);
+  box-shadow: 0 10px 24px rgba(60, 111, 232, .18);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.toast {
+  position: fixed;
+  z-index: 120;
+  top: 84px;
+  left: 50%;
+  margin: 0;
+  padding: 13px 18px;
+  transform: translateX(-50%);
+  border: 1px solid #b9ddd3;
+  border-radius: 12px;
+  background: #eff8f4;
+  box-shadow: 0 12px 32px rgba(25, 51, 69, .14);
+  color: #1d6d62;
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.accountSummary {
+  min-height: 178px;
+  display: grid;
+  grid-template-columns: minmax(280px, .85fr) minmax(0, 1.4fr);
+  align-items: center;
+  gap: 44px;
+  padding: 30px 38px;
+  border: 1px solid #d8e1e0;
+  border-radius: 20px;
+  background:
+    linear-gradient(120deg, rgba(229, 240, 237, .88), rgba(232, 237, 247, .66)),
+    #fcfcfa;
+  box-shadow: 0 12px 34px rgba(25, 51, 69, .07);
+}
+
+.profileIdentity {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.avatar {
+  width: 74px;
+  height: 74px;
+  flex: 0 0 74px;
+  display: grid;
+  place-items: center;
+  border-radius: 21px;
+  background: #193345;
+  color: #fff;
+}
+
+.avatar svg {
+  width: 36px;
+  height: 36px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.profileIdentity h2 {
+  margin: 9px 0 3px;
+  overflow-wrap: anywhere;
+  font-size: clamp(26px, 2.5vw, 34px);
+  line-height: 1.15;
+  letter-spacing: -.035em;
+}
+
+.profileIdentity p {
+  margin: 0;
+  color: #5e6f7b;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.statusBadge {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 9px;
+  border: 1px solid #b9ddd3;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .72);
+  color: #1f7568;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.statusBadge i,
+.inlineStatus i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #26947e;
+}
+
+.summaryGrid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+}
+
+.summaryGrid > div {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  padding: 8px 24px;
+  border-left: 1px solid rgba(126, 151, 160, .28);
+}
+
+.summaryGrid dt {
+  color: #718394;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.summaryGrid dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #193345;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.tabs {
+  display: flex;
+  gap: 30px;
+  margin-top: 40px;
+  border-bottom: 1px solid #d8e1e0;
+}
+
+.tabs button {
+  min-height: 52px;
+  padding: 0 4px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: #748792;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.tabs button[aria-selected="true"] {
+  border-color: #3c6fe8;
+  color: #193345;
+}
+
+.tabPanel {
+  margin-top: 22px;
+  overflow: hidden;
+  border: 1px solid #d8e1e0;
+  border-radius: 18px;
+  background: #fcfcfa;
+  box-shadow: 0 8px 24px rgba(25, 51, 69, .045);
+}
+
+.panelHeading {
+  padding: 28px 32px 23px;
+  border-bottom: 1px solid #e2e7e6;
+}
+
+.panelHeading h2 {
+  margin: 0;
+  font-size: 25px;
+  letter-spacing: -.025em;
+}
+
+.panelHeading span {
+  display: block;
+  margin-top: 7px;
+  color: #718394;
+  font-size: 14px;
+}
+
+.settingsList,
+.activityList {
+  margin: 0;
+  padding: 0 32px;
+}
+
+.settingsList > div,
+.activityList > div {
+  min-height: 72px;
+  display: grid;
+  grid-template-columns: minmax(170px, .75fr) minmax(0, 1.25fr);
+  align-items: center;
+  gap: 28px;
+  border-bottom: 1px solid #e2e7e6;
+}
+
+.settingsList > div:last-child,
+.activityList > div:last-child {
+  border-bottom: 0;
+}
+
+.settingsList dt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settingsList dt > span {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #eef3f7;
+  color: #26999e;
+}
+
+.settingsList svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.settingsList dt,
+.activityList dt {
+  color: #5e6f7b;
+  font-size: 14px;
+}
+
+.settingsList dd,
+.activityList dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #193345;
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.settingsList dd button {
+  margin-left: 10px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: #3c6fe8;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.operationArea {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+  padding: 28px 32px 32px;
+  border-top: 1px solid #e2e7e6;
+  background: #f7f9f8;
+}
+
+.operationColumn {
+  min-width: 0;
+}
+
+.operationColumn h3 {
+  margin: 0 0 15px;
+  font-size: 16px;
+}
+
+.operationColumn > p {
+  margin: 0;
+  color: #718394;
+  font-size: 14px;
+}
+
+.permissionList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.permissionList li {
+  display: grid;
+  gap: 2px;
+  padding: 9px 12px;
+  border: 1px solid #d8e1e0;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.permissionList strong {
+  font-size: 13px;
+}
+
+.permissionList span {
+  color: #718394;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.shortcutList {
+  display: grid;
+  gap: 8px;
+}
+
+.shortcutList a {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 11px 13px;
+  border: 1px solid #d8e1e0;
+  border-radius: 10px;
+  background: #fff;
+  color: #193345;
+  text-decoration: none;
+}
+
+.shortcutList a:hover {
+  border-color: #9db7ef;
+  background: #f3f6fc;
+}
+
+.shortcutList a > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.shortcutList strong {
+  font-size: 13px;
+}
+
+.shortcutList small {
+  overflow-wrap: anywhere;
+  color: #718394;
+  font-size: 11px;
+}
+
+.shortcutList b {
+  color: #3c6fe8;
+}
+
+.inlineStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logoutArea {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 8px 32px 30px;
+  padding: 20px 22px;
+  border: 1px solid #d8e1e0;
+  border-radius: 12px;
+  background: #f7f9f8;
+}
+
+.logoutArea > div {
+  display: grid;
+  gap: 5px;
+}
+
+.logoutArea strong {
+  font-size: 15px;
+}
+
+.logoutArea span {
+  color: #718394;
+  font-size: 13px;
+}
+
+.logoutArea button {
+  min-width: 110px;
+  min-height: 42px;
+  border: 1px solid #cad4d3;
+  border-radius: 10px;
+  background: #fff;
+  color: #435966;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.drawerBackdrop {
+  position: fixed;
+  z-index: 200;
+  inset: 0;
+  border: 0;
+  background: rgba(12, 29, 40, .42);
+  backdrop-filter: blur(2px);
+  cursor: default;
+}
+
+.drawer {
+  position: fixed;
+  z-index: 210;
+  top: 0;
+  right: 0;
+  width: min(430px, 100%);
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: #fcfcfa;
+  box-shadow: -20px 0 54px rgba(25, 51, 69, .2);
+}
+
+.drawer header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 34px 30px 25px;
+  border-bottom: 1px solid #d8e1e0;
+}
+
+.drawer header h2 {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: -.035em;
+}
+
+.drawer header span {
+  display: block;
+  margin-top: 8px;
+  color: #718394;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.drawer header button {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border: 1px solid #d8e1e0;
+  border-radius: 10px;
+  background: #fff;
+  color: #435966;
+  font-size: 25px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.drawer .editForm {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 28px 30px max(24px, env(safe-area-inset-bottom));
+}
+
+.drawer .editFields {
+  grid-template-columns: 1fr;
+}
+
+.drawer .editFields label {
+  font-size: 14px;
+}
+
+.drawer .editFields input {
+  min-height: 50px;
+  font-size: 16px;
+}
+
+.drawer .editFields small {
+  color: #718394;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.drawer .readOnlySummary {
+  grid-template-columns: 1fr;
+  margin-top: 24px;
+  padding: 7px 15px;
+  background: #f3f5f4;
+}
+
+.drawer .readOnlySummary > div {
+  min-width: 0;
+  padding: 12px 0;
+}
+
+.drawer .readOnlySummary > div + div {
+  border-top: 1px solid #d8e1e0;
+  border-left: 0;
+}
+
+.drawer .readOnlySummary strong {
+  overflow-wrap: anywhere;
+}
+
+.drawer .formActions {
+  margin-top: auto;
+  padding-top: 20px;
+}
+
+.page :is(button, a, input):focus-visible {
+  outline: 3px solid rgba(60, 111, 232, .28);
+  outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+  .workspace {
+    width: min(100% - 40px, 760px);
+    padding-top: 40px;
+  }
+
+  .accountSummary {
+    grid-template-columns: 1fr;
+    gap: 26px;
+  }
+
+  .summaryGrid > div:first-child {
+    border-left: 0;
+    padding-left: 0;
+  }
+}
+
+@media (max-width: 767px) {
+  .workspace {
+    width: 100%;
+    padding: 28px 16px 56px;
+  }
+
+  .pageHeading {
+    display: grid;
+    gap: 22px;
+  }
+
+  .pageHeading nav {
+    margin-bottom: 14px;
+  }
+
+  .pageHeading h1 {
+    font-size: 38px;
+  }
+
+  .pageHeading > div > span {
+    font-size: 15px;
+  }
+
+  .primaryAction {
+    width: 100%;
+    min-height: 50px;
+  }
+
+  .accountSummary {
+    min-height: 0;
+    padding: 25px 22px;
+    border-radius: 16px;
+  }
+
+  .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .summaryGrid > div,
+  .summaryGrid > div:first-child {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 13px 0;
+    border-top: 1px solid rgba(126, 151, 160, .25);
+    border-left: 0;
+  }
+
+  .summaryGrid dd {
+    text-align: right;
+  }
+
+  .tabs {
+    gap: 24px;
+    margin-top: 28px;
+    overflow-x: auto;
+  }
+
+  .tabs button {
+    flex: 0 0 auto;
+    font-size: 15px;
+  }
+
+  .tabPanel {
+    margin-top: 16px;
+    border-radius: 15px;
+  }
+
+  .panelHeading {
+    padding: 24px 20px 20px;
+  }
+
+  .settingsList,
+  .activityList {
+    padding: 0 20px;
+  }
+
+  .settingsList > div,
+  .activityList > div {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 17px 0;
+  }
+
+  .settingsList dd,
+  .activityList dd {
+    padding-left: 46px;
+  }
+
+  .operationArea {
+    grid-template-columns: 1fr;
+    padding: 24px 20px;
+  }
+
+  .logoutArea {
+    display: grid;
+    margin: 8px 20px 24px;
+  }
+
+  .logoutArea button {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  .drawer {
+    top: auto;
+    bottom: 0;
+    width: 100%;
+    height: min(88dvh, 760px);
+    border-radius: 20px 20px 0 0;
+  }
+
+  .drawer header,
+  .drawer .editForm {
+    padding-inline: 20px;
+  }
+}
+
+@media (max-width: 380px) {
+  .workspace {
+    padding-inline: 12px;
+  }
+
+  .profileIdentity {
+    gap: 14px;
+  }
+
+  .avatar {
+    width: 62px;
+    height: 62px;
+    flex-basis: 62px;
+  }
+
+  .profileIdentity h2 {
+    font-size: 25px;
+  }
+
+  .settingsList dd,
+  .activityList dd {
+    padding-left: 0;
+  }
+}
