@@ -25,6 +25,7 @@ export type AuthUser = {
   roles:UserRole[];
   permissions:string[];
   lastLoginAt:string|null;
+  updatedAt?:string;
 };
 export type MockAccount = Pick<AuthUser,"email"|"userName"|"roles"> & { password:string; active?:boolean };
 export type LoginFailureReason = "email_not_found" | "invalid_password" | "inactive_account";

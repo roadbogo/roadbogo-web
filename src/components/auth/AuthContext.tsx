@@ -7,14 +7,14 @@ import { clearClientAuth, ACCESS_TOKEN_KEY, storeAuthUser } from "@/lib/auth/aut
 import { authApi, toAuthUser } from "@/lib/authApi";
 import { mapApiPermissionsToUiPermissions, mapApiRolesToUiAccess, normalizeApiRoles } from "@/lib/auth/accessMapping";
 
-export interface AuthenticatedUser { publicId?: string; name: string; role: UserRole; email: string; phone?: string; accountStatus?: string; organization?: AuthUser["organization"]; lastLoginAt?: string | null; apiPermissions: string[]; uiRoles: AppRole[]; uiPermissions: AppPermission[]; }
+export interface AuthenticatedUser { publicId?: string; name: string; role: UserRole; roles: UserRole[]; email: string; phone?: string; accountStatus?: string; organization?: AuthUser["organization"]; lastLoginAt?: string | null; updatedAt?: string; apiPermissions: string[]; uiRoles: AppRole[]; uiPermissions: AppPermission[]; }
 interface AuthValue { user: AuthenticatedUser | null; ready: boolean; clearAuth: () => void; updateUser: (user: AuthenticatedUser) => void; setAuthenticatedUser: (user: AuthUser) => void; }
 
 function toAuthenticatedUser(user:AuthUser):AuthenticatedUser{
   const roles=normalizeApiRoles(user.roles);
   const roleAccess=mapApiRolesToUiAccess(roles);
   const permissionAccess=mapApiPermissionsToUiPermissions(user.permissions);
-  return{publicId:user.publicId,name:user.userName,role:roles[0]??"GENERAL_USER",email:user.email,phone:user.phone,accountStatus:user.accountStatus,organization:user.organization,lastLoginAt:user.lastLoginAt,apiPermissions:[...user.permissions],uiRoles:roleAccess.uiRoles,uiPermissions:[...new Set([...roleAccess.uiPermissions,...permissionAccess])]};
+  return{publicId:user.publicId,name:user.userName,role:roles[0]??"GENERAL_USER",roles,email:user.email,phone:user.phone,accountStatus:user.accountStatus,organization:user.organization,lastLoginAt:user.lastLoginAt,updatedAt:user.updatedAt,apiPermissions:[...user.permissions],uiRoles:roleAccess.uiRoles,uiPermissions:[...new Set([...roleAccess.uiPermissions,...permissionAccess])]};
 }
 const AuthContext = createContext<AuthValue | null>(null);
 

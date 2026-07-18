@@ -30,6 +30,7 @@ export function toAuthUser(user: ApiUser): AuthUser {
     roles: user.roles,
     permissions: user.permissions,
     lastLoginAt: user.last_login_at,
+    updatedAt: user.updated_at,
   };
 }
 
