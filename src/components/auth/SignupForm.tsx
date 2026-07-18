@@ -46,6 +46,7 @@ export function SignupForm() {
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const passwordChecks = getPasswordChecks(password);
+  const confirmationMatches = Boolean(passwordConfirmation) && password === passwordConfirmation;
 
   const updateField = (field: FieldName, value: string) => {
     setErrors((current) => ({
@@ -106,32 +107,34 @@ export function SignupForm() {
 
   return <form className={styles.form} onSubmit={submit} noValidate aria-busy={submitting}>
     <fieldset className={styles.signupFieldset} disabled={submitting}>
-      <div className={styles.generalFields}>
-        <div className={styles.field}>
-          <label htmlFor="signup-name">이름</label>
-          <input id="signup-name" name="user_name" value={userName} onChange={(event) => updateField("userName", event.target.value)} autoComplete="name" minLength={2} maxLength={100} aria-invalid={Boolean(errors.userName)} aria-describedby="signup-name-error" required />
-          <p id="signup-name-error" className={styles.fieldError} aria-live="polite">{errors.userName ?? " "}</p>
-        </div>
-        <div className={styles.field}>
-          <label htmlFor="signup-email">이메일</label>
-          <input id="signup-email" name="email" type="email" inputMode="email" value={email} onChange={(event) => updateField("email", event.target.value)} autoComplete="email" maxLength={254} aria-invalid={Boolean(errors.email)} aria-describedby="signup-email-error" required />
-          <p id="signup-email-error" className={styles.fieldError} aria-live="polite">{errors.email ?? " "}</p>
-        </div>
+      <div className={styles.field}>
+        <label htmlFor="signup-name">이름</label>
+        <input id="signup-name" name="user_name" value={userName} onChange={(event) => updateField("userName", event.target.value)} autoComplete="name" minLength={2} maxLength={100} aria-invalid={Boolean(errors.userName)} aria-describedby="signup-name-error" required />
+        <p id="signup-name-error" className={styles.fieldError} aria-live="polite">{errors.userName ?? " "}</p>
+      </div>
+      <div className={styles.field}>
+        <label htmlFor="signup-email">이메일</label>
+        <input id="signup-email" name="email" type="email" inputMode="email" value={email} onChange={(event) => updateField("email", event.target.value)} autoComplete="email" maxLength={254} aria-invalid={Boolean(errors.email)} aria-describedby="signup-email-error" required />
+        <p id="signup-email-error" className={styles.fieldError} aria-live="polite">{errors.email ?? " "}</p>
       </div>
       <SignupPasswordField id="signup-password" label="비밀번호" value={password} onChange={(value) => updateField("password", value)} error={errors.password} hint="8~64자, 영문과 숫자를 포함해 주세요." disabled={submitting} />
+      <SignupPasswordField id="signup-password-confirmation" label="비밀번호 확인" value={passwordConfirmation} onChange={(value) => updateField("passwordConfirmation", value)} error={errors.passwordConfirmation} hint={confirmationMatches ? "비밀번호가 일치합니다." : "비밀번호를 다시 입력해 주세요."} disabled={submitting} />
       <ul className={styles.passwordRules} aria-label="비밀번호 조건">
-        <li className={passwordChecks.length ? styles.isValid : undefined}>8~64자</li>
-        <li className={passwordChecks.letter ? styles.isValid : undefined}>영문 포함</li>
-        <li className={passwordChecks.number ? styles.isValid : undefined}>숫자 포함</li>
+        <li className={passwordChecks.length ? styles.isValid : undefined}><span aria-hidden="true">{passwordChecks.length ? "✓" : "○"}</span>8~64자</li>
+        <li className={passwordChecks.letter ? styles.isValid : undefined}><span aria-hidden="true">{passwordChecks.letter ? "✓" : "○"}</span>영문 포함</li>
+        <li className={passwordChecks.number ? styles.isValid : undefined}><span aria-hidden="true">{passwordChecks.number ? "✓" : "○"}</span>숫자 포함</li>
+        <li className={confirmationMatches ? styles.isValid : undefined}><span aria-hidden="true">{confirmationMatches ? "✓" : "○"}</span>비밀번호 확인 일치</li>
       </ul>
-      <SignupPasswordField id="signup-password-confirmation" label="비밀번호 확인" value={passwordConfirmation} onChange={(value) => updateField("passwordConfirmation", value)} error={errors.passwordConfirmation} hint={passwordConfirmation && password === passwordConfirmation ? "비밀번호가 일치합니다." : "비밀번호를 다시 입력해 주세요."} disabled={submitting} />
     </fieldset>
     <p className={styles.submitError} role="alert" aria-live="assertive">{submitError || " "}</p>
     <button className={styles.submit} type="submit" disabled={submitting} aria-busy={submitting}>
       {submitting && <span className={styles.submitSpinner} aria-hidden="true" />}
-      <span>{submitting ? "회원가입 중…" : "회원가입"}</span>
+      <span>{submitting ? "가입 처리 중…" : "회원가입"}</span>
     </button>
-    <p className={styles.operationsNotice}>관제자·출동 담당자·관리자 계정은<br />소속 기관 관리자를 통해 발급됩니다.</p>
-    <Link className={styles.homeLink} href="/login?intent=general">로그인 화면으로 돌아가기</Link>
+    <aside className={styles.accountNotice}>
+      <span aria-hidden="true">i</span>
+      <div><strong>일반 서비스 계정이 생성됩니다</strong><p>관제·출동·관리자 등 운영 계정은<br />시스템 관리자가 별도로 발급합니다.</p></div>
+    </aside>
+    <p className={styles.loginLink}>이미 계정이 있나요? <Link href="/login?intent=general">로그인</Link></p>
   </form>;
 }

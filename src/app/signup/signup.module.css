@@ -48,3 +48,112 @@
 @media(prefers-reduced-motion:reduce){.field select,.field textarea{transition:none}}
 .signupPanel{display:grid;gap:22px}.operationsNotice{margin:3px 0 0;padding:12px 14px;border-radius:10px;background:#f3f5f4;color:#5e6f7b;font-size:12px;font-weight:650;line-height:1.55;text-align:center;word-break:keep-all;overflow-wrap:anywhere}.submitSpinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.42);border-top-color:#fff;border-radius:50%;animation:spin .75s linear infinite}.signupPanel .homeLink{justify-self:center;margin-top:0}.signupPanel .heading{min-width:0}.signupPanel .heading h2,.signupPanel .heading>span{overflow-wrap:anywhere}
 @media(max-width:767px){.signupPanel{gap:19px}.operationsNotice{font-size:13px}.signupPanel .homeLink{min-height:44px}}
+
+/* Polished general-account signup panel. Keep the shared risk visual intact. */
+.page{grid-template-columns:minmax(0,61%) minmax(480px,39%);font-family:"SUIT Variable","Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.panel{display:grid;align-items:center;padding:36px clamp(32px,3.5vw,64px);overflow-y:auto;background:#fcfcfa}
+.signupPanel{box-sizing:border-box;width:100%;max-width:450px;display:block;margin:auto;padding-block:20px}
+.heading{margin-bottom:24px}.heading p{margin:0 0 9px;font-weight:700;letter-spacing:.09em}.heading h2{font-size:clamp(30px,2.2vw,34px);font-weight:780;line-height:1.22}.heading>span{max-width:410px;margin-top:10px;font-size:16px;line-height:1.6}
+.form{display:grid;gap:14px}.signupFieldset{gap:11px}.field{gap:6px}.field label{font-size:15px;font-weight:650}.field input{height:54px;padding-inline:16px;border-radius:12px;font-weight:500}.field input:hover:not(:disabled){border-color:#b9c8c7}.field input:focus-visible{border-color:#3c6fe8;box-shadow:0 0 0 3px rgba(60,111,232,.12)}.field input[aria-invalid=true]{border-color:#df595d}
+.passwordWrap{position:relative}.passwordWrap input{padding-right:52px}.passwordToggle{position:absolute;top:7px;right:5px;width:40px;height:40px;display:grid;place-items:center;border:0;border-radius:8px;background:transparent;color:#718394;cursor:pointer}.passwordToggle:hover{background:#eef2f0;color:#193345}.passwordToggle:focus-visible{outline:3px solid rgba(60,111,232,.18);outline-offset:1px}.passwordToggle svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.fieldError,.fieldHint{min-height:19px;margin:0;font-size:13px;line-height:1.45;overflow-wrap:anywhere}.fieldHint{color:#5e6f7b}
+.passwordRules{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 12px;margin:1px 0 2px;padding:12px 14px;border:1px solid #d8e1e0;border-radius:11px;background:#f7f9f8;font-size:13px;font-weight:550}.passwordRules li{display:flex;align-items:center;gap:7px}.passwordRules li::before{content:none}.passwordRules li span{width:17px;height:17px;display:grid;place-items:center;flex:0 0 auto;border-radius:50%;font-size:12px}.passwordRules .isValid span{background:#e5f0ed;color:#167f85}
+.submitError{min-height:19px;margin:-2px 0;font-size:13px;font-weight:600}.submit{height:54px;margin:0;border-radius:12px;font-size:16px;font-weight:700}.accountNotice{display:grid;grid-template-columns:30px minmax(0,1fr);gap:11px;padding:13px 14px;border:1px solid #cdd9ea;border-radius:11px;background:#e8edf7}.accountNotice>span{width:24px;height:24px;display:grid;place-items:center;margin-top:1px;border-radius:50%;background:#3c6fe8;color:#fff;font-size:13px;font-weight:800}.accountNotice strong{display:block;color:#193345;font-size:14px}.accountNotice p{margin:3px 0 0;color:#5e6f7b;font-size:13px;line-height:1.5}.loginLink{margin:0;color:#5e6f7b;font-size:14px;text-align:center}.loginLink a{min-height:44px;display:inline-flex;align-items:center;padding-inline:5px;color:#3c6fe8;font-weight:700;text-decoration:none}
+@media(max-width:1180px){.page{grid-template-columns:minmax(0,52%) minmax(440px,48%)}.panel{padding-inline:32px}}
+@media(max-width:900px){.page{grid-template-columns:minmax(0,44%) minmax(430px,56%)}.panel{padding-inline:28px}}
+@media(max-width:767px){.panel{display:block;padding:28px max(20px,env(safe-area-inset-left)) calc(32px + env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-right));overflow:visible}.signupPanel{max-width:540px;padding:0}.heading{margin-bottom:22px}.heading h2{font-size:clamp(28px,8vw,32px)}.heading>span{font-size:16px}.form{gap:15px}.signupFieldset{gap:12px}.fieldError,.fieldHint,.passwordRules,.accountNotice p{font-size:14px}}
+@media(max-width:390px){.panel{padding-inline:18px}.passwordRules{grid-template-columns:1fr 1fr;padding-inline:12px}.accountNotice{padding-inline:12px}}
+@media(max-width:340px){.panel{padding-inline:16px}.passwordRules{grid-template-columns:1fr}.heading h2{font-size:27px}}
+
+/* Readability scale for the localhost:3000 signup screen. */
+@media(min-width:768px){
+ .page{grid-template-columns:minmax(0,56%) minmax(540px,44%)}
+ .panel{padding:36px clamp(34px,4vw,72px)}
+ .signupPanel{max-width:560px;padding:42px 44px 38px;border:1px solid #d8e1e0;border-radius:22px;background:#fcfcfa;box-shadow:0 20px 54px rgba(25,51,69,.1)}
+ .heading{margin-bottom:28px}.heading p{font-size:13px}.heading h2{font-size:clamp(38px,2.8vw,44px)}.heading>span{max-width:480px;font-size:18px}
+ .form{gap:17px}.signupFieldset{gap:14px}.field{gap:9px}.field label{font-size:17px}.field input{height:62px;padding-inline:18px;font-size:18px}
+ .passwordToggle{top:6px;width:50px;height:50px}.fieldError,.fieldHint,.submitError{font-size:15px}.passwordRules{padding:15px 17px;font-size:15px}
+ .submit{height:62px;font-size:18px}.accountNotice{padding:16px 17px}.accountNotice strong{font-size:16px}.accountNotice p,.loginLink{font-size:15px}
+}
+@media(max-width:767px){
+ .signupPanel{max-width:600px;padding:30px 24px 26px;border:1px solid #d8e1e0;border-radius:18px;background:#fcfcfa;box-shadow:0 12px 32px rgba(25,51,69,.08)}
+ .heading h2{font-size:clamp(32px,9vw,39px)}.heading>span{font-size:17px}
+ .field label{font-size:16px}.field input,.submit{height:58px;font-size:17px}
+}
+@media(max-width:767px){
+ .panel{min-width:0;width:100%;max-width:100vw;overflow-x:clip}
+ .signupPanel,.form,.signupFieldset,.field{box-sizing:border-box;width:100%;max-width:100%;min-width:0}
+ .heading h2,.heading>span{max-width:100%;word-break:keep-all;overflow-wrap:anywhere}
+}
+
+/* Keep the complete signup flow visible on desktop without scaling controls. */
+@media(min-width:768px){
+ .page{min-height:100vh;min-height:100dvh;align-items:start;overflow:visible}
+ .panel{min-height:100vh;min-height:100dvh;padding:20px clamp(28px,3.5vw,56px);overflow:visible}
+ .signupPanel{max-width:520px;padding:30px 40px 28px}
+ .heading{margin-bottom:18px}.heading p{margin-bottom:6px;font-size:12px}.heading h2{font-size:clamp(32px,2.25vw,38px)}.heading>span{margin-top:7px;font-size:16px;line-height:1.5}
+ .form{gap:10px}.signupFieldset{gap:9px}.field{gap:5px}.field label{font-size:15px}.field input{height:52px;padding-inline:16px;font-size:16px}
+ .passwordToggle{top:4px;width:44px;height:44px}.fieldError,.fieldHint,.submitError{min-height:17px;font-size:13px;line-height:1.35}
+ .passwordRules{gap:5px 10px;margin-block:0;padding:9px 12px;font-size:13px}
+ .submit{height:52px;font-size:16px}.accountNotice{padding:11px 13px}.accountNotice strong{font-size:14px}.accountNotice p,.loginLink{font-size:13px}
+}
+@media(min-width:1024px) and (max-height:900px){
+ .panel{padding-block:16px}
+ .signupPanel{padding-block:21px 19px}
+ .heading{margin-bottom:15px}.heading h2{font-size:34px}
+ .form{gap:9px}.signupFieldset{gap:8px}.field input{height:50px}
+ .passwordRules{padding-block:8px}.submit{height:50px}
+}
+@media(min-width:1024px) and (max-height:800px){
+ .panel{align-items:start;padding-block:16px}
+ .signupPanel{margin-block:0;padding-block:26px 24px}
+ .heading{margin-bottom:13px}.heading h2{font-size:32px}.heading>span{margin-top:5px}
+ .signupFieldset{gap:7px}.field{gap:4px}.field input{height:48px}
+ .fieldError,.fieldHint,.submitError{min-height:15px}.passwordRules{gap:4px 9px;padding-block:7px}
+ .submit{height:48px}.accountNotice{padding-block:9px}
+}
+
+/* Signup-only Auth Workspace: use the page surface instead of an outer card. */
+.panel{background:#fcfcfa}
+.signupPanel{
+ box-sizing:border-box;
+ width:min(100%,420px);
+ max-width:420px;
+ margin-inline:auto;
+ padding:0;
+ border:0;
+ border-radius:0;
+ background:transparent;
+ box-shadow:none;
+}
+@media(min-width:768px){
+ .panel{padding-inline:clamp(40px,5vw,72px)}
+ .signupPanel{width:min(100%,420px);max-width:420px;padding:0;border:0;background:transparent;box-shadow:none}
+ .heading,.form,.accountNotice,.loginLink{width:100%}
+}
+@media(max-width:767px){
+ .panel{background:#fcfcfa}
+ .signupPanel{width:100%;max-width:420px;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}
+}
+
+/* Match the latest login workspace split and responsive shell. */
+.page{
+ grid-template-columns:minmax(0,var(--auth-visual-column)) minmax(0,var(--auth-panel-column));
+ overflow-x:clip;
+}
+@media(max-width:900px){
+ .page{display:block;min-height:100vh;min-height:100dvh;overflow-x:clip}
+ .panel{min-height:0;display:block;padding:28px max(20px,env(safe-area-inset-left)) calc(30px + env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-right));overflow:visible}
+}
+@media(min-width:1024px) and (max-height:800px){
+ .panel{padding-block:8px}
+ .heading{margin-bottom:8px}
+ .heading p{margin-bottom:4px}
+ .form{gap:6px}
+ .signupFieldset{gap:4px}
+ .field{gap:3px}
+ .fieldError,.fieldHint,.submitError{min-height:13px;line-height:1.25}
+ .passwordRules{gap:3px 9px;padding-block:6px}
+ .accountNotice{padding-block:7px}
+ .loginLink a{min-height:38px}
+}

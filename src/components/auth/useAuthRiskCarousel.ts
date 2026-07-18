@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { authRiskSlides } from "./authRiskSlides";
 
-export function useAuthRiskCarousel({ autoplay = true, desktopIntervalMs = 5800, mobileIntervalMs = 6500 } = {}) {
+export function useAuthRiskCarousel({ autoplay = true, desktopIntervalMs = 6000, mobileIntervalMs = 6000 } = {}) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [animationKey, setAnimationKey] = useState(0);
   const [hovered, setHovered] = useState(false);

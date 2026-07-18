@@ -5,7 +5,7 @@ import styles from "./signup.module.css";
 
 export default function SignupPage() {
   return <AuthShell pageClassName={styles.page} panelClassName={styles.panel} panelLabel="일반 사용자 회원가입" visual={<SignupRiskVisual/>}>
-    <section className={`${styles.requestPanel} ${styles.signupPanel}`}>
+    <section className={styles.signupPanel}>
       <header className={styles.heading}>
         <p>GENERAL SIGNUP</p>
         <h2>일반 사용자 회원가입</h2>

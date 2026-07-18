@@ -1,0 +1,20 @@
+.page {
+  --auth-visual-column: 56%;
+  --auth-panel-column: 44%;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+@media (max-width: 1180px) and (min-width: 901px) {
+  .page {
+    --auth-visual-column: 48%;
+    --auth-panel-column: 52%;
+  }
+}
+
+@media (max-width: 1024px) and (min-width: 901px) {
+  .page {
+    --auth-visual-column: 42%;
+    --auth-panel-column: 58%;
+  }
+}
