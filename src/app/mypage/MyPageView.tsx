@@ -10,7 +10,7 @@ import {
   formatKstDate,
   getAccountShortcuts,
   getAccountStatusLabel,
-  getPermissionSummaries,
+  getPermissionGroups,
   getProfileErrorMessage,
   getRoleLabels,
   hasProfileChanges,
@@ -118,7 +118,7 @@ export function MyPageView({ user, initialEditing = false, onSave, isLoggingOut 
   const roleLabels = getRoleLabels(user.roles);
   const operationalUser = user.roles.some(role => role !== "GENERAL_USER");
   const shortcuts = operationalUser ? getAccountShortcuts(user.apiPermissions) : [];
-  const permissionSummaries = operationalUser ? getPermissionSummaries(user.apiPermissions) : [];
+  const permissionGroups = operationalUser ? getPermissionGroups(user.apiPermissions, false) : [];
   const organization = user.organization?.name ?? "";
   const status = getAccountStatusLabel(user.accountStatus);
   const lastLogin = formatKstDate(user.lastLoginAt, "로그인 기록 없음");
@@ -214,7 +214,7 @@ export function MyPageView({ user, initialEditing = false, onSave, isLoggingOut 
         {operationalUser && <div className={styles.operationArea}>
           <div className={styles.operationColumn}>
             <h3>부여된 권한</h3>
-            {permissionSummaries.length ? <ul className={styles.permissionList}>{permissionSummaries.map(item => <li key={item.label}><strong>{item.label}</strong><span>{item.description}</span></li>)}</ul> : <p>표시할 수 있는 권한이 없습니다.</p>}
+            {permissionGroups.length ? <ul className={styles.permissionList}>{permissionGroups.map(item => <li key={item.label}><strong>{item.label}</strong><span>{item.state} · {item.description}</span></li>)}</ul> : <p>표시할 수 있는 권한이 없습니다.</p>}
           </div>
           {shortcuts.length > 0 && <div className={styles.operationColumn}>
             <h3>업무 바로가기</h3>

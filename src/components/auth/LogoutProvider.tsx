@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { authApi } from "@/lib/authApi";
-import { cancelPendingAuthRequests } from "@/lib/apiClient";
+import { finishLogoutSession } from "@/lib/apiClient";
 import { useAuth } from "./AuthContext";
 import styles from "./logout.module.css";
 
@@ -45,7 +45,7 @@ export function LogoutProvider({ children }: { children: React.ReactNode }) {
     try { await authApi.logout(); }
     catch { if (process.env.NODE_ENV === "development") console.warn("Logout request failed; client session was cleared."); }
     finally {
-      cancelPendingAuthRequests();
+      finishLogoutSession();
       clearAuth();
       setOpen(false);
       setIsLoggingOut(false);

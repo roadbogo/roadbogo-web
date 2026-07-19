@@ -66,30 +66,34 @@ export function getAccountShortcuts(permissions: string[]): AccountShortcut[] {
   return shortcuts;
 }
 
-export type PermissionSummary = {
+export type PermissionGroup = {
   label: string;
+  state: "사용 가능" | "담당 범위만 가능" | "접근 제한";
   description: string;
 };
 
-const permissionLabels: Record<string, PermissionSummary> = {
-  "CCTV.READ": { label: "CCTV 조회", description: "실시간 CCTV 관제 화면 조회" },
-  "INCIDENT.READ_ALL": { label: "전체 사건 조회", description: "등록된 모든 사건 정보 조회" },
-  "INCIDENT.READ_ASSIGNED": { label: "담당 사건 조회", description: "본인에게 배정된 사건 조회" },
-  "INCIDENT.CLAIM": { label: "사건 담당", description: "사건 담당자로 배정 및 인계" },
-  "INCIDENT.DECIDE": { label: "사건 판단", description: "위험 여부와 대응 필요성 판단" },
-  "DISPATCH.ASSIGN": { label: "출동 배정", description: "현장 대응 담당자 배정" },
-  "DISPATCH.READ_OWN": { label: "내 출동 조회", description: "본인에게 배정된 출동 업무 조회" },
-  "DISPATCH.UPDATE_OWN": { label: "출동 상태 관리", description: "본인의 출동 및 현장 조치 상태 변경" },
-  "USER.READ_ALL": { label: "사용자 조회", description: "서비스 사용자 정보 조회" },
-  "USER.WRITE": { label: "사용자 관리", description: "서비스 사용자 정보 관리" },
-  "ROLE.MANAGE": { label: "역할 관리", description: "사용자 역할과 권한 관리" },
-  "NOTIFICATION.READ_OWN": { label: "내 알림 조회", description: "본인에게 전달된 알림 조회" },
-};
-
-export function getPermissionSummaries(permissions: string[]): PermissionSummary[] {
-  return permissions
-    .map(permission => permissionLabels[permission])
-    .filter((summary): summary is PermissionSummary => Boolean(summary));
+export function getPermissionGroups(permissions: string[], generalUser: boolean): PermissionGroup[] {
+  const hasAnyPermission = (...codes: string[]) => codes.some(code => permissions.includes(code));
+  const hasAllPermissions = (...codes: string[]) => codes.every(code => permissions.includes(code));
+  const scoped = (...codes: string[]) => hasAnyPermission(...codes) ? "담당 범위만 가능" as const : "접근 제한" as const;
+  const canClaimIncident = hasAnyPermission("INCIDENT.CLAIM");
+  const canDecideIncident = hasAnyPermission("INCIDENT.DECIDE");
+  const incidentProcessing = hasAllPermissions("INCIDENT.CLAIM", "INCIDENT.DECIDE")
+    ? { state: "사용 가능" as const, description: "사건 담당 및 판단 업무" }
+    : canClaimIncident
+      ? { state: "담당 범위만 가능" as const, description: "사건 확인 및 선점 가능" }
+      : canDecideIncident
+        ? { state: "담당 범위만 가능" as const, description: "허용된 사건의 판단 업무 가능" }
+        : { state: "접근 제한" as const, description: "현재 부여된 권한 없음" };
+  return [
+    { label: "계정 관리", state: "사용 가능", description: "본인 계정 정보 조회 및 수정" },
+    { label: "CCTV 조회", state: hasAnyPermission("CCTV.READ") ? "사용 가능" : "접근 제한", description: hasAnyPermission("CCTV.READ") ? "CCTV 관제 화면 조회" : generalUser ? "운영 계정 전용 기능" : "현재 부여된 권한 없음" },
+    { label: "사건 조회", state: hasAnyPermission("INCIDENT.READ_ALL") ? "사용 가능" : scoped("INCIDENT.READ_ASSIGNED"), description: hasAnyPermission("INCIDENT.READ_ALL") ? "전체 사건 조회 가능" : hasAnyPermission("INCIDENT.READ_ASSIGNED") ? "내가 담당하는 사건만 조회 가능" : "현재 부여된 권한 없음" },
+    { label: "사건 처리", ...incidentProcessing },
+    { label: "출동 관리", state: hasAnyPermission("DISPATCH.ASSIGN") ? "사용 가능" : scoped("DISPATCH.READ_OWN", "DISPATCH.UPDATE_OWN"), description: hasAnyPermission("DISPATCH.ASSIGN") ? "출동 배정 및 현황 관리" : hasAnyPermission("DISPATCH.READ_OWN", "DISPATCH.UPDATE_OWN") ? "내게 배정된 출동만 조회·처리 가능" : "현재 부여된 권한 없음" },
+    { label: "사용자·역할 관리", state: hasAnyPermission("USER.READ_ALL", "ROLE.MANAGE") ? "사용 가능" : "접근 제한", description: hasAnyPermission("USER.READ_ALL", "ROLE.MANAGE") ? "사용자 또는 역할 관리" : "시스템 관리자 전용 기능" },
+    { label: "알림", state: hasAnyPermission("NOTIFICATION.READ_OWN") ? "담당 범위만 가능" : "접근 제한", description: hasAnyPermission("NOTIFICATION.READ_OWN") ? "내 알림 조회 가능" : "알림 권한 또는 화면 준비 필요" },
+  ];
 }
 
 export function getAccountStatusLabel(status?: string) {

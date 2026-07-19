@@ -23,5 +23,6 @@ export function authenticateMockAccount(email:string,password:string):LoginResul
     roles:[...account.roles],
     permissions:[],
     lastLoginAt:null,
+    updatedAt:new Date(0).toISOString(),
   }};
 }
