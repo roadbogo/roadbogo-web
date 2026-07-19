@@ -2487,6 +2487,10 @@ button:focus-visible,a:focus-visible,.incident-stage:focus-visible,.service-flow
   }
 }
 
+@media(min-width:1024px){
+  .main-header__right--without-sections{grid-column:3}
+}
+
 @container (max-width:520px){
   .cctv-meta{
     height:auto;

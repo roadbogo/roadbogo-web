@@ -6,6 +6,7 @@ import { authApi, toAuthUser } from "@/lib/authApi";
 import type { ProfileUpdate } from "./mypageUtils";
 import { MyPageView } from "./MyPageView";
 import styles from "./mypage.module.css";
+import "@/components/landing/landing.css";
 
 export function MyPageContent({ initialEditing = false }: { initialEditing?: boolean }) {
   const { user, ready, setAuthenticatedUser } = useAuth();

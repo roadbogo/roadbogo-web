@@ -28,7 +28,7 @@ const sections = [
   { key: "platform", id: "platform-operations", label: "통합 사건 운영 체계", icon: "flow" },
 ] as const;
 
-export function LandingHeader() {
+export function LandingHeader({ showSections = true }: { showSections?: boolean } = {}) {
   const { user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -124,8 +124,8 @@ export function LandingHeader() {
         <Image className="standalone-sidebar-brand__mark" src="/brand/roadbogo-symbol.png" alt="" width={48} height={48} aria-hidden="true" priority />
         <span className="standalone-sidebar-brand__mobile-copy"><strong>도로보GO</strong><small>AI 기반 도로 안전 대응</small></span>
       </Link>
-      {!compactNavigation && <nav className="main-header__sections" aria-label="서비스 섹션">{sections.map((section) => <button type="button" key={section.key} className={activeSection === section.key ? "is-active" : ""} aria-current={activeSection === section.key ? "location" : undefined} onClick={() => scrollTo(section.id, section.key)}>{section.label}</button>)}</nav>}
-      <div className="main-header__right"><nav className="main-header__account" aria-label="계정 메뉴">{!user ? <><Link href="/login?intent=general" className="main-header__login">로그인</Link><Link href="/login?intent=operations" className="main-header__cta">실시간 관제 보기</Link></> : <><button type="button" className="header-bell" aria-label="알림"><BellIcon /></button>{isAdmin && <Link href="/control">관리자</Link>}<AccountMenu /></>}</nav></div>
+      {showSections && !compactNavigation && <nav className="main-header__sections" aria-label="서비스 섹션">{sections.map((section) => <button type="button" key={section.key} className={activeSection === section.key ? "is-active" : ""} aria-current={activeSection === section.key ? "location" : undefined} onClick={() => scrollTo(section.id, section.key)}>{section.label}</button>)}</nav>}
+      <div className={`main-header__right${showSections ? "" : " main-header__right--without-sections"}`}><nav className="main-header__account" aria-label="계정 메뉴">{!user ? <><Link href="/login?intent=general" className="main-header__login">로그인</Link><Link href="/login?intent=operations" className="main-header__cta">실시간 관제 보기</Link></> : <><button type="button" className="header-bell" aria-label="알림"><BellIcon /></button>{isAdmin && <Link href="/control">관리자</Link>}<AccountMenu /></>}</nav></div>
       {showPublicDrawer && <button ref={mobileTriggerRef} type="button" className="mobile-menu-trigger" aria-label="메뉴 열기" aria-expanded={sidebarOpen} aria-controls="landing-sidebar" onClick={() => setSidebarOpen(true)}><MenuIcon /></button>}
     </div></header>
     <SystemHealthPanel open={healthPanelOpen} status={health.status} api={health.api} database={health.database} checkedAt={health.checkedAt} isLoading={health.isLoading} onRefresh={()=>void health.refresh()} onClose={()=>setHealthPanelOpen(false)}/>
