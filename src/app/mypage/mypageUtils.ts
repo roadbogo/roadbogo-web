@@ -1,5 +1,6 @@
 import { ApiError } from "@/lib/apiClient";
 import { getRoleLabel } from "@/lib/auth/roleLabels";
+import type { AppPermission } from "@/components/navigation/navigationConfig";
 import type { UserRole } from "@/types/auth";
 
 export type ProfileUpdate = { user_name?: string; phone?: string | null };
@@ -71,8 +72,9 @@ export function getRoleDisplay(primaryRole: UserRole, roles: UserRole[]) {
 
 export type AccountShortcut = { href: string; label: string; description: string };
 
-export function getAccountShortcuts(permissions: string[]): AccountShortcut[] {
+export function getAccountShortcuts(permissions: string[], uiPermissions: AppPermission[] = []): AccountShortcut[] {
   const allowed = new Set(permissions);
+  const uiAllowed = new Set(uiPermissions);
   const shortcuts: AccountShortcut[] = [];
   if (permissions.some(permission => ["CCTV.READ", "INCIDENT.READ_ALL", "INCIDENT.READ_ASSIGNED", "INCIDENT.CLAIM", "INCIDENT.DECIDE"].includes(permission))) {
     shortcuts.push({ href: "/control", label: "실시간 관제", description: "CCTV와 사건 업무 확인" });
@@ -82,16 +84,19 @@ export function getAccountShortcuts(permissions: string[]): AccountShortcut[] {
   }
   const canReadUsers = allowed.has("USER.READ_ALL");
   const canWriteUsers = allowed.has("USER.WRITE");
-  const canManageRoles = allowed.has("ROLE.MANAGE");
-  if (canReadUsers || canWriteUsers || canManageRoles) {
-    const label = canManageRoles && (canReadUsers || canWriteUsers) ? "사용자·역할 관리" : canManageRoles ? "역할 관리" : "사용자 관리";
+  const canManageUsers = canReadUsers || canWriteUsers || uiAllowed.has("users:manage");
+  const canManageRoles = allowed.has("ROLE.MANAGE") || uiAllowed.has("roles:manage");
+  if (canManageUsers || canManageRoles) {
+    const label = canManageRoles && canManageUsers ? "사용자·역할 관리" : canManageRoles ? "역할 관리" : "사용자 관리";
     const description = canReadUsers && canWriteUsers
       ? canManageRoles ? "사용자 조회·등록·수정 및 역할 관리" : "사용자 조회·등록·수정"
       : canReadUsers
         ? canManageRoles ? "사용자 목록 조회 및 역할 관리" : "사용자 목록 조회"
         : canWriteUsers
           ? canManageRoles ? "사용자 등록·수정 및 역할 관리" : "사용자 등록·수정"
-          : "사용자 역할 관리";
+          : canManageUsers && canManageRoles
+            ? "사용자 및 역할 관리"
+            : canManageUsers ? "사용자 관리" : "사용자 역할 관리";
     shortcuts.push({ href: "/admin", label, description });
   }
   return shortcuts;

@@ -123,6 +123,14 @@ describe("user and role management permissions", () => {
     expect(groups.find(group => group.label === "역할 관리")?.state).toBe("접근 제한");
     expect(getAccountShortcuts(permissions)).not.toContainEqual(expect.objectContaining({ href: "/admin" }));
   });
+
+  it("shows the admin shortcut for SYSTEM_ADMIN role-derived UI permissions", () => {
+    expect(getAccountShortcuts([], ["users:manage", "roles:manage"])).toContainEqual({
+      href: "/admin",
+      label: "사용자·역할 관리",
+      description: "사용자 및 역할 관리",
+    });
+  });
 });
 
 describe("profile validation", () => {

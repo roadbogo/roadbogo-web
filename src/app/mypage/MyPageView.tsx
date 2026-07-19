@@ -119,7 +119,7 @@ export function MyPageView({ user, initialEditing = false, onSave, isLoggingOut 
   const changed = hasProfileChanges(update);
   const roleDisplay = getRoleDisplay(user.role, user.roles);
   const operationalUser = user.roles.some(role => role !== "GENERAL_USER");
-  const shortcuts = operationalUser ? getAccountShortcuts(user.apiPermissions) : [];
+  const shortcuts = operationalUser ? getAccountShortcuts(user.apiPermissions, user.uiPermissions) : [];
   const permissionGroups = operationalUser ? getPermissionGroups(user.apiPermissions, false) : [];
   const organization = user.organization?.name ?? "";
   const status = getAccountStatusLabel(user.accountStatus);
