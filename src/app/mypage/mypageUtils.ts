@@ -78,16 +78,26 @@ export type PermissionGroup = {
 };
 
 export function getPermissionGroups(permissions: string[], generalUser: boolean): PermissionGroup[] {
-  const has = (...codes: string[]) => codes.some(code => permissions.includes(code));
-  const scoped = (...codes: string[]) => has(...codes) ? "담당 범위만 가능" as const : "접근 제한" as const;
+  const hasAnyPermission = (...codes: string[]) => codes.some(code => permissions.includes(code));
+  const hasAllPermissions = (...codes: string[]) => codes.every(code => permissions.includes(code));
+  const scoped = (...codes: string[]) => hasAnyPermission(...codes) ? "담당 범위만 가능" as const : "접근 제한" as const;
+  const canClaimIncident = hasAnyPermission("INCIDENT.CLAIM");
+  const canDecideIncident = hasAnyPermission("INCIDENT.DECIDE");
+  const incidentProcessing = hasAllPermissions("INCIDENT.CLAIM", "INCIDENT.DECIDE")
+    ? { state: "사용 가능" as const, description: "사건 담당 및 판단 업무" }
+    : canClaimIncident
+      ? { state: "담당 범위만 가능" as const, description: "사건 확인 및 선점 가능" }
+      : canDecideIncident
+        ? { state: "담당 범위만 가능" as const, description: "허용된 사건의 판단 업무 가능" }
+        : { state: "접근 제한" as const, description: "현재 부여된 권한 없음" };
   return [
     { label: "계정 관리", state: "사용 가능", description: "본인 계정 정보 조회 및 수정" },
-    { label: "CCTV 조회", state: has("CCTV.READ") ? "사용 가능" : "접근 제한", description: has("CCTV.READ") ? "CCTV 관제 화면 조회" : generalUser ? "운영 계정 전용 기능" : "현재 부여된 권한 없음" },
-    { label: "사건 조회", state: has("INCIDENT.READ_ALL") ? "사용 가능" : scoped("INCIDENT.READ_ASSIGNED"), description: has("INCIDENT.READ_ALL") ? "전체 사건 조회 가능" : has("INCIDENT.READ_ASSIGNED") ? "내가 담당하는 사건만 조회 가능" : "현재 부여된 권한 없음" },
-    { label: "사건 처리", state: has("INCIDENT.CLAIM", "INCIDENT.DECIDE") ? "사용 가능" : "접근 제한", description: has("INCIDENT.CLAIM", "INCIDENT.DECIDE") ? "사건 담당 및 판단 업무" : "현재 부여된 권한 없음" },
-    { label: "출동 관리", state: has("DISPATCH.ASSIGN") ? "사용 가능" : scoped("DISPATCH.READ_OWN", "DISPATCH.UPDATE_OWN"), description: has("DISPATCH.ASSIGN") ? "출동 배정 및 현황 관리" : has("DISPATCH.READ_OWN", "DISPATCH.UPDATE_OWN") ? "내게 배정된 출동만 조회·처리 가능" : "현재 부여된 권한 없음" },
-    { label: "사용자·역할 관리", state: has("USER.READ_ALL", "ROLE.MANAGE") ? "사용 가능" : "접근 제한", description: has("USER.READ_ALL", "ROLE.MANAGE") ? "사용자 또는 역할 관리" : "시스템 관리자 전용 기능" },
-    { label: "알림", state: has("NOTIFICATION.READ_OWN") ? "담당 범위만 가능" : "접근 제한", description: has("NOTIFICATION.READ_OWN") ? "내 알림 조회 가능" : "알림 권한 또는 화면 준비 필요" },
+    { label: "CCTV 조회", state: hasAnyPermission("CCTV.READ") ? "사용 가능" : "접근 제한", description: hasAnyPermission("CCTV.READ") ? "CCTV 관제 화면 조회" : generalUser ? "운영 계정 전용 기능" : "현재 부여된 권한 없음" },
+    { label: "사건 조회", state: hasAnyPermission("INCIDENT.READ_ALL") ? "사용 가능" : scoped("INCIDENT.READ_ASSIGNED"), description: hasAnyPermission("INCIDENT.READ_ALL") ? "전체 사건 조회 가능" : hasAnyPermission("INCIDENT.READ_ASSIGNED") ? "내가 담당하는 사건만 조회 가능" : "현재 부여된 권한 없음" },
+    { label: "사건 처리", ...incidentProcessing },
+    { label: "출동 관리", state: hasAnyPermission("DISPATCH.ASSIGN") ? "사용 가능" : scoped("DISPATCH.READ_OWN", "DISPATCH.UPDATE_OWN"), description: hasAnyPermission("DISPATCH.ASSIGN") ? "출동 배정 및 현황 관리" : hasAnyPermission("DISPATCH.READ_OWN", "DISPATCH.UPDATE_OWN") ? "내게 배정된 출동만 조회·처리 가능" : "현재 부여된 권한 없음" },
+    { label: "사용자·역할 관리", state: hasAnyPermission("USER.READ_ALL", "ROLE.MANAGE") ? "사용 가능" : "접근 제한", description: hasAnyPermission("USER.READ_ALL", "ROLE.MANAGE") ? "사용자 또는 역할 관리" : "시스템 관리자 전용 기능" },
+    { label: "알림", state: hasAnyPermission("NOTIFICATION.READ_OWN") ? "담당 범위만 가능" : "접근 제한", description: hasAnyPermission("NOTIFICATION.READ_OWN") ? "내 알림 조회 가능" : "알림 권한 또는 화면 준비 필요" },
   ];
 }
 

@@ -7,34 +7,16 @@ import { SignupPasswordField } from "./SignupPasswordField";
 import { ApiError } from "@/lib/apiClient";
 import { authApi } from "@/lib/authApi";
 import { getPasswordChecks, isPasswordValid } from "@/lib/auth/passwordPolicy";
+import {
+  mapSignupApiError,
+  PASSWORD_POLICY_MESSAGE,
+  REQUEST_ERROR_MESSAGE,
+  type SignupFieldErrors,
+  type SignupFieldName,
+} from "./signupErrorMapping";
 import styles from "@/app/signup/signup.module.css";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PASSWORD_POLICY_MESSAGE = "비밀번호는 8~64자이며 영문과 숫자를 포함해야 합니다.";
-const REQUEST_ERROR_MESSAGE = "회원가입 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.";
-
-type FieldName = "userName" | "email" | "password" | "passwordConfirmation";
-type FieldErrors = Partial<Record<FieldName, string>>;
-type ValidationField = { field?: unknown; reason?: unknown };
-
-const serverFieldMap: Record<string, FieldName> = {
-  user_name: "userName",
-  email: "email",
-  password: "password",
-  password_confirmation: "passwordConfirmation",
-};
-
-function mapValidationErrors(details: Record<string, unknown> | null): FieldErrors {
-  if (!details || !Array.isArray(details.fields)) return {};
-  return details.fields.reduce<FieldErrors>((errors, item) => {
-    if (!item || typeof item !== "object") return errors;
-    const { field, reason } = item as ValidationField;
-    if (typeof field !== "string") return errors;
-    const fieldName = serverFieldMap[field.split(".").at(-1) ?? ""];
-    if (fieldName) errors[fieldName] = typeof reason === "string" ? reason : "입력 내용을 확인해 주세요.";
-    return errors;
-  }, {});
-}
 
 export function SignupForm() {
   const router = useRouter();
@@ -42,13 +24,13 @@ export function SignupForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
-  const [errors, setErrors] = useState<FieldErrors>({});
+  const [errors, setErrors] = useState<SignupFieldErrors>({});
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const passwordChecks = getPasswordChecks(password);
   const confirmationMatches = Boolean(passwordConfirmation) && password === passwordConfirmation;
 
-  const updateField = (field: FieldName, value: string) => {
+  const updateField = (field: SignupFieldName, value: string) => {
     setErrors((current) => ({
       ...current,
       [field]: undefined,
@@ -61,7 +43,7 @@ export function SignupForm() {
   };
 
   const validate = () => {
-    const next: FieldErrors = {};
+    const next: SignupFieldErrors = {};
     const normalizedName = userName.trim();
     const normalizedEmail = email.trim();
     if (!normalizedName) next.userName = "이름을 입력해 주세요.";
@@ -92,13 +74,9 @@ export function SignupForm() {
       router.push("/login?intent=general&registered=1");
     } catch (error) {
       if (error instanceof ApiError) {
-        if (error.code === "USER_EMAIL_DUPLICATED") setErrors({ email: "이미 가입된 이메일입니다." });
-        else if (error.code === "USER_PASSWORD_POLICY_VIOLATION") setErrors({ password: PASSWORD_POLICY_MESSAGE });
-        else if (error.code === "COMMON_VALIDATION_ERROR") {
-          const validationErrors = mapValidationErrors(error.details);
-          if (Object.keys(validationErrors).length) setErrors(validationErrors);
-          else setSubmitError("입력 내용을 확인해 주세요.");
-        } else setSubmitError(REQUEST_ERROR_MESSAGE);
+        const mappedError = mapSignupApiError(error.code, error.details);
+        if (Object.keys(mappedError.fieldErrors).length) setErrors(mappedError.fieldErrors);
+        setSubmitError(mappedError.submitError);
       } else setSubmitError(REQUEST_ERROR_MESSAGE);
     } finally {
       setSubmitting(false);
