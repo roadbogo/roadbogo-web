@@ -1448,6 +1448,12 @@
   line-height: 1.5;
 }
 
+.drawer .editFields .fieldError {
+  color: #b64046;
+  font-size: 13px;
+  font-weight: 650;
+}
+
 .drawer .readOnlySummary {
   grid-template-columns: 1fr;
   margin-top: 24px;

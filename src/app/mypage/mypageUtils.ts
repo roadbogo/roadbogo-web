@@ -3,17 +3,30 @@ import { getRoleLabel } from "@/lib/auth/roleLabels";
 import type { UserRole } from "@/types/auth";
 
 export type ProfileUpdate = { user_name?: string; phone?: string | null };
+export type ProfileFieldErrors = { name?: string; phone?: string };
+export type AccountTab = "profile" | "security";
 
 const phonePattern = /^[+0-9() -]{7,30}$/;
+const accountTabs: AccountTab[] = ["profile", "security"];
 
-export function validateProfile(name: string, phone: string) {
+export function validateProfile(name: string, phone: string): ProfileFieldErrors {
+  const errors: ProfileFieldErrors = {};
   const trimmedName = name.trim();
   if (trimmedName.length < 2 || trimmedName.length > 100) {
-    return "사용자명은 2자 이상 100자 이하로 입력해 주세요.";
+    errors.name = "사용자명은 2자 이상 100자 이하로 입력해 주세요.";
   }
   if (phone.trim() && !phonePattern.test(phone.trim())) {
-    return "전화번호는 숫자, 공백, 하이픈, 괄호와 + 기호를 사용해 입력해 주세요.";
+    errors.phone = "전화번호는 숫자, 공백, 하이픈, 괄호와 + 기호를 사용해 입력해 주세요.";
   }
+  return errors;
+}
+
+export function getNextAccountTab(activeTab: AccountTab, key: string): AccountTab | null {
+  const currentIndex = accountTabs.indexOf(activeTab);
+  if (key === "Home") return accountTabs[0];
+  if (key === "End") return accountTabs[accountTabs.length - 1];
+  if (key === "ArrowRight") return accountTabs[(currentIndex + 1) % accountTabs.length];
+  if (key === "ArrowLeft") return accountTabs[(currentIndex - 1 + accountTabs.length) % accountTabs.length];
   return null;
 }
 
@@ -67,8 +80,19 @@ export function getAccountShortcuts(permissions: string[]): AccountShortcut[] {
   if (permissions.some(permission => ["DISPATCH.READ_OWN", "DISPATCH.UPDATE_OWN", "DISPATCH.ASSIGN"].includes(permission))) {
     shortcuts.push({ href: "/dispatch", label: "출동 관리", description: "배정된 출동 업무 확인" });
   }
-  if (allowed.has("USER.READ_ALL") || allowed.has("USER.WRITE") || allowed.has("ROLE.MANAGE")) {
-    shortcuts.push({ href: "/admin", label: "사용자 관리", description: "사용자와 역할 관리" });
+  const canReadUsers = allowed.has("USER.READ_ALL");
+  const canWriteUsers = allowed.has("USER.WRITE");
+  const canManageRoles = allowed.has("ROLE.MANAGE");
+  if (canReadUsers || canWriteUsers || canManageRoles) {
+    const label = canManageRoles && (canReadUsers || canWriteUsers) ? "사용자·역할 관리" : canManageRoles ? "역할 관리" : "사용자 관리";
+    const description = canReadUsers && canWriteUsers
+      ? canManageRoles ? "사용자 조회·등록·수정 및 역할 관리" : "사용자 조회·등록·수정"
+      : canReadUsers
+        ? canManageRoles ? "사용자 목록 조회 및 역할 관리" : "사용자 목록 조회"
+        : canWriteUsers
+          ? canManageRoles ? "사용자 등록·수정 및 역할 관리" : "사용자 등록·수정"
+          : "사용자 역할 관리";
+    shortcuts.push({ href: "/admin", label, description });
   }
   return shortcuts;
 }
@@ -85,6 +109,16 @@ export function getPermissionGroups(permissions: string[], generalUser: boolean)
   const scoped = (...codes: string[]) => hasAnyPermission(...codes) ? "담당 범위만 가능" as const : "접근 제한" as const;
   const canClaimIncident = hasAnyPermission("INCIDENT.CLAIM");
   const canDecideIncident = hasAnyPermission("INCIDENT.DECIDE");
+  const canReadUsers = hasAnyPermission("USER.READ_ALL");
+  const canWriteUsers = hasAnyPermission("USER.WRITE");
+  const canManageRoles = hasAnyPermission("ROLE.MANAGE");
+  const userManagement = canReadUsers && canWriteUsers
+    ? { state: "사용 가능" as const, description: "사용자 조회·등록·수정 가능" }
+    : canReadUsers
+      ? { state: "담당 범위만 가능" as const, description: "사용자 목록 조회 가능" }
+      : canWriteUsers
+        ? { state: "담당 범위만 가능" as const, description: "사용자 등록·수정 가능" }
+        : { state: "접근 제한" as const, description: "현재 부여된 권한 없음" };
   const incidentProcessing = hasAllPermissions("INCIDENT.CLAIM", "INCIDENT.DECIDE")
     ? { state: "사용 가능" as const, description: "사건 담당 및 판단 업무" }
     : canClaimIncident
@@ -98,7 +132,8 @@ export function getPermissionGroups(permissions: string[], generalUser: boolean)
     { label: "사건 조회", state: hasAnyPermission("INCIDENT.READ_ALL") ? "사용 가능" : scoped("INCIDENT.READ_ASSIGNED"), description: hasAnyPermission("INCIDENT.READ_ALL") ? "전체 사건 조회 가능" : hasAnyPermission("INCIDENT.READ_ASSIGNED") ? "내가 담당하는 사건만 조회 가능" : "현재 부여된 권한 없음" },
     { label: "사건 처리", ...incidentProcessing },
     { label: "출동 관리", state: hasAnyPermission("DISPATCH.ASSIGN") ? "사용 가능" : scoped("DISPATCH.READ_OWN", "DISPATCH.UPDATE_OWN"), description: hasAnyPermission("DISPATCH.ASSIGN") ? "출동 배정 및 현황 관리" : hasAnyPermission("DISPATCH.READ_OWN", "DISPATCH.UPDATE_OWN") ? "내게 배정된 출동만 조회·처리 가능" : "현재 부여된 권한 없음" },
-    { label: "사용자·역할 관리", state: hasAnyPermission("USER.READ_ALL", "ROLE.MANAGE") ? "사용 가능" : "접근 제한", description: hasAnyPermission("USER.READ_ALL", "ROLE.MANAGE") ? "사용자 또는 역할 관리" : "시스템 관리자 전용 기능" },
+    { label: "사용자 관리", ...userManagement },
+    { label: "역할 관리", state: canManageRoles ? "사용 가능" : "접근 제한", description: canManageRoles ? "사용자 역할 관리 가능" : "현재 부여된 권한 없음" },
     { label: "알림", state: hasAnyPermission("NOTIFICATION.READ_OWN") ? "담당 범위만 가능" : "접근 제한", description: hasAnyPermission("NOTIFICATION.READ_OWN") ? "내 알림 조회 가능" : "알림 권한 또는 화면 준비 필요" },
   ];
 }

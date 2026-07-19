@@ -10,11 +10,14 @@ import {
   formatKstDate,
   getAccountShortcuts,
   getAccountStatusLabel,
+  getNextAccountTab,
   getPermissionGroups,
   getProfileErrorMessage,
   getRoleDisplay,
   hasProfileChanges,
   validateProfile,
+  type AccountTab,
+  type ProfileFieldErrors,
   type ProfileUpdate,
 } from "./mypageUtils";
 import styles from "./mypage.module.css";
@@ -26,8 +29,6 @@ type Props = {
   isLoggingOut?: boolean;
   onLogout?: (trigger: HTMLElement) => void;
 };
-
-type AccountTab = "profile" | "security";
 
 function UserIcon() {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4.5 21a7.5 7.5 0 0 1 15 0" /></svg>;
@@ -55,11 +56,12 @@ export function MyPageView({ user, initialEditing = false, onSave, isLoggingOut 
   const editTriggerRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const phoneInputRef = useRef<HTMLInputElement>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
   const [editing, setEditing] = useState(initialEditing);
   const [name, setName] = useState(user.name);
   const [phone, setPhone] = useState(user.phone ?? "");
-  const [fieldError, setFieldError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<ProfileFieldErrors>({});
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -73,7 +75,7 @@ export function MyPageView({ user, initialEditing = false, onSave, isLoggingOut 
   const cancel = useCallback(() => {
     setName(user.name);
     setPhone(user.phone ?? "");
-    setFieldError("");
+    setFieldErrors({});
     setSaveError("");
     setEditing(false);
     if (initialEditing) router.replace("/mypage");
@@ -110,8 +112,8 @@ export function MyPageView({ user, initialEditing = false, onSave, isLoggingOut 
   }, [cancel, editing, saving]);
 
   useEffect(() => {
-    if (fieldError || saveError) errorRef.current?.focus();
-  }, [fieldError, saveError]);
+    if (saveError) errorRef.current?.focus();
+  }, [saveError]);
 
   const update = useMemo(() => buildProfileUpdate(user, name, phone), [name, phone, user]);
   const changed = hasProfileChanges(update);
@@ -128,16 +130,23 @@ export function MyPageView({ user, initialEditing = false, onSave, isLoggingOut 
   const startEditing = () => {
     setEditing(true);
     setSaved(false);
-    setFieldError("");
+    setFieldErrors({});
     setSaveError("");
   };
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
     if (savingRef.current) return;
-    const validationError = validateProfile(name, phone);
-    setFieldError(validationError ?? "");
-    if (validationError || !changed) return;
+    const validationErrors = validateProfile(name, phone);
+    setFieldErrors(validationErrors);
+    if (validationErrors.name || validationErrors.phone) {
+      window.requestAnimationFrame(() => {
+        if (validationErrors.name) nameInputRef.current?.focus();
+        else phoneInputRef.current?.focus();
+      });
+      return;
+    }
+    if (!changed) return;
     savingRef.current = true;
     setSaving(true);
     setSaveError("");
@@ -158,11 +167,11 @@ export function MyPageView({ user, initialEditing = false, onSave, isLoggingOut 
 
   const selectTab = (tab: AccountTab) => setActiveTab(tab);
   const handleTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
-    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    const next = getNextAccountTab(activeTab, event.key);
+    if (!next) return;
     event.preventDefault();
-    const next = event.key === "ArrowLeft" || event.key === "End" ? "security" : "profile";
     setActiveTab(next);
-    document.getElementById(`mypage-tab-${next}`)?.focus();
+    window.requestAnimationFrame(() => document.getElementById(`mypage-tab-${next}`)?.focus());
   };
 
   return <div className={styles.page}>
@@ -238,11 +247,11 @@ export function MyPageView({ user, initialEditing = false, onSave, isLoggingOut 
         <header><div><p>EDIT PROFILE</p><h2 id="profile-drawer-title">내 정보 수정</h2><span>사용자명과 전화번호만 변경할 수 있습니다.</span></div><button type="button" onClick={cancel} aria-label="닫기">×</button></header>
         <form className={styles.editForm} onSubmit={save} noValidate>
           <div className={styles.editFields}>
-            <label htmlFor="profile-name-input">사용자명<input ref={nameInputRef} id="profile-name-input" value={name} onChange={event => setName(event.target.value)} minLength={2} maxLength={100} autoComplete="name" aria-invalid={Boolean(fieldError)} aria-describedby={fieldError || saveError ? "profile-form-error" : undefined} /></label>
-            <label htmlFor="profile-phone">전화번호<input id="profile-phone" type="tel" value={phone} onChange={event => setPhone(event.target.value)} placeholder="010-1234-5678 또는 +82 형식" inputMode="tel" autoComplete="tel" aria-invalid={Boolean(fieldError)} aria-describedby={fieldError || saveError ? "profile-form-error" : undefined} /><small>비워 두고 저장하면 등록된 전화번호가 삭제됩니다.</small></label>
+            <label htmlFor="profile-name-input">사용자명<input ref={nameInputRef} id="profile-name-input" value={name} onChange={event => { setName(event.target.value); setFieldErrors(errors => ({ ...errors, name: undefined })); setSaveError(""); }} minLength={2} maxLength={100} autoComplete="name" aria-invalid={Boolean(fieldErrors.name)} aria-describedby={fieldErrors.name ? "profile-name-error" : undefined} />{fieldErrors.name && <small id="profile-name-error" className={styles.fieldError}>{fieldErrors.name}</small>}</label>
+            <label htmlFor="profile-phone">전화번호<input ref={phoneInputRef} id="profile-phone" type="tel" value={phone} onChange={event => { setPhone(event.target.value); setFieldErrors(errors => ({ ...errors, phone: undefined })); setSaveError(""); }} placeholder="010-1234-5678 또는 +82 형식" inputMode="tel" autoComplete="tel" aria-invalid={Boolean(fieldErrors.phone)} aria-describedby={fieldErrors.phone ? "profile-phone-help profile-phone-error" : "profile-phone-help"} /><small id="profile-phone-help">비워 두고 저장하면 등록된 전화번호가 삭제됩니다.</small>{fieldErrors.phone && <small id="profile-phone-error" className={styles.fieldError}>{fieldErrors.phone}</small>}</label>
           </div>
           <div className={styles.readOnlySummary} aria-label="읽기 전용 계정 정보"><div><span>이메일</span><strong>{user.email}</strong></div><div><span>계정 유형</span><strong>{operationalUser ? "운영 계정" : "일반 계정"}</strong></div>{operationalUser && <div><span>소속</span><strong>{organization || "기관 정보 없음"}</strong></div>}</div>
-          <p ref={errorRef} id="profile-form-error" className={styles.formError} role={fieldError || saveError ? "alert" : undefined} aria-live="assertive" tabIndex={fieldError || saveError ? -1 : undefined}>{fieldError || saveError || " "}</p>
+          <p ref={errorRef} id="profile-form-error" className={styles.formError} role={saveError ? "alert" : undefined} aria-live="assertive" tabIndex={saveError ? -1 : undefined}>{saveError || " "}</p>
           <div className={styles.formActions}><button type="button" onClick={cancel} disabled={saving}>취소</button><button type="submit" disabled={!changed || saving} aria-busy={saving}>{saving ? "저장 중…" : "변경사항 저장"}</button></div>
         </form>
       </aside>
