@@ -7,6 +7,13 @@ export type UserRole =
 
 export type LoginIntent = "general" | "operations";
 
+export type RegisterRequest = {
+  email: string;
+  user_name: string;
+  password: string;
+  password_confirmation: string;
+};
+
 export type AuthOrganization = { publicId:string; name:string; type:string };
 export type AuthUser = {
   publicId:string;

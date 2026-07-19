@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import styles from "./AuthShell.module.css";
 
 type Props = {
   visual: ReactNode;
@@ -9,5 +10,5 @@ type Props = {
 };
 
 export function AuthShell({ visual, children, pageClassName, panelClassName, panelLabel }: Props) {
-  return <main className={pageClassName}>{visual}<section className={panelClassName} aria-label={panelLabel}>{children}</section></main>;
+  return <main className={`${styles.page} ${pageClassName}`}>{visual}<section className={panelClassName} aria-label={panelLabel}>{children}</section></main>;
 }
