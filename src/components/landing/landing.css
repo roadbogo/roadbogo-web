@@ -2301,9 +2301,9 @@ button:focus-visible,a:focus-visible,.incident-stage:focus-visible,.service-flow
   box-shadow:0 2px 5px rgba(25,51,69,.14);
 }
 .road-scene .vehicle-detection--vehicle-03 .detection-bbox__label{
-  right:auto;
-  left:-1px;
-  border-radius:5px 5px 5px 0;
+  right:-1px;
+  left:auto;
+  border-radius:5px 5px 0 5px;
 }
 .road-scene .detected-object{z-index:4}
 .road-scene .detected-object strong{font-size:13px;font-weight:750}
@@ -2414,6 +2414,77 @@ button:focus-visible,a:focus-visible,.incident-stage:focus-visible,.service-flow
 @media(max-width:360px){
   .road-scene .vehicle-detection .detection-bbox__label{font-size:11px}
   .response-status__current strong{font-size:16px}
+}
+
+/* Desktop hero regression guard: gaps must be included in the available track width. */
+@media(min-width:1181px) and (max-width:1599px){
+  .command-stage{
+    width:calc(100% - 96px);
+    max-width:1360px;
+    grid-template-columns:minmax(420px,.78fr) minmax(620px,1.22fr);
+    gap:clamp(28px,2.4vw,38px);
+  }
+  .command-stage .stage-copy{min-width:0}
+  .command-stage .stage-copy .stage-title{
+    max-width:100%;
+    font-size:clamp(43px,3.35vw,51px);
+    line-height:1.12;
+    letter-spacing:-.025em;
+    overflow:visible;
+  }
+  .command-stage .incident-stage{min-width:0}
+  .command-stage .incident-top{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:12px;
+  }
+  .command-stage .incident-top>div:first-child{
+    min-width:0;
+    white-space:nowrap;
+  }
+  .command-stage .incident-top small{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .command-stage .scenario-picker{
+    min-width:0;
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+  .command-stage .scenario-picker button{
+    min-width:0;
+    padding-inline:8px;
+    white-space:nowrap;
+  }
+  .command-stage .scenario-picker button span{white-space:nowrap}
+  .command-stage .incident-body{
+    grid-template-columns:minmax(0,1.45fr) minmax(260px,.75fr);
+  }
+  .command-stage .incident-card{min-width:0}
+  .command-stage .cctv-meta>*{min-width:0}
+  .command-stage .cctv-meta__source{
+    min-width:0;
+    overflow:hidden;
+    white-space:nowrap;
+  }
+  .command-stage .cctv-meta__source>span{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .command-stage .cctv-meta time{flex:0 0 auto}
+}
+
+@media(min-width:1600px){
+  .command-stage{
+    width:min(1480px,calc(100vw - 200px));
+    grid-template-columns:minmax(440px,.72fr) minmax(800px,1.28fr);
+    gap:clamp(38px,2.6vw,48px);
+  }
+  .command-stage .incident-body{
+    grid-template-columns:minmax(0,1.45fr) minmax(320px,.75fr);
+  }
 }
 
 @container (max-width:520px){
