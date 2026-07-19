@@ -49,6 +49,13 @@ export function getRoleLabels(roles: UserRole[]) {
   return roles.length ? roles.map(getRoleLabel) : [getRoleLabel("GENERAL_USER")];
 }
 
+export function getRoleDisplay(primaryRole: UserRole, roles: UserRole[]) {
+  return {
+    primary: getRoleLabel(primaryRole),
+    all: getRoleLabels(roles),
+  };
+}
+
 export type AccountShortcut = { href: string; label: string; description: string };
 
 export function getAccountShortcuts(permissions: string[]): AccountShortcut[] {

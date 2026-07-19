@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getPermissionGroups } from "./mypageUtils";
+import { getPermissionGroups, getRoleDisplay } from "./mypageUtils";
 
 function incidentProcessing(permissions: string[], generalUser = false) {
   return getPermissionGroups(permissions, generalUser).find(group => group.label === "사건 처리");
@@ -39,5 +39,31 @@ describe("getPermissionGroups incident processing", () => {
       state: "접근 제한",
       description: "현재 부여된 권한 없음",
     });
+  });
+});
+
+describe("getRoleDisplay", () => {
+  it("uses the authenticated primary role for a general user", () => {
+    expect(getRoleDisplay("GENERAL_USER", ["GENERAL_USER"])).toEqual({
+      primary: "일반 사용자",
+      all: ["일반 사용자"],
+    });
+  });
+
+  it("uses the authenticated primary role for a single operations role", () => {
+    expect(getRoleDisplay("CONTROLLER", ["CONTROLLER"])).toEqual({
+      primary: "관제 담당자",
+      all: ["관제 담당자"],
+    });
+  });
+
+  it.each([
+    [["CONTROLLER", "CONTROL_MANAGER"]],
+    [["CONTROL_MANAGER", "CONTROLLER"]],
+  ] as const)("keeps the primary role independent from the roles array order: %o", roles => {
+    const display = getRoleDisplay("CONTROL_MANAGER", [...roles]);
+
+    expect(display.primary).toBe("관제센터 책임자");
+    expect(display.all).toEqual(roles.map(role => role === "CONTROL_MANAGER" ? "관제센터 책임자" : "관제 담당자"));
   });
 });

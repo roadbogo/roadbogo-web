@@ -12,7 +12,7 @@ import {
   getAccountStatusLabel,
   getPermissionGroups,
   getProfileErrorMessage,
-  getRoleLabels,
+  getRoleDisplay,
   hasProfileChanges,
   validateProfile,
   type ProfileUpdate,
@@ -115,7 +115,7 @@ export function MyPageView({ user, initialEditing = false, onSave, isLoggingOut 
 
   const update = useMemo(() => buildProfileUpdate(user, name, phone), [name, phone, user]);
   const changed = hasProfileChanges(update);
-  const roleLabels = getRoleLabels(user.roles);
+  const roleDisplay = getRoleDisplay(user.role, user.roles);
   const operationalUser = user.roles.some(role => role !== "GENERAL_USER");
   const shortcuts = operationalUser ? getAccountShortcuts(user.apiPermissions) : [];
   const permissionGroups = operationalUser ? getPermissionGroups(user.apiPermissions, false) : [];
@@ -186,12 +186,12 @@ export function MyPageView({ user, initialEditing = false, onSave, isLoggingOut 
           <div>
             <span className={styles.statusBadge}><i aria-hidden="true" />{status}</span>
             <h2 id="account-summary-title">{user.name}</h2>
-            <p>{operationalUser ? roleLabels.join(" · ") : "일반 사용자"}</p>
+            <p>{operationalUser ? roleDisplay.all.join(" · ") : "일반 사용자"}</p>
           </div>
         </div>
         <dl className={styles.summaryGrid}>
           <div><dt>계정 유형</dt><dd>{operationalUser ? "운영 계정" : "일반 계정"}</dd></div>
-          <div><dt>대표 역할</dt><dd>{roleLabels[0]}</dd></div>
+          <div><dt>대표 역할</dt><dd>{roleDisplay.primary}</dd></div>
           <div><dt>최근 로그인</dt><dd>{lastLogin}</dd></div>
         </dl>
       </section>
@@ -208,7 +208,7 @@ export function MyPageView({ user, initialEditing = false, onSave, isLoggingOut 
           <div><dt><span><UserIcon /></span><b>사용자명</b></dt><dd>{user.name}</dd></div>
           <div><dt><span><PhoneIcon /></span><b>전화번호</b></dt><dd>{phoneLabel}{!user.phone && <button type="button" onClick={startEditing}>등록하기</button>}</dd></div>
           {operationalUser && <div><dt><span><BuildingIcon /></span><b>소속 기관</b></dt><dd>{organization || "기관 정보 없음"}</dd></div>}
-          <div><dt><span><ShieldIcon /></span><b>역할</b></dt><dd>{roleLabels.join(", ")}</dd></div>
+          <div><dt><span><ShieldIcon /></span><b>역할</b></dt><dd>{roleDisplay.all.join(", ")}</dd></div>
         </dl>
 
         {operationalUser && <div className={styles.operationArea}>
