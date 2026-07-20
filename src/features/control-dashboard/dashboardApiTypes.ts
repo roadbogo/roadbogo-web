@@ -13,6 +13,7 @@ import type {
 /** Backend response contracts. Keep these separate from screen-facing dashboard models. */
 export interface DashboardCctvDto {
   public_id: string;
+  cctv_code: string;
   cctv_name: string;
   source_type: CctvSourceType;
   stream_type: CctvStreamType;

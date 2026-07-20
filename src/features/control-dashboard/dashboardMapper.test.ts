@@ -5,6 +5,7 @@ import { directionLabel, mapDashboardSnapshot } from "./dashboardMapper";
 const dto: DashboardSnapshotDto = {
   cctvs: [{
     public_id: "cctv-1",
+    cctv_code: "CCTV-TEST-001",
     cctv_name: "CAM 1",
     source_type: "ITS",
     stream_type: "LIVE",

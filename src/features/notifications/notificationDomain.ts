@@ -38,7 +38,7 @@ export function deriveNotificationActionState(notification: NotificationRecord, 
   }
   if (linkedResource.resource_type === "DISPATCH" && responder(currentUser)) {
     if (notification.notification_type === "DISPATCH_ASSIGNED" && linkedResource.status === "REQUESTED" && linkedResource.assigned_user_public_id === currentUser.publicId) return { action_required: true, action_label: "출동 요청 확인", target_path: "/dispatch", reason: "DISPATCH_RESPONSE_REQUIRED", state_label: "조치 필요" };
-    if (["ACCEPTED", "ARRIVED", "COMPLETED", "CANCELLED"].includes(linkedResource.status)) return { ...fallback, reason: "DISPATCH_PROCESSED", state_label: "처리됨" };
+    if (["ACCEPTED", "ARRIVED", "ACTION_COMPLETED", "CANCELLED"].includes(linkedResource.status)) return { ...fallback, reason: "DISPATCH_PROCESSED", state_label: "처리됨" };
   }
   return fallback;
 }

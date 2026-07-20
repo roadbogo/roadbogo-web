@@ -13,6 +13,7 @@ export type DispatchStatus = "REQUESTED" | "ACCEPTED" | "DEPARTED" | "EN_ROUTE" 
 
 export interface DashboardCctv {
   public_id: string;
+  cctv_code: string;
   cctv_name: string;
   source_type: CctvSourceType;
   stream_type: CctvStreamType;

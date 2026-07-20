@@ -8,7 +8,7 @@ import { createMockDashboardSnapshot, MockDashboardAdapter } from "./mockDashboa
 import { canUsePrimaryAction, countKpi, filterByKpi, formatKst, incidentStatusLabel, nextActionLabel, prioritizeIncidents, relativeTime, riskLabel, selectIncidentForCctv, activeStatuses, type KpiFilter } from "./dashboardDomain";
 import { directionLabel, objectCategoryLabel, operationalStatusLabel } from "./dashboardMapper";
 import type { DashboardCctv, DashboardIncident, DashboardSnapshot, IncidentStatus } from "./dashboardTypes";
-import { mockIncidentPublicIds } from "./mockDashboardAdapter";
+import { mockIncidentPublicIds } from "@/features/mocks/mockResourceIds";
 import "@/components/landing/landing.css";
 import "./controlDashboard.css";
 

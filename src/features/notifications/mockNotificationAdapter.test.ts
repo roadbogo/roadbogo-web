@@ -13,6 +13,16 @@ const controller = (publicId: string): AuthenticatedUser => ({
   uiRoles: ["CONTROL_OPERATOR"],
   uiPermissions: ["profile:view"],
 });
+const responder = (publicId: string): AuthenticatedUser => ({
+  publicId,
+  name: "테스트 출동 담당자",
+  role: "RESPONDER",
+  roles: ["RESPONDER"],
+  email: `${publicId}@example.com`,
+  apiPermissions: ["DISPATCH.READ_OWN"],
+  uiRoles: ["FIELD_RESPONDER"],
+  uiPermissions: ["profile:view", "dispatch:assigned"],
+});
 
 describe("mockNotificationAdapter read isolation", () => {
   it("keeps the same notification read state isolated by user", async () => {
@@ -51,5 +61,15 @@ describe("mockNotificationAdapter read isolation", () => {
 
     expect(incident?.resource.resource_public_id).toBe(dashboardIncident?.public_id);
     expect(incident?.resource.resource_public_id).not.toBe(incident?.resource.resource_label);
+  });
+
+  it("links dispatch notifications to the same Dashboard dispatch UUID while keeping a display label", async () => {
+    const page = await mockNotificationAdapter.list(responder("responder-links"));
+    const notification = page.items.find(item => item.resource.resource_label === "DSP-20260719-0031");
+    const dispatch = createMockDashboardSnapshot().dispatches
+      .find(item => item.public_id === notification?.resource.resource_public_id);
+
+    expect(notification?.resource.resource_public_id).toBe(dispatch?.public_id);
+    expect(notification?.resource.resource_public_id).not.toBe(notification?.resource.resource_label);
   });
 });

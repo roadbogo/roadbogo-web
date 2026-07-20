@@ -1,14 +1,14 @@
 import type { AuthenticatedUser } from "@/components/auth/AuthContext";
 import { canReceiveNotification } from "./notificationDomain";
 import type { LinkedResourceState, NotificationAdapter, NotificationEvidence, NotificationPage, NotificationRecord } from "./notificationTypes";
-import { mockIncidentPublicIds } from "@/features/control-dashboard/mockDashboardAdapter";
+import { mockDispatchPublicIds, mockIncidentPublicIds } from "@/features/mocks/mockResourceIds";
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 const resource = (resource_type: "INCIDENT" | "DISPATCH", resourceLabel: string) => ({
   resource_type,
   resource_public_id: resource_type === "INCIDENT"
     ? mockIncidentPublicIds[resourceLabel as keyof typeof mockIncidentPublicIds]
-    : resourceLabel,
+    : mockDispatchPublicIds[resourceLabel as keyof typeof mockDispatchPublicIds],
   resource_label: resourceLabel,
 });
 
@@ -30,8 +30,8 @@ const states: Record<string, LinkedResourceState> = {
   [mockIncidentPublicIds["INC-20260719-0005"]]: { resource_type: "INCIDENT", public_id: mockIncidentPublicIds["INC-20260719-0005"], status: "ACTION_COMPLETED", active_dispatch: true },
   [mockIncidentPublicIds["INC-20260719-0006"]]: { resource_type: "INCIDENT", public_id: mockIncidentPublicIds["INC-20260719-0006"], status: "ACKNOWLEDGED", active_dispatch: true },
   [mockIncidentPublicIds["INC-20260718-0098"]]: { resource_type: "INCIDENT", public_id: mockIncidentPublicIds["INC-20260718-0098"], status: "CLOSED", active_dispatch: false },
-  "DSP-20260719-0031": { resource_type: "DISPATCH", public_id: "DSP-20260719-0031", status: "REQUESTED", assigned_user_public_id: "__CURRENT__" },
-  "DSP-20260718-0021": { resource_type: "DISPATCH", public_id: "DSP-20260718-0021", status: "CANCELLED", assigned_user_public_id: "__CURRENT__" },
+  [mockDispatchPublicIds["DSP-20260719-0031"]]: { resource_type: "DISPATCH", public_id: mockDispatchPublicIds["DSP-20260719-0031"], status: "REQUESTED", assigned_user_public_id: "__CURRENT__" },
+  [mockDispatchPublicIds["DSP-20260718-0021"]]: { resource_type: "DISPATCH", public_id: mockDispatchPublicIds["DSP-20260718-0021"], status: "CANCELLED", assigned_user_public_id: "__CURRENT__" },
 };
 
 const readOverridesByUser = new Map<string, Set<string>>();

@@ -31,7 +31,7 @@ export type NotificationPage = {
 
 export type LinkedResourceState =
   | { resource_type: "INCIDENT"; public_id: string; status: "NEW" | "ACKNOWLEDGED" | "DISPATCH_REQUESTED" | "ACTION_COMPLETED" | "CLOSED"; active_dispatch: boolean }
-  | { resource_type: "DISPATCH"; public_id: string; status: "REQUESTED" | "ACCEPTED" | "ARRIVED" | "CANCELLED" | "COMPLETED"; assigned_user_public_id: string | null };
+  | { resource_type: "DISPATCH"; public_id: string; status: "REQUESTED" | "ACCEPTED" | "ARRIVED" | "CANCELLED" | "ACTION_COMPLETED"; assigned_user_public_id: string | null };
 
 export type NotificationActionState = {
   action_required: boolean;
