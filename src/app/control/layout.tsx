@@ -1,2 +1,3 @@
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-export default function ControlLayout({children}:{children:React.ReactNode}){return <ProtectedRoute requiredRoles={["CONTROL_OPERATOR"]} requiredPermissions={["control:view"]}>{children}</ProtectedRoute>}
+import { controlAccessRequirements } from "@/lib/auth/controlAccess";
+export default function ControlLayout({children}:{children:React.ReactNode}){return <ProtectedRoute accessHandoff {...controlAccessRequirements}>{children}</ProtectedRoute>}
