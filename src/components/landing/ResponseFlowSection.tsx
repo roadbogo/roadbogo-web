@@ -20,17 +20,16 @@ const ChevronIcon=({direction}:{direction:"left"|"right"})=><svg viewBox="0 0 24
 const CheckIcon=()=> <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>;
 type DetectionOverlayData = {
  id:string;
- type:"normal"|"danger";
+ type:"tracking"|"hazard";
  label:string;
  confidence:number;
  box:{left:number;top:number;width:number;height:number};
  sourceBox?:{x:number;y:number;width:number;height:number};
- compactLabel?:boolean;
  labelPosition:"top-left"|"top-right";
 };
 const detectionOverlays:DetectionOverlayData[]=[
- {id:"vehicle",type:"normal",label:"차량",confidence:96,box:{left:46.5,top:40.6,width:10.2,height:10},sourceBox:{x:815,y:382,width:165,height:94},compactLabel:true,labelPosition:"top-left"},
- {id:"motorcycle",type:"danger",label:"오토바이",confidence:92,box:{left:71.8,top:37.7,width:5.6,height:12.5},sourceBox:{x:1155,y:355,width:82,height:118},compactLabel:true,labelPosition:"top-left"},
+ {id:"vehicle",type:"tracking",label:"차량",confidence:96,box:{left:46.5,top:40.6,width:10.2,height:10},sourceBox:{x:815,y:382,width:165,height:94},labelPosition:"top-left"},
+ {id:"motorcycle",type:"hazard",label:"이륜차",confidence:92,box:{left:71.8,top:37.7,width:5.6,height:12.5},sourceBox:{x:1155,y:355,width:82,height:118},labelPosition:"top-left"},
 ];
 
 const detectionImageSize={width:1674,height:941};
@@ -39,13 +38,10 @@ function getCoverPosition(
  containerWidth:number,
  containerHeight:number,
  sourceBox:NonNullable<DetectionOverlayData["sourceBox"]>,
+ cropX:number,
+ cropY:number,
+ scale:number,
 ):CSSProperties{
- const scale=Math.max(containerWidth/detectionImageSize.width,containerHeight/detectionImageSize.height);
- const renderedWidth=detectionImageSize.width*scale;
- const renderedHeight=detectionImageSize.height*scale;
- const cropX=(renderedWidth-containerWidth)/2;
- const cropY=(renderedHeight-containerHeight)/2;
-
  return {
   left:`${((sourceBox.x*scale-cropX)/containerWidth)*100}%`,
   top:`${((sourceBox.y*scale-cropY)/containerHeight)*100}%`,
@@ -54,9 +50,10 @@ function getCoverPosition(
  };
 }
 
-function DetectionCamera(){
+function DetectionCamera({animationKey}:{animationKey:number}){
  const sceneRef=useRef<HTMLDivElement>(null);
  const [overlayPositions,setOverlayPositions]=useState<Record<string,CSSProperties>>({});
+ const [backgroundPosition,setBackgroundPosition]=useState("50% 48%");
 
  useLayoutEffect(()=>{
   const scene=sceneRef.current;
@@ -65,10 +62,24 @@ function DetectionCamera(){
   const updatePosition=()=>{
    const {width,height}=scene.getBoundingClientRect();
    if(width&&height){
+    const scale=Math.max(width/detectionImageSize.width,height/detectionImageSize.height);
+    const renderedWidth=detectionImageSize.width*scale;
+    const renderedHeight=detectionImageSize.height*scale;
+    const horizontalOverflow=Math.max(0,renderedWidth-width);
+    const verticalOverflow=Math.max(0,renderedHeight-height);
+    const motorcycle=detectionOverlays.find(overlay=>overlay.id==="motorcycle")?.sourceBox;
+    const centeredCropX=horizontalOverflow/2;
+    const motorcycleSafeCropX=motorcycle
+     ? (motorcycle.x+motorcycle.width)*scale-width*.9
+     : centeredCropX;
+    const cropX=Math.min(horizontalOverflow,Math.max(centeredCropX,motorcycleSafeCropX));
+    const cropY=verticalOverflow*.48;
+    const positionX=horizontalOverflow>0?cropX/horizontalOverflow:.5;
+    setBackgroundPosition(`${positionX*100}% 48%`);
     setOverlayPositions(Object.fromEntries(
      detectionOverlays
       .filter((overlay):overlay is DetectionOverlayData&{sourceBox:NonNullable<DetectionOverlayData["sourceBox"]>}=>Boolean(overlay.sourceBox))
-      .map(overlay=>[overlay.id,getCoverPosition(width,height,overlay.sourceBox)]),
+      .map(overlay=>[overlay.id,getCoverPosition(width,height,overlay.sourceBox,cropX,cropY,scale)]),
     ));
    }
   };
@@ -79,7 +90,7 @@ function DetectionCamera(){
   return ()=>observer.disconnect();
  },[]);
 
- return <div className="flow-preview flow-preview--camera"><div className="flow-camera__top"><span><i/> CAM 07 · LIVE</span><small>AI VISION ACTIVE</small></div><div ref={sceneRef} className="flow-camera__scene"><div className="flow-camera__overlays">{detectionOverlays.map(overlay=><DetectionOverlay key={overlay.id} variant={overlay.type} label={overlay.label} confidence={overlay.confidence} compactLabel={overlay.compactLabel} className={`response-detection response-detection--label-${overlay.labelPosition}${overlay.compactLabel?" response-detection--compact":""}`} style={overlayPositions[overlay.id]??{left:`${overlay.box.left}%`,top:`${overlay.box.top}%`,width:`${overlay.box.width}%`,height:`${overlay.box.height}%`}}/>)}</div><b>서해안고속도로 · 서울 방향</b></div></div>;
+ return <div className="flow-preview flow-preview--camera"><div className="flow-camera__top"><span><i/> CAM 07 · LIVE</span><small>AI VISION ACTIVE</small></div><div ref={sceneRef} className="flow-camera__scene" style={{backgroundPosition}}><div className="flow-camera__overlays">{detectionOverlays.map(overlay=><DetectionOverlay key={`${animationKey}-${overlay.id}`} variant={overlay.type} label={overlay.label} confidence={overlay.confidence} labelPosition={overlay.labelPosition==="top-right"?"end":"start"} className={`response-detection response-detection--label-${overlay.labelPosition}`} style={overlayPositions[overlay.id]??{left:`${overlay.box.left}%`,top:`${overlay.box.top}%`,width:`${overlay.box.width}%`,height:`${overlay.box.height}%`}}/>)}</div><b>서해안고속도로 · 서울 방향</b></div></div>;
 }
 function DetailIcon({type}:{type:"input"|"process"|"result"}){
  if(type==="input")return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="m17 10 4-2v8l-4-2z"/></svg>;
@@ -89,8 +100,8 @@ function DetailIcon({type}:{type:"input"|"process"|"result"}){
 function RoadbogoLocationMarker(){
  return <div className="brand-map-marker" aria-hidden="true"><span className="brand-map-marker__pulse brand-map-marker__pulse--one"/><span className="brand-map-marker__pulse brand-map-marker__pulse--two"/><svg className="brand-map-marker__pin" viewBox="0 0 30 40" aria-hidden="true"><defs><linearGradient id="roadbogo-marker-gradient" x1="3" y1="3" x2="27" y2="38" gradientUnits="userSpaceOnUse"><stop stopColor="#3C6FE8"/><stop offset="1" stopColor="#26999E"/></linearGradient></defs><path fill="url(#roadbogo-marker-gradient)" d="M15 1C7.3 1 1.5 7 1.5 14.4 1.5 24.8 15 39 15 39s13.5-14.2 13.5-24.6C28.5 7 22.7 1 15 1Z"/><circle cx="15" cy="14" r="4.5" fill="#FCFCFA"/></svg></div>;
 }
-function ProductPreview({kind}:{kind:(typeof steps)[number]["kind"]}){
- if(kind==="detection")return <DetectionCamera/>;
+function ProductPreview({kind,animationKey}:{kind:(typeof steps)[number]["kind"];animationKey:number}){
+ if(kind==="detection")return <DetectionCamera animationKey={animationKey}/>;
  if(kind==="incident")return <div className="flow-preview flow-preview--incident"><div className="flow-ui-head"><span>사건 INC-2026-0715</span><b>자동 생성 완료</b></div><strong>INC-2026-0715</strong><div className="flow-data-grid"><span>위험 점수<b>92 · 높음</b></span><span>객체 유형<b>이륜차</b></span><span>탐지 위치<b>서해안선 23.4km</b></span><span>근거 영상<b>CAM 07 연결</b></span></div></div>;
  if(kind==="control")return <div className="flow-preview flow-preview--control"><div className="flow-ui-head"><span>사건 INC-2026-0715</span><b>관제 판정</b></div><div className="flow-score"><span>AI 신뢰도<strong>92%</strong></span><i><b/></i></div><div className="flow-review-row"><span>객체 추적 안정</span><span>차로 진입 위험</span></div><div className="flow-judgement-summary"><span>판단 근거<strong>차로 진입 위험 확인</strong></span><span>최종 판정<strong>실제 위험 · 대응 필요</strong></span></div></div>;
  if(kind==="dispatch")return <div className="flow-preview flow-preview--dispatch"><div className="flow-map"><RoadbogoLocationMarker/><span>사건 위치</span><b>강북권 관제 구역</b></div><div className="flow-team"><span>배정 대상<strong>강북 현장대응 2팀</strong><small>담당 구역 · 강북권</small><small>업무 상태 · 출동 가능</small></span><button type="button">출동 연결</button></div></div>;
@@ -257,7 +268,7 @@ export function ResponseFlowSection(){
    })}</div></div>)}</nav>
    <article className={`response-showcase__panel response-showcase__panel--${step.kind}`} key={step.number}>
     <div className="response-panel__copy"><header><div><p>STEP {step.number}</p><h3>{step.title}</h3></div></header><p className="response-step-question">{step.question}</p><p className={`response-incident-context${active===steps.length-1?" is-complete":""}`}><strong>{active===0?"CAM 07 탐지 후보":"사건 INC-2026-0715"}</strong><span>{active===0?"사건 생성 대기":active===steps.length-1?"현장 조치 완료":"동일 사건 처리 중"}</span></p><p className="response-step-description">{step.description}</p><dl className="response-step-details"><div><dt><i><DetailIcon type="input"/></i><span>확인 정보</span></dt><dd>{step.input}</dd></div><div><dt><i><DetailIcon type="process"/></i><span>처리 내용</span></dt><dd>{step.process}</dd></div><div><dt><i><DetailIcon type="result"/></i><span>현재 결과</span></dt><dd>{step.result}</dd></div></dl><div className="response-step-tags">{step.tags.map(tag=><span key={tag}>{tag}</span>)}</div></div>
-    <ProductPreview kind={step.kind}/>
+    <ProductPreview kind={step.kind} animationKey={timerRevision}/>
    </article>
   </div>
  </section>
