@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AuthenticatedUser } from "@/components/auth/AuthContext";
 import { canReceiveNotification, compareNotificationPriority, deriveNotificationActionState, formatUnreadCount, notificationNavigationLabel, notificationPresentation, notificationQueueGroup, notificationStateCopy, notificationTaskCopy, resolveNotificationTarget, safeNotificationTarget, sortNotificationQueue } from "./notificationDomain";
 import type { LinkedResourceState, NotificationRecord, NotificationViewModel } from "./notificationTypes";
+import { mockDispatchPublicIds, mockIncidentPublicIds } from "@/features/mocks/mockResourceIds";
 
 const user = (role: AuthenticatedUser["role"], publicId = "user-1"): AuthenticatedUser => ({
   publicId, name: "테스트 사용자", role, roles: [role], email: "test@example.com",
@@ -10,7 +11,7 @@ const user = (role: AuthenticatedUser["role"], publicId = "user-1"): Authenticat
 });
 const notification = (type: NotificationRecord["notification_type"], resourceType: "INCIDENT" | "DISPATCH" = "INCIDENT"): NotificationRecord => ({
   public_id: "10000000-0000-4000-8000-000000000001", notification_type: type, severity: "HIGH", title: "알림", body: "본문",
-  resource: { resource_type: resourceType, resource_public_id: resourceType === "INCIDENT" ? "INC-20260719-0012" : "DSP-20260719-0031" }, target_path: resourceType === "INCIDENT" ? "/control" : "/dispatch",
+  resource: { resource_type: resourceType, resource_public_id: resourceType === "INCIDENT" ? mockIncidentPublicIds["INC-20260719-0012"] : mockDispatchPublicIds["DSP-20260719-0031"], resource_label: resourceType === "INCIDENT" ? "INC-20260719-0012" : "DSP-20260719-0031" }, target_path: resourceType === "INCIDENT" ? "/control" : "/dispatch",
   delivery_status: "DELIVERED", read: false, delivered_at: "2026-07-19T00:00:00Z", read_at: null, created_at: "2026-07-19T00:00:00Z",
 });
 
@@ -34,6 +35,20 @@ describe("deriveNotificationActionState", () => {
     expect(canReceiveNotification(item, { resource_type: "DISPATCH", public_id: "resource-1", status: "REQUESTED", assigned_user_public_id: "another-user" }, responder)).toBe(false);
   });
 
+  it.each(["ACCEPTED", "ARRIVED", "ACTION_COMPLETED", "CANCELLED"] as const)(
+    "marks a %s dispatch as processed",
+    (status) => {
+      const responder = user("RESPONDER");
+      const item = notification("DISPATCH_ASSIGNED", "DISPATCH");
+      expect(deriveNotificationActionState(item, {
+        resource_type: "DISPATCH",
+        public_id: mockDispatchPublicIds["DSP-20260719-0031"],
+        status,
+        assigned_user_public_id: responder.publicId ?? null,
+      }, responder)).toMatchObject({ action_required: false, reason: "DISPATCH_PROCESSED", state_label: "처리됨" });
+    },
+  );
+
   it("hides operations notifications from general users and rejects unknown paths", () => {
     const general = user("GENERAL_USER");
     expect(canReceiveNotification(notification("INCIDENT_CREATED"), null, general)).toBe(false);
@@ -43,9 +58,9 @@ describe("deriveNotificationActionState", () => {
   it("resolves only authorized, valid internal notification targets", () => {
     const controller = user("CONTROLLER");
     const responder = user("RESPONDER");
-    expect(resolveNotificationTarget(notification("INCIDENT_CREATED"), controller)).toBe("/control/incidents/INC-20260719-0012");
+    expect(resolveNotificationTarget(notification("INCIDENT_CREATED"), controller)).toBe(`/control/incidents/${mockIncidentPublicIds["INC-20260719-0012"]}`);
     expect(resolveNotificationTarget(notification("DISPATCH_ASSIGNED", "DISPATCH"), responder)).toBe("/dispatch");
-    expect(resolveNotificationTarget({ ...notification("INCIDENT_CREATED"), resource: { resource_type: "INCIDENT", resource_public_id: "12" } }, controller)).toBeNull();
+    expect(resolveNotificationTarget({ ...notification("INCIDENT_CREATED"), resource: { resource_type: "INCIDENT", resource_public_id: "12", resource_label: "INC-12" } }, controller)).toBeNull();
     expect(safeNotificationTarget("//evil.example/path", controller)).toBeNull();
     expect(safeNotificationTarget("https://evil.example/path", controller)).toBeNull();
     expect(safeNotificationTarget("/control/incidents/INC-20260719-0012?next=https://evil.example", controller)).toBeNull();
