@@ -43,7 +43,7 @@ export function deriveNotificationActionState(notification: NotificationRecord, 
   return fallback;
 }
 
-const incidentPublicIdPattern = /^INC-\d{8}-\d{4}$/;
+const incidentPublicIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function safeNotificationTarget(path: string | null, user: AuthenticatedUser): NotificationTargetPath | null {
   if (path === "/control" && controlUser(user)) return path;

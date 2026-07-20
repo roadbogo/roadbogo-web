@@ -59,7 +59,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         ...notification,
         ...action,
         target_path: resolveNotificationTarget(notification, user),
-        resource_label: notification.resource.resource_public_id,
+        resource_label: notification.resource.resource_label,
         evidence: getMockNotificationEvidence(notification.resource.resource_public_id),
       };
     });

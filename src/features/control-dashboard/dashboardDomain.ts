@@ -20,7 +20,7 @@ export const nextActionLabel: Record<IncidentStatus, string> = {
   ACTION_IN_PROGRESS:"조치 진행 보기", ACTION_COMPLETED:"관제 종료", CLOSED:"완료", FALSE_POSITIVE:"완료",
 };
 const permissionForStatus: Partial<Record<IncidentStatus,string>> = {
-  NEW:"INCIDENT.READ_ALL", ACKNOWLEDGED:"INCIDENT.CLAIM", CLAIMED:"INCIDENT.DECIDE",
+  NEW:"INCIDENT.CLAIM", ACKNOWLEDGED:"INCIDENT.CLAIM", CLAIMED:"INCIDENT.DECIDE",
   UNDER_REVIEW:"INCIDENT.DECIDE", DISPATCH_REQUESTED:"DISPATCH.ASSIGN", ACTION_COMPLETED:"INCIDENT.CLOSE",
 };
 export function countKpi(incidents: DashboardIncident[], filter: Exclude<KpiFilter,null>) {
@@ -29,13 +29,12 @@ export function countKpi(incidents: DashboardIncident[], filter: Exclude<KpiFilt
 export function filterByKpi(incidents: DashboardIncident[], filter: KpiFilter) {
   return filter ? incidents.filter(item => kpiStatuses[filter].includes(item.status)) : incidents;
 }
-export function canUsePrimaryAction(incident: DashboardIncident, user: { publicId:string; apiPermissions:string[]; organizationPublicId?:string|null }) {
+export function canUsePrimaryAction(incident: DashboardIncident, user: { publicId:string; apiPermissions:string[] }) {
   if (["CLOSED","FALSE_POSITIVE"].includes(incident.status)) return false;
   const required = permissionForStatus[incident.status];
   if (required && !user.apiPermissions.includes(required)) return false;
-  if (user.organizationPublicId && user.organizationPublicId !== incident.organization_public_id) return false;
   if (incident.assigned_controller && incident.assigned_controller.public_id !== user.publicId && ["CLAIMED","UNDER_REVIEW"].includes(incident.status)) return false;
-  return incident.version_no > 0;
+  return Number.isInteger(incident.version_no) && incident.version_no >= 0;
 }
 const priority: Record<RiskGrade,number> = { CRITICAL:0,HIGH:1,MEDIUM:2,LOW:3 };
 const workflowPriority: Record<IncidentStatus,number> = {

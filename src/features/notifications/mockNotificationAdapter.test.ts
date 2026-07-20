@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AuthenticatedUser } from "@/components/auth/AuthContext";
 import { mockNotificationAdapter } from "./mockNotificationAdapter";
+import { createMockDashboardSnapshot } from "@/features/control-dashboard/mockDashboardAdapter";
 
 const controller = (publicId: string): AuthenticatedUser => ({
   publicId,
@@ -40,5 +41,15 @@ describe("mockNotificationAdapter read isolation", () => {
     const anonymous = { ...controller("temporary"), publicId: undefined };
     expect((await mockNotificationAdapter.list(anonymous)).items).toEqual([]);
     await expect(mockNotificationAdapter.markAllRead(anonymous)).rejects.toThrow();
+  });
+
+  it("links incident notifications by UUID while keeping the incident number as a label", async () => {
+    const page = await mockNotificationAdapter.list(controller("controller-links"));
+    const incident = page.items.find(item => item.resource.resource_label === "INC-20260719-0012");
+    const dashboardIncident = createMockDashboardSnapshot().incidents
+      .find(item => item.incident_no === "INC-20260719-0012");
+
+    expect(incident?.resource.resource_public_id).toBe(dashboardIncident?.public_id);
+    expect(incident?.resource.resource_public_id).not.toBe(incident?.resource.resource_label);
   });
 });

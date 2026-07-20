@@ -1,9 +1,16 @@
 import type { AuthenticatedUser } from "@/components/auth/AuthContext";
 import { canReceiveNotification } from "./notificationDomain";
 import type { LinkedResourceState, NotificationAdapter, NotificationEvidence, NotificationPage, NotificationRecord } from "./notificationTypes";
+import { mockIncidentPublicIds } from "@/features/control-dashboard/mockDashboardAdapter";
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
-const resource = (resource_type: "INCIDENT" | "DISPATCH", resource_public_id: string) => ({ resource_type, resource_public_id });
+const resource = (resource_type: "INCIDENT" | "DISPATCH", resourceLabel: string) => ({
+  resource_type,
+  resource_public_id: resource_type === "INCIDENT"
+    ? mockIncidentPublicIds[resourceLabel as keyof typeof mockIncidentPublicIds]
+    : resourceLabel,
+  resource_label: resourceLabel,
+});
 
 const records: NotificationRecord[] = [
   { public_id: "10000000-0000-4000-8000-000000000001", notification_type: "INCIDENT_CREATED", severity: "HIGH", title: "신규 위험 사건", body: "중부고속도로에서 낙하물이 탐지되었습니다.", resource: resource("INCIDENT", "INC-20260719-0012"), target_path: "/control", delivery_status: "DELIVERED", read: false, delivered_at: ago(2), read_at: null, created_at: ago(2) },
@@ -17,12 +24,12 @@ const records: NotificationRecord[] = [
 ];
 
 const states: Record<string, LinkedResourceState> = {
-  "INC-20260719-0012": { resource_type: "INCIDENT", public_id: "INC-20260719-0012", status: "NEW", active_dispatch: false },
-  "INC-20260719-0011": { resource_type: "INCIDENT", public_id: "INC-20260719-0011", status: "NEW", active_dispatch: false },
-  "INC-20260719-0008": { resource_type: "INCIDENT", public_id: "INC-20260719-0008", status: "DISPATCH_REQUESTED", active_dispatch: false },
-  "INC-20260719-0005": { resource_type: "INCIDENT", public_id: "INC-20260719-0005", status: "ACTION_COMPLETED", active_dispatch: true },
-  "INC-20260719-0006": { resource_type: "INCIDENT", public_id: "INC-20260719-0006", status: "ACKNOWLEDGED", active_dispatch: true },
-  "INC-20260718-0098": { resource_type: "INCIDENT", public_id: "INC-20260718-0098", status: "CLOSED", active_dispatch: false },
+  [mockIncidentPublicIds["INC-20260719-0012"]]: { resource_type: "INCIDENT", public_id: mockIncidentPublicIds["INC-20260719-0012"], status: "NEW", active_dispatch: false },
+  [mockIncidentPublicIds["INC-20260719-0011"]]: { resource_type: "INCIDENT", public_id: mockIncidentPublicIds["INC-20260719-0011"], status: "NEW", active_dispatch: false },
+  [mockIncidentPublicIds["INC-20260719-0008"]]: { resource_type: "INCIDENT", public_id: mockIncidentPublicIds["INC-20260719-0008"], status: "DISPATCH_REQUESTED", active_dispatch: false },
+  [mockIncidentPublicIds["INC-20260719-0005"]]: { resource_type: "INCIDENT", public_id: mockIncidentPublicIds["INC-20260719-0005"], status: "ACTION_COMPLETED", active_dispatch: true },
+  [mockIncidentPublicIds["INC-20260719-0006"]]: { resource_type: "INCIDENT", public_id: mockIncidentPublicIds["INC-20260719-0006"], status: "ACKNOWLEDGED", active_dispatch: true },
+  [mockIncidentPublicIds["INC-20260718-0098"]]: { resource_type: "INCIDENT", public_id: mockIncidentPublicIds["INC-20260718-0098"], status: "CLOSED", active_dispatch: false },
   "DSP-20260719-0031": { resource_type: "DISPATCH", public_id: "DSP-20260719-0031", status: "REQUESTED", assigned_user_public_id: "__CURRENT__" },
   "DSP-20260718-0021": { resource_type: "DISPATCH", public_id: "DSP-20260718-0021", status: "CANCELLED", assigned_user_public_id: "__CURRENT__" },
 };
@@ -37,7 +44,7 @@ const readOverridesFor = (user: AuthenticatedUser) => {
   return created;
 };
 const evidence: Record<string, NotificationEvidence> = {
-  "INC-20260719-0012": {
+  [mockIncidentPublicIds["INC-20260719-0012"]]: {
     kind: "CCTV",
     camera: "CAM 02",
     location: "중부고속도로 137.4K",

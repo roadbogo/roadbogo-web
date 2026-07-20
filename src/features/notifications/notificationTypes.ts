@@ -14,7 +14,7 @@ export type NotificationRecord = {
   severity: NotificationSeverity;
   title: string;
   body: string;
-  resource: { resource_type: NotificationResourceType; resource_public_id: string };
+  resource: { resource_type: NotificationResourceType; resource_public_id: string; resource_label: string };
   target_path: string | null;
   delivery_status: "DELIVERED";
   read: boolean;
