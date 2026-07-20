@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AuthenticatedUser } from "@/components/auth/AuthContext";
-import { canReceiveNotification, compareNotificationPriority, deriveNotificationActionState, formatUnreadCount, notificationNavigationLabel, notificationPresentation, notificationQueueGroup, notificationStateCopy, notificationTaskCopy, safeNotificationTarget } from "./notificationDomain";
+import { canReceiveNotification, compareNotificationPriority, deriveNotificationActionState, formatUnreadCount, notificationNavigationLabel, notificationPresentation, notificationQueueGroup, notificationStateCopy, notificationTaskCopy, resolveNotificationTarget, safeNotificationTarget, sortNotificationQueue } from "./notificationDomain";
 import type { LinkedResourceState, NotificationRecord, NotificationViewModel } from "./notificationTypes";
 
 const user = (role: AuthenticatedUser["role"], publicId = "user-1"): AuthenticatedUser => ({
@@ -10,7 +10,7 @@ const user = (role: AuthenticatedUser["role"], publicId = "user-1"): Authenticat
 });
 const notification = (type: NotificationRecord["notification_type"], resourceType: "INCIDENT" | "DISPATCH" = "INCIDENT"): NotificationRecord => ({
   public_id: "10000000-0000-4000-8000-000000000001", notification_type: type, severity: "HIGH", title: "알림", body: "본문",
-  resource: { resource_type: resourceType, resource_public_id: "resource-1" }, target_path: resourceType === "INCIDENT" ? "/control" : "/dispatch",
+  resource: { resource_type: resourceType, resource_public_id: resourceType === "INCIDENT" ? "INC-20260719-0012" : "DSP-20260719-0031" }, target_path: resourceType === "INCIDENT" ? "/control" : "/dispatch",
   delivery_status: "DELIVERED", read: false, delivered_at: "2026-07-19T00:00:00Z", read_at: null, created_at: "2026-07-19T00:00:00Z",
 });
 
@@ -38,6 +38,18 @@ describe("deriveNotificationActionState", () => {
     const general = user("GENERAL_USER");
     expect(canReceiveNotification(notification("INCIDENT_CREATED"), null, general)).toBe(false);
     expect(safeNotificationTarget("/admin", general)).toBeNull();
+  });
+
+  it("resolves only authorized, valid internal notification targets", () => {
+    const controller = user("CONTROLLER");
+    const responder = user("RESPONDER");
+    expect(resolveNotificationTarget(notification("INCIDENT_CREATED"), controller)).toBe("/control/incidents/INC-20260719-0012");
+    expect(resolveNotificationTarget(notification("DISPATCH_ASSIGNED", "DISPATCH"), responder)).toBe("/dispatch");
+    expect(resolveNotificationTarget({ ...notification("INCIDENT_CREATED"), resource: { resource_type: "INCIDENT", resource_public_id: "12" } }, controller)).toBeNull();
+    expect(safeNotificationTarget("//evil.example/path", controller)).toBeNull();
+    expect(safeNotificationTarget("https://evil.example/path", controller)).toBeNull();
+    expect(safeNotificationTarget("/control/incidents/INC-20260719-0012?next=https://evil.example", controller)).toBeNull();
+    expect(resolveNotificationTarget(notification("INCIDENT_CREATED"), user("GENERAL_USER"))).toBeNull();
   });
 
   it("caps the visible unread badge at 99+", () => {
@@ -78,9 +90,9 @@ describe("deriveNotificationActionState", () => {
   });
 
   it("keeps navigation labels separate from workflow state-changing actions", () => {
-    expect(notificationNavigationLabel({ reason: "INCIDENT_UNACKNOWLEDGED", target_path: "/control" })).toBe("사건 상세 보기");
-    expect(notificationNavigationLabel({ reason: "DISPATCH_REASSIGNMENT_REQUIRED", target_path: "/control" })).toBe("재배정 화면 열기");
-    expect(notificationNavigationLabel({ reason: "DISPATCH_RESPONSE_REQUIRED", target_path: "/dispatch" })).toBe("출동 상세 보기");
+    expect(notificationNavigationLabel({ reason: "INCIDENT_UNACKNOWLEDGED", target_path: "/control/incidents/INC-20260719-0012" })).toBe("사건 상세 보기");
+    expect(notificationNavigationLabel({ reason: "DISPATCH_REASSIGNMENT_REQUIRED", target_path: "/control/incidents/INC-20260719-0012" })).toBe("사건 상세 보기");
+    expect(notificationNavigationLabel({ reason: "DISPATCH_RESPONSE_REQUIRED", target_path: "/dispatch" })).toBe("출동 화면 보기");
     expect(notificationTaskCopy({ reason: "ACTION_REVIEW_REQUIRED", action_required: true })).toContain("사건 종료 여부");
   });
 
@@ -96,5 +108,29 @@ describe("deriveNotificationActionState", () => {
     expect(notificationQueueGroup({ ...base, action_required: true, read: false, severity: "HIGH" })).toBe("priority");
     expect(notificationQueueGroup({ ...base, action_required: true, read: true, severity: "HIGH" })).toBe("action");
     expect(notificationQueueGroup({ ...base, action_required: false, read: false, severity: "INFO" })).toBe("update");
+  });
+
+  it("keeps action work priority fixed while applying time sort inside other groups", () => {
+    const view = (publicId: string, createdAt: string, actionRequired = true): NotificationViewModel => ({
+      ...notification("INCIDENT_CREATED"),
+      public_id: publicId,
+      created_at: createdAt,
+      delivered_at: createdAt,
+      action_required: actionRequired,
+      action_label: actionRequired ? "사건 확인" : null,
+      target_path: "/control/incidents/INC-20260719-0012",
+      reason: actionRequired ? "INCIDENT_UNACKNOWLEDGED" : "UPDATE_ONLY",
+      state_label: actionRequired ? "조치 필요" : "상태 업데이트",
+      resource_label: "INC-20260719-0012",
+    });
+    const items = [
+      view("older-action", "2026-07-19T00:00:00Z"),
+      view("newer-action", "2026-07-19T01:00:00Z"),
+    ];
+
+    expect(sortNotificationQueue(items, "action", "newest").map(item => item.public_id))
+      .toEqual(sortNotificationQueue(items, "action", "oldest").map(item => item.public_id));
+    expect(sortNotificationQueue(items, "all", "newest").map(item => item.public_id)).toEqual(["newer-action", "older-action"]);
+    expect(sortNotificationQueue(items, "all", "oldest").map(item => item.public_id)).toEqual(["older-action", "newer-action"]);
   });
 });

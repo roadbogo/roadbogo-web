@@ -27,7 +27,15 @@ const states: Record<string, LinkedResourceState> = {
   "DSP-20260718-0021": { resource_type: "DISPATCH", public_id: "DSP-20260718-0021", status: "CANCELLED", assigned_user_public_id: "__CURRENT__" },
 };
 
-const readOverrides = new Set<string>();
+const readOverridesByUser = new Map<string, Set<string>>();
+const readOverridesFor = (user: AuthenticatedUser) => {
+  if (!user.publicId) return null;
+  const existing = readOverridesByUser.get(user.publicId);
+  if (existing) return existing;
+  const created = new Set<string>();
+  readOverridesByUser.set(user.publicId, created);
+  return created;
+};
 const evidence: Record<string, NotificationEvidence> = {
   "INC-20260719-0012": {
     kind: "CCTV",
@@ -53,12 +61,27 @@ export function getMockResourceState(publicId: string, user: AuthenticatedUser):
 export const mockNotificationAdapter: NotificationAdapter = {
   async list(user): Promise<NotificationPage> {
     await Promise.resolve();
+    const readOverrides = readOverridesFor(user);
+    if (!readOverrides) return { items: [], pagination: { page: 1, size: 20, total: 0, has_next: false }, unread_count: 0 };
     const unique = [...new Map(records.map(item => [item.public_id, item])).values()]
       .map(item => readOverrides.has(item.public_id) ? { ...item, read: true, read_at: new Date().toISOString() } : item)
       .filter(item => canReceiveNotification(item, getMockResourceState(item.resource.resource_public_id, user), user))
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     return { items: unique, pagination: { page: 1, size: 20, total: unique.length, has_next: false }, unread_count: unique.filter(item => !item.read).length };
   },
-  async markRead(publicId) { readOverrides.add(publicId); },
-  async markAllRead() { records.forEach(item => readOverrides.add(item.public_id)); },
+  async markRead(user, publicId) {
+    const readOverrides = readOverridesFor(user);
+    if (!readOverrides) throw new Error("사용자 식별 정보가 없어 읽음 상태를 저장할 수 없습니다.");
+    const visible = records.some(item => item.public_id === publicId
+      && canReceiveNotification(item, getMockResourceState(item.resource.resource_public_id, user), user));
+    if (!visible) throw new Error("현재 사용자에게 전달된 알림이 아닙니다.");
+    readOverrides.add(publicId);
+  },
+  async markAllRead(user) {
+    const readOverrides = readOverridesFor(user);
+    if (!readOverrides) throw new Error("사용자 식별 정보가 없어 읽음 상태를 저장할 수 없습니다.");
+    records
+      .filter(item => canReceiveNotification(item, getMockResourceState(item.resource.resource_public_id, user), user))
+      .forEach(item => readOverrides.add(item.public_id));
+  },
 };

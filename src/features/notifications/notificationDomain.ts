@@ -1,5 +1,5 @@
 import type { AuthenticatedUser } from "@/components/auth/AuthContext";
-import type { LinkedResourceState, NotificationActionState, NotificationPresentation, NotificationRecord, NotificationSeverity, NotificationType, NotificationViewModel } from "./notificationTypes";
+import type { LinkedResourceState, NotificationActionState, NotificationPresentation, NotificationRecord, NotificationSeverity, NotificationTargetPath, NotificationType, NotificationViewModel } from "./notificationTypes";
 
 export const notificationPresentation: Record<NotificationType, NotificationPresentation> = {
   INCIDENT_CREATED: { label: "신규 위험 사건", icon: "incident", category: "ACTION_REQUIRED", tone: "critical" },
@@ -43,10 +43,25 @@ export function deriveNotificationActionState(notification: NotificationRecord, 
   return fallback;
 }
 
-export function safeNotificationTarget(path: string | null, user: AuthenticatedUser) {
+const incidentPublicIdPattern = /^INC-\d{8}-\d{4}$/;
+
+export function safeNotificationTarget(path: string | null, user: AuthenticatedUser): NotificationTargetPath | null {
   if (path === "/control" && controlUser(user)) return path;
+  if (path?.startsWith("/control/incidents/") && controlUser(user)) {
+    const publicId = path.slice("/control/incidents/".length);
+    if (incidentPublicIdPattern.test(publicId)) return `/control/incidents/${publicId}`;
+  }
   if (path === "/dispatch" && responder(user)) return path;
   return null;
+}
+
+export function resolveNotificationTarget(notification: NotificationRecord, user: AuthenticatedUser): NotificationTargetPath | null {
+  if (notification.resource.resource_type === "INCIDENT" && controlUser(user)) {
+    const publicId = notification.resource.resource_public_id;
+    return incidentPublicIdPattern.test(publicId) ? `/control/incidents/${publicId}` : null;
+  }
+  if (notification.resource.resource_type === "DISPATCH" && responder(user)) return "/dispatch";
+  return safeNotificationTarget(notification.target_path, user);
 }
 
 export function formatRelativeTime(value: string, now = Date.now()) {
@@ -95,10 +110,9 @@ export function notificationTaskCopy(item: Pick<NotificationViewModel, "reason" 
 }
 
 export function notificationNavigationLabel(item: Pick<NotificationViewModel, "reason" | "target_path">) {
-  if (item.reason === "DISPATCH_REASSIGNMENT_REQUIRED") return "재배정 화면 열기";
-  if (item.reason === "ACTION_REVIEW_REQUIRED") return "조치 결과 보기";
-  if (item.target_path === "/dispatch") return "출동 상세 보기";
-  return item.target_path === "/control" ? "사건 상세 보기" : null;
+  if (item.target_path === "/dispatch") return "출동 화면 보기";
+  if (item.target_path?.startsWith("/control/incidents/")) return "사건 상세 보기";
+  return item.target_path === "/control" ? "관제 화면 보기" : null;
 }
 
 export type NotificationQueueGroup = "priority" | "action" | "update";
@@ -129,4 +143,17 @@ export function compareNotificationPriority(a: NotificationViewModel, b: Notific
     return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
   }
   return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+}
+
+export function sortNotificationQueue(
+  items: NotificationViewModel[],
+  view: "action" | "all" | "unread",
+  sort: "newest" | "oldest",
+) {
+  return [...items].sort((a, b) => {
+    const grouped = compareNotificationPriority(a, b);
+    if (view === "action" || notificationQueueGroup(a) !== notificationQueueGroup(b)) return grouped;
+    const delta = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    return sort === "newest" ? delta : -delta;
+  });
 }

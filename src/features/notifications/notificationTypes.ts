@@ -6,6 +6,7 @@ export type NotificationType =
   | "DISPATCH_CANCELLED" | "DISPATCH_ARRIVED" | "ACTION_COMPLETED";
 export type NotificationSeverity = "INFO" | "WARNING" | "HIGH" | "CRITICAL";
 export type NotificationResourceType = "INCIDENT" | "DISPATCH";
+export type NotificationTargetPath = "/control" | `/control/incidents/${string}` | "/dispatch";
 
 export type NotificationRecord = {
   public_id: string;
@@ -35,7 +36,7 @@ export type LinkedResourceState =
 export type NotificationActionState = {
   action_required: boolean;
   action_label: string | null;
-  target_path: "/control" | "/dispatch" | null;
+  target_path: NotificationTargetPath | null;
   reason: string;
   state_label: "조치 필요" | "처리됨" | "상태 업데이트";
 };
@@ -63,8 +64,8 @@ export type NotificationPresentation = {
 
 export interface NotificationAdapter {
   list(user: AuthenticatedUser): Promise<NotificationPage>;
-  markRead(publicId: string): Promise<void>;
-  markAllRead(): Promise<void>;
+  markRead(user: AuthenticatedUser, publicId: string): Promise<void>;
+  markAllRead(user: AuthenticatedUser): Promise<void>;
 }
 
 export interface NotificationResourceStateProvider {

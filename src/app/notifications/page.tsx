@@ -11,10 +11,10 @@ import { NotificationTypeIcon } from "@/features/notifications/NotificationRow";
 import {
   formatExactKst,
   formatRelativeTime,
-  compareNotificationPriority,
   notificationNavigationLabel,
   notificationPresentation,
   notificationQueueGroup,
+  sortNotificationQueue,
   notificationStateCopy,
   notificationTaskCopy,
   severityLabels,
@@ -114,33 +114,43 @@ function NotificationInbox() {
     const query = next.toString();
     router.replace(query ? `/notifications?${query}` : "/notifications", { scroll: false });
   }, [params, router]);
+  const closeMobileDetail = useCallback(() => {
+    setMobileDetailOpen(false);
+    setSelectedId(null);
+    replaceQuery({ selected: null });
+  }, [replaceQuery]);
   const filtered = useMemo(() => {
     const byView = view === "action" ? items.filter(item => item.action_required) : view === "unread" ? items.filter(item => !item.read) : items;
-    return byView
+    const matching = byView
       .filter(item => severity === "ALL" || item.severity === severity)
       .filter(item => type === "ALL"
         || type === "INCIDENT" && item.resource.resource_type === "INCIDENT" && item.notification_type !== "ACTION_COMPLETED"
         || type === "DISPATCH" && item.resource.resource_type === "DISPATCH"
-        || type === "COMPLETED" && item.notification_type === "ACTION_COMPLETED")
-      .sort((a, b) => {
-        const grouped = compareNotificationPriority(a, b);
-        if (view === "action" || notificationQueueGroup(a) !== notificationQueueGroup(b)) return grouped;
-        const delta = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        return sort === "newest" ? delta : -delta;
-      });
+        || type === "COMPLETED" && item.notification_type === "ACTION_COMPLETED");
+    return sortNotificationQueue(matching, view, sort);
   }, [items, severity, sort, type, view]);
   const selected = useMemo(() => items.find(item => item.public_id === selectedId) ?? filtered[0] ?? null, [filtered, items, selectedId]);
 
   useEffect(() => {
     if (loading) return;
     if (selectedId && !items.some(item => item.public_id === selectedId)) {
-      setSelectedId(null);
-      replaceQuery({ selected: null });
+      closeMobileDetail();
     } else if (selectedId && !filtered.some(item => item.public_id === selectedId)) {
-      setSelectedId(filtered[0]?.public_id ?? null);
-      replaceQuery({ selected: filtered[0]?.public_id ?? null });
+      if (mobileDetailOpen) closeMobileDetail();
+      else {
+        setSelectedId(filtered[0]?.public_id ?? null);
+        replaceQuery({ selected: filtered[0]?.public_id ?? null });
+      }
     }
-  }, [filtered, items, loading, replaceQuery, selectedId]);
+  }, [closeMobileDetail, filtered, items, loading, mobileDetailOpen, replaceQuery, selectedId]);
+  useEffect(() => {
+    if (!mobileDetailOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeMobileDetail();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [closeMobileDetail, mobileDetailOpen]);
 
   const selectView = (next: View) => {
     setView(next);
@@ -182,7 +192,9 @@ function NotificationInbox() {
             <div className={styles.filters}>
               <label><span>중요도</span><select value={severity} onChange={event => { const value = event.target.value as NotificationSeverity | "ALL"; setSeverity(value); replaceQuery({ severity: value }); }}><option value="ALL">전체</option><option value="CRITICAL">긴급</option><option value="HIGH">높음</option><option value="WARNING">주의</option><option value="INFO">일반</option></select></label>
               <label><span>유형</span><select value={type} onChange={event => { const value = event.target.value as TypeFilter; setType(value); replaceQuery({ type: value }); }}><option value="ALL">전체</option><option value="INCIDENT">사건</option><option value="DISPATCH">출동</option><option value="COMPLETED">조치 완료</option></select></label>
-              <label><span>정렬</span><select value={sort} onChange={event => { const value = event.target.value as Sort; setSort(value); replaceQuery({ sort: value }); }}><option value="newest">최신순</option><option value="oldest">오래된순</option></select></label>
+              {view === "action"
+                ? <div className={styles.fixedSort}><span>정렬</span><strong>업무 우선순위</strong></div>
+                : <label><span>정렬</span><select value={sort} onChange={event => { const value = event.target.value as Sort; setSort(value); replaceQuery({ sort: value }); }}><option value="newest">최신순</option><option value="oldest">오래된순</option></select></label>}
             </div>
           </div>
           <div id="notification-queue" className={styles.queueList} role="tabpanel" aria-labelledby={`notification-tab-${view}`}>
@@ -205,8 +217,8 @@ function NotificationInbox() {
                   })}</ul>}
           </div>
         </div>
-        <NotificationDetail item={selected} onNavigate={navigate} onClose={() => { setMobileDetailOpen(false); replaceQuery({ selected: null }); }} mobile={mobileDetailOpen} />
-        {mobileDetailOpen && <button type="button" className={styles.detailBackdrop} aria-label="알림 상세 닫기" onClick={() => setMobileDetailOpen(false)} />}
+        <NotificationDetail item={selected} onNavigate={navigate} onClose={closeMobileDetail} mobile={mobileDetailOpen} />
+        {mobileDetailOpen && <button type="button" className={styles.detailBackdrop} aria-label="알림 상세 닫기" onClick={closeMobileDetail} />}
       </section>
     </main>
   </div>;

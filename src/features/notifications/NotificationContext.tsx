@@ -2,9 +2,9 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/AuthContext";
-import { deriveNotificationActionState, safeNotificationTarget } from "./notificationDomain";
+import { deriveNotificationActionState, resolveNotificationTarget } from "./notificationDomain";
 import { getMockNotificationEvidence, getMockResourceState, mockNotificationAdapter } from "./mockNotificationAdapter";
-import type { NotificationRecord, NotificationViewModel, RealtimeStatus } from "./notificationTypes";
+import type { NotificationRecord, NotificationTargetPath, NotificationViewModel, RealtimeStatus } from "./notificationTypes";
 
 type NotificationValue = {
   items: NotificationViewModel[];
@@ -17,7 +17,7 @@ type NotificationValue = {
   refresh: () => Promise<void>;
   markRead: (publicId: string) => Promise<boolean>;
   markAllRead: () => Promise<boolean>;
-  targetFor: (item: NotificationViewModel) => "/control" | "/dispatch" | null;
+  targetFor: (item: NotificationViewModel) => NotificationTargetPath | null;
 };
 
 const NotificationContext = createContext<NotificationValue | null>(null);
@@ -58,7 +58,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       return {
         ...notification,
         ...action,
-        target_path: safeNotificationTarget(action.target_path ?? notification.target_path, user),
+        target_path: resolveNotificationTarget(notification, user),
         resource_label: notification.resource.resource_public_id,
         evidence: getMockNotificationEvidence(notification.resource.resource_public_id),
       };
@@ -66,12 +66,13 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }, [records, user]);
 
   const markRead = useCallback(async (publicId: string) => {
+    if (!user?.publicId) return false;
     const existing = records.find(item => item.public_id === publicId);
     if (!existing || existing.read || pendingReads.current.has(publicId)) return true;
     pendingReads.current.add(publicId);
     setRecords(current => current.map(item => item.public_id === publicId ? { ...item, read: true, read_at: new Date().toISOString() } : item));
     try {
-      await mockNotificationAdapter.markRead(publicId);
+      await mockNotificationAdapter.markRead(user, publicId);
       return true;
     } catch {
       setRecords(current => current.map(item => item.public_id === publicId ? existing : item));
@@ -80,14 +81,15 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     } finally {
       pendingReads.current.delete(publicId);
     }
-  }, [records]);
+  }, [records, user]);
 
   const markAllRead = useCallback(async () => {
+    if (!user?.publicId) return false;
     const previous = records;
     const readAt = new Date().toISOString();
     setRecords(current => current.map(item => ({ ...item, read: true, read_at: item.read_at ?? readAt })));
     try {
-      await mockNotificationAdapter.markAllRead();
+      await mockNotificationAdapter.markAllRead(user);
       setToast("모든 알림을 읽음 처리했습니다");
       return true;
     } catch {
@@ -95,7 +97,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       setToast("모두 읽음 처리에 실패했습니다");
       return false;
     }
-  }, [records]);
+  }, [records, user]);
 
   const value = useMemo<NotificationValue>(() => ({
     items,
