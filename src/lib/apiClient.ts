@@ -1,6 +1,7 @@
 import { AUTH_EXPIRED_KEY, clearClientAuth } from "@/lib/auth/authStorage";
 import { getAccessToken, setAccessToken } from "@/lib/auth/accessToken";
 import { API_V1_URL } from "@/lib/api";
+import { PENDING_RETURN_TO_KEY, sanitizeInternalReturnTo } from "@/lib/auth/postLoginRouting";
 
 export type ApiSuccess<T> = { success: true; data: T; message?: string | null; trace_id: string };
 export type ApiFailure = { success: false; error: { code: string; message: string; details?: Record<string, unknown> | null }; trace_id: string };
@@ -91,8 +92,10 @@ function expireSession(requestEpoch: number) {
   if (sessionChanged(requestEpoch)) return;
   resetAuthSession();
   sessionStorage.setItem(AUTH_EXPIRED_KEY, "true");
+  const returnTo=sanitizeInternalReturnTo(`${window.location.pathname}${window.location.search??""}${window.location.hash??""}`);
+  if(returnTo)sessionStorage.setItem(PENDING_RETURN_TO_KEY,returnTo);
   window.dispatchEvent(new Event("roadbogo:auth-expired"));
-  if (window.location.pathname !== "/login") window.location.replace("/login?reason=expired");
+  if (window.location.pathname !== "/login") window.location.replace(`/login?reason=expired${returnTo?`&returnTo=${encodeURIComponent(returnTo)}`:""}`);
 }
 
 async function parseEnvelope<T>(response: Response): Promise<ApiEnvelope<T>> {

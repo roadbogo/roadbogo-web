@@ -7,7 +7,7 @@ import { DetectionOverlay } from "@/components/landing/DetectionOverlay";
 import styles from "@/app/login/login.module.css";
 import { AuthRiskSelector } from "./AuthRiskSelector";
 import { AuthVisualInfoCard } from "./AuthVisualInfoCard";
-import { AUTH_RISK_IMAGE_SIZE, authRiskSlides } from "./authRiskSlides";
+import { AUTH_RISK_DISPLAY_CONFIDENCE, AUTH_RISK_IMAGE_SIZE, authRiskSlides } from "./authRiskSlides";
 import { useAuthRiskCarousel } from "./useAuthRiskCarousel";
 import type { LoginIntent } from "@/types/auth";
 
@@ -57,8 +57,7 @@ export function AuthRiskVisual({ variant, loginIntent = "general" }: Props) {
       <div key={`scan-${slide.id}-${animationKey}`} className={styles.scanLine} aria-hidden="true" />
       <Link className={styles.brand} href="/" aria-label="도로보GO 메인으로 이동"><Image src="/brand/roadbogo-logo-final.png" alt="도로보GO" width={170} height={48} priority /></Link>
       {stage.width > 0 && <div key={`detection-${slide.id}-${animationKey}`} className={styles.detectionStage} style={stage} aria-hidden="true">
-        {slide.candidates.map((bbox, index) => <DetectionOverlay key={`${slide.id}-candidate-${index}`} objectType="vehicle" variant="normal" label="차량" confidence={87 - index * 4} bbox={bbox} className={styles[`candidate${index + 1}`]} />)}
-        <DetectionOverlay objectType={slide.type} variant="danger" label={slide.label} confidence={slide.confidence} bbox={slide.bbox} className={styles.riskDetection} compactLabel />
+        <DetectionOverlay objectType={slide.type} variant="hazard" label={slide.label} confidence={AUTH_RISK_DISPLAY_CONFIDENCE[slide.type]} bbox={slide.bbox} className={styles.riskDetection} />
       </div>}
       <div key={`copy-${slide.id}-${animationKey}`} className={styles.visualCopy}><p>{variant === "signup" ? "AI RISK DETECTION" : operations ? "REAL-TIME OPERATIONS" : "ROAD FLOW INTELLIGENCE"}</p><h1 id={`${variant}-brand-title`}>{title.map(line=><span key={line}>{line}</span>)}</h1>{variant === "login" && !operations && <span>{slide.description.map(line=><span key={line}>{line}</span>)}</span>}</div>
       {variant === "login" && !operations && <AuthVisualInfoCard description={`${slide.name} 위험 탐지 · ${slide.roadName} ${slide.cctvName}`} />}
