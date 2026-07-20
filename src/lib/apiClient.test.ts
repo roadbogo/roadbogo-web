@@ -73,7 +73,7 @@ describe("apiClient authentication races", () => {
 
     await expect(api.apiRequest("/private")).rejects.toMatchObject({ httpStatus: 401 });
     expect(sessionStorage.getItem("roadbogo_auth_expired")).toBe("true");
-    expect(window.location.replace).toHaveBeenCalledWith("/login?reason=expired");
+    expect(window.location.replace).toHaveBeenCalledWith("/login?reason=expired&returnTo=%2Fprivate");
   });
 
   it("does not restore a token when logout starts during refresh", async () => {

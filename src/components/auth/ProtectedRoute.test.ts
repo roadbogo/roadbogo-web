@@ -51,4 +51,37 @@ describe("hasProtectedRouteAccess", () => {
       requiredPermissions: ["control:view"],
     })).toBe(false);
   });
+
+  it("requires a real API permission when the route declares one",()=>{
+    expect(hasProtectedRouteAccess({...user(["CONTROL_OPERATOR"],["control:view"]),apiPermissions:["INCIDENT.READ_ALL"],accountStatus:"ACTIVE"},{
+      requiredRoles:["CONTROL_OPERATOR"],
+      requiredAnyPermissions:["control:view"],
+      requiredAnyApiPermissions:["CCTV.READ","INCIDENT.READ_ALL"],
+    })).toBe(true);
+    expect(hasProtectedRouteAccess({...user(["CONTROL_OPERATOR"],["control:view"]),apiPermissions:[],accountStatus:"ACTIVE"},{
+      requiredRoles:["CONTROL_OPERATOR"],
+      requiredAnyPermissions:["control:view"],
+      requiredAnyApiPermissions:["CCTV.READ","INCIDENT.READ_ALL"],
+    })).toBe(false);
+  });
+
+  it("rejects inactive accounts before role and permission checks",()=>{
+    expect(hasProtectedRouteAccess({...user(["CONTROL_OPERATOR"],["control:view"]),accountStatus:"SUSPENDED"},{
+      requiredRoles:["CONTROL_OPERATOR"],
+      requiredPermissions:["control:view"],
+    })).toBe(false);
+  });
+
+  it.each([
+    ["CONTROL_MANAGER", ["CONTROL_OPERATOR"], ["control:view"], true],
+    ["CONTROLLER", ["CONTROL_OPERATOR"], ["control:view"], true],
+    ["SYSTEM_ADMIN with incident access", ["SYSTEM_ADMIN"], ["incidents:view"], true],
+    ["SYSTEM_ADMIN without control permissions", ["SYSTEM_ADMIN"], [], false],
+    ["GENERAL_USER", [], ["profile:view"], false],
+  ] as const)("evaluates /control access for %s", (_label, roles, permissions, expected) => {
+    expect(hasProtectedRouteAccess(user([...roles] as AppRole[], [...permissions] as AppPermission[]), {
+      requiredRoles: ["CONTROL_OPERATOR", "SYSTEM_ADMIN"],
+      requiredAnyPermissions: ["control:view", "incidents:view"],
+    })).toBe(expected);
+  });
 });

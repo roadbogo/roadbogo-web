@@ -10,10 +10,11 @@ type Props = {
   onChange: (value: string) => void;
   error?: string;
   hint?: string;
+  hintTone?: "neutral" | "success";
   disabled?: boolean;
 };
 
-export function SignupPasswordField({ id, label, value, onChange, error, hint, disabled }: Props) {
+export function SignupPasswordField({ id, label, value, onChange, error, hint, hintTone = "neutral", disabled }: Props) {
   const [visible, setVisible] = useState(false);
   const [capsLock, setCapsLock] = useState(false);
   const descriptionId = `${id}-description`;
@@ -37,6 +38,6 @@ export function SignupPasswordField({ id, label, value, onChange, error, hint, d
         </svg>
       </button>
     </div>
-    <p id={descriptionId} className={error ? styles.fieldError : styles.fieldHint} aria-live="polite">{description}</p>
+    <p id={descriptionId} className={error ? styles.fieldError : hintTone === "success" ? styles.fieldSuccess : styles.fieldHint} aria-live="polite">{description}</p>
   </div>;
 }

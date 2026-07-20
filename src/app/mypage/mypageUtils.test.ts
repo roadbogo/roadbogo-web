@@ -5,6 +5,7 @@ import {
   getNextAccountTab,
   getPermissionGroups,
   getRoleDisplay,
+  isOperationalAccount,
   validateProfile,
 } from "./mypageUtils";
 
@@ -75,13 +76,25 @@ describe("getRoleDisplay", () => {
   });
 });
 
+describe("isOperationalAccount", () => {
+  it("keeps a general account out of operations content", () => {
+    expect(isOperationalAccount(["GENERAL_USER"])).toBe(false);
+  });
+
+  it.each(["SYSTEM_ADMIN","CONTROL_MANAGER","CONTROLLER","RESPONDER"] as const)("recognizes %s as an operations role", role => {
+    expect(isOperationalAccount(["GENERAL_USER", role])).toBe(true);
+  });
+});
+
 describe("getNextAccountTab", () => {
   it.each([
+    ["overview", "ArrowRight", "profile"],
     ["profile", "ArrowRight", "security"],
-    ["security", "ArrowRight", "profile"],
+    ["security", "ArrowRight", "overview"],
     ["security", "ArrowLeft", "profile"],
-    ["profile", "ArrowLeft", "security"],
-    ["security", "Home", "profile"],
+    ["profile", "ArrowLeft", "overview"],
+    ["overview", "ArrowLeft", "security"],
+    ["security", "Home", "overview"],
     ["profile", "End", "security"],
     ["profile", "Enter", null],
   ] as const)("moves from %s with %s to %s", (activeTab, key, expected) => {
@@ -166,12 +179,16 @@ describe("profile validation", () => {
 });
 
 describe("buildProfileUpdate", () => {
-  it("includes only changed fields and keeps empty phone as null", () => {
+  it("includes only changed fields and leaves deletion to the explicit action", () => {
     expect(buildProfileUpdate({ name: "기존 이름", phone: "010-1234-5678" }, "새 이름", "010-1234-5678")).toEqual({
       user_name: "새 이름",
     });
-    expect(buildProfileUpdate({ name: "기존 이름", phone: "010-1234-5678" }, "기존 이름", " ")).toEqual({
-      phone: null,
+    expect(buildProfileUpdate({ name: "기존 이름", phone: "010-1234-5678" }, "기존 이름", " ")).toEqual({});
+  });
+
+  it("rejects clearing a registered phone through ordinary editing", () => {
+    expect(validateProfile("기존 이름", " ", "010-1234-5678")).toEqual({
+      phone: "전화번호 삭제는 ‘등록된 전화번호 삭제’를 이용해 주세요.",
     });
   });
 });

@@ -209,6 +209,12 @@
 .accountGuidance strong{flex:0 0 auto;font-size:14px}.accountGuidance p{margin:0;color:#718394;font-size:14px}
 .accountGuidance:not(.accountGuidanceOperations) p{display:none}
 .accountGuidance a{flex:0 0 auto;min-height:44px;margin:0;font-size:14px}
+.accountGuidanceGeneral>div{justify-content:center;gap:10px;flex-wrap:wrap;text-align:center}
+.accountGuidanceGeneral strong{font-weight:600;color:#5e6f7b}
+.accountGuidanceGeneral a{gap:7px;padding:5px 8px;border-radius:7px;color:#3c6fe8;font-weight:700;transition:color .18s ease,background-color .18s ease}
+.accountGuidanceGeneral a svg{width:18px;height:18px;flex:0 0 18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;transition:color .18s ease}
+.accountGuidanceGeneral a:hover{background:#f3f6fc;color:#2858c7;text-decoration:underline;text-underline-offset:3px}
+.accountGuidanceGeneral a:focus-visible{background:#f3f6fc;outline:3px solid rgba(60,111,232,.22);outline-offset:2px}
 .operationsGuidanceIcon{width:38px;height:38px;display:grid;flex:0 0 38px;place-items:center;border-radius:10px;background:#fcfcfa;color:#26999e}
 .operationsGuidanceIcon svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .operationsGuidanceCopy{min-width:0;display:grid;gap:2px}

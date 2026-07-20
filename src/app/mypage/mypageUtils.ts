@@ -5,18 +5,20 @@ import type { UserRole } from "@/types/auth";
 
 export type ProfileUpdate = { user_name?: string; phone?: string | null };
 export type ProfileFieldErrors = { name?: string; phone?: string };
-export type AccountTab = "profile" | "security";
+export type AccountTab = "overview" | "profile" | "security";
 
 const phonePattern = /^[+0-9() -]{7,30}$/;
-const accountTabs: AccountTab[] = ["profile", "security"];
+const accountTabs: AccountTab[] = ["overview", "profile", "security"];
 
-export function validateProfile(name: string, phone: string): ProfileFieldErrors {
+export function validateProfile(name: string, phone: string, currentPhone?: string): ProfileFieldErrors {
   const errors: ProfileFieldErrors = {};
   const trimmedName = name.trim();
   if (trimmedName.length < 2 || trimmedName.length > 100) {
     errors.name = "사용자명은 2자 이상 100자 이하로 입력해 주세요.";
   }
-  if (phone.trim() && !phonePattern.test(phone.trim())) {
+  if (currentPhone && !phone.trim()) {
+    errors.phone = "전화번호 삭제는 ‘등록된 전화번호 삭제’를 이용해 주세요.";
+  } else if (phone.trim() && !phonePattern.test(phone.trim())) {
     errors.phone = "전화번호는 숫자, 공백, 하이픈, 괄호와 + 기호를 사용해 입력해 주세요.";
   }
   return errors;
@@ -40,7 +42,7 @@ export function buildProfileUpdate(
   const trimmedName = name.trim();
   const trimmedPhone = phone.trim();
   if (trimmedName !== current.name) update.user_name = trimmedName;
-  if (trimmedPhone !== (current.phone ?? "")) update.phone = trimmedPhone || null;
+  if (trimmedPhone && trimmedPhone !== (current.phone ?? "")) update.phone = trimmedPhone;
   return update;
 }
 
@@ -69,6 +71,9 @@ export function getRoleDisplay(primaryRole: UserRole, roles: UserRole[]) {
     all: getRoleLabels(roles),
   };
 }
+export function isOperationalAccount(roles: UserRole[]) {
+  return roles.some(role => ["SYSTEM_ADMIN","CONTROL_MANAGER","CONTROLLER","RESPONDER"].includes(role));
+}
 
 export type AccountShortcut = { href: string; label: string; description: string };
 
@@ -81,6 +86,9 @@ export function getAccountShortcuts(permissions: string[], uiPermissions: AppPer
   }
   if (permissions.some(permission => ["DISPATCH.READ_OWN", "DISPATCH.UPDATE_OWN", "DISPATCH.ASSIGN"].includes(permission))) {
     shortcuts.push({ href: "/dispatch", label: "출동 관리", description: "배정된 출동 업무 확인" });
+  }
+  if (allowed.has("NOTIFICATION.READ_OWN") || uiAllowed.has("alerts:view")) {
+    shortcuts.push({ href: "/notifications", label: "업무 알림", description: "사건과 출동 관련 알림 확인" });
   }
   const canReadUsers = allowed.has("USER.READ_ALL");
   const canWriteUsers = allowed.has("USER.WRITE");

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/AuthContext";
 import { LogoutProvider } from "@/components/auth/LogoutProvider";
+import { NotificationProvider } from "@/features/notifications/NotificationContext";
+import { AccessHandoffToast } from "@/components/auth/AccessHandoffToast";
 
 export const metadata: Metadata = {
   title: "Roadbogo",
@@ -15,7 +17,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body><AuthProvider><LogoutProvider>{children}</LogoutProvider></AuthProvider></body>
+      <body><AuthProvider><NotificationProvider><LogoutProvider>{children}<AccessHandoffToast /></LogoutProvider></NotificationProvider></AuthProvider></body>
     </html>
   );
 }
