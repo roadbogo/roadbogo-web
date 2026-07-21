@@ -61,11 +61,14 @@ export interface DashboardSnapshot {
   source: "mock" | "api";
 }
 export interface DashboardAdapter {
+  readonly mode:"api"|"mock";
   load(): Promise<DashboardSnapshot>;
   refreshIncident(public_id: string): Promise<DashboardIncident | null>;
   refreshCctv(public_id: string): Promise<DashboardCctv | null>;
   refreshDispatch(public_id: string): Promise<DashboardDispatch | null>;
+  loadIncidentSelection(public_id:string):Promise<{incident:DashboardIncident;dispatch:DashboardDispatch|null}|null>;
 }
+export type DispatchLookupStatus="idle"|"loading"|"ready"|"error";
 export interface DashboardRealtimeEvent {
   event_id: string;
   event_type: "INCIDENT.CREATED" | "INCIDENT.STATUS_CHANGED" | "INCIDENT.UPDATED" | "DISPATCH.REQUESTED" | "DISPATCH.STATUS_CHANGED";

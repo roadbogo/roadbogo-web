@@ -1,9 +1,12 @@
 import { apiRequest } from "@/lib/apiClient";
 import type { CctvDetailDto, CctvListDto, IncidentListDto, IncidentSummaryDto } from "./dashboardApiTypes";
 import { mapDashboardCctvDetail, mapDashboardIncident, mapDashboardSnapshot } from "./dashboardMapper";
+import type { IncidentDetailDto } from "@/features/incident-detail/incidentApiTypes";
+import { mapIncidentDetail, mapIncidentDetailRecord } from "@/features/incident-detail/incidentMapper";
 import type { DashboardAdapter, DashboardDispatch, DashboardIncident, DashboardRealtimeAdapter, DashboardSnapshot } from "./dashboardTypes";
 
 export class ApiDashboardAdapter implements DashboardAdapter {
+  readonly mode="api" as const;
   async load():Promise<DashboardSnapshot>{
     const [summary,incidents,cctvs]=await Promise.all([
       apiRequest<IncidentSummaryDto>("/incidents/summary"),
@@ -19,5 +22,10 @@ export class ApiDashboardAdapter implements DashboardAdapter {
   }
   async refreshCctv(publicId:string){return mapDashboardCctvDetail(await apiRequest<CctvDetailDto>(`/cctvs/${encodeURIComponent(publicId)}`))}
   async refreshDispatch(publicId:string):Promise<DashboardDispatch|null>{void publicId;return null}
+  async loadIncidentSelection(publicId:string){
+    const detail=await apiRequest<IncidentDetailDto>(`/incidents/${encodeURIComponent(publicId)}`);
+    const record=mapIncidentDetailRecord(detail,[],[]);
+    return{incident:mapIncidentDetail(detail),dispatch:record.dispatch};
+  }
 }
 export class UnavailableDashboardRealtimeAdapter implements DashboardRealtimeAdapter { connect(){return()=>undefined} }

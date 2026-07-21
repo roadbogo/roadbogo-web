@@ -27,4 +27,15 @@ describe("ApiDispatchAdapter", () => {
     expect(result).toMatchObject({ ok: false, code: "DISPATCH_VERSION_CONFLICT", latest: { versionNo: 0 } });
     expect(apiRequest).toHaveBeenCalledTimes(2);
   });
+  it.each(["accept","reject"] as const)("keeps a successful %s command when detail refresh fails",async(action)=>{
+    const response=action==="accept"
+      ?{dispatch:{public_id:dispatchDto.public_id,previous_status:"REQUESTED",status:"ACCEPTED",accepted_at:"2026-07-21T01:00:00Z",version_no:1},incident:{public_id:dispatchDto.incident.public_id,previous_status:"DISPATCH_REQUESTED",status:"DISPATCHED",version_no:2}}
+      :{dispatch:{public_id:dispatchDto.public_id,previous_status:"REQUESTED",status:"REJECTED",rejection_reason:"업무 중",version_no:1},incident:{public_id:dispatchDto.incident.public_id,status:"DISPATCH_REQUESTED",version_no:2},responder:{public_id:"responder",duty_status:"AVAILABLE"}};
+    apiRequest.mockResolvedValueOnce(response).mockRejectedValueOnce(new TypeError("refresh failed"));
+    const adapter=new ApiDispatchAdapter();const current={...(await import("./dispatchMapper")).mapDispatchDetail(dispatchDto)};
+    const result=action==="accept"?await adapter.accept(dispatchDto.public_id,0,"same-key",current):await adapter.reject(dispatchDto.public_id,0,"업무 중","same-key",current);
+    expect(result).toMatchObject({ok:true,syncWarning:"DETAIL_REFRESH_FAILED",detail:{status:response.dispatch.status,versionNo:1,incident:{status:response.incident.status},incidentVersionNo:2}});
+    expect(apiRequest).toHaveBeenCalledTimes(2);
+    expect(apiRequest.mock.calls.filter(([url])=>String(url).endsWith(`/${action}`))).toHaveLength(1);
+  });
 });

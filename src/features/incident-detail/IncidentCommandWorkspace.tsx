@@ -8,7 +8,7 @@ import { LandingHeader } from "@/components/landing/LandingHeader";
 import { dispatchStatusLabel, formatKst, incidentStatusLabel, riskLabel } from "@/features/control-dashboard/dashboardDomain";
 import { directionLabel, objectCategoryLabel } from "@/features/control-dashboard/dashboardMapper";
 import { createIdempotencyKey } from "@/lib/apiClient";
-import { canCompareEvidence, dedupeEvidences, reasonLabel, resolveIncidentWorkspaceMode, resolvePrimaryIncidentAction } from "./incidentDetailDomain";
+import { canCompareEvidence, dedupeEvidences, isIncidentActionSupported, reasonLabel, resolveIncidentWorkspaceMode, resolvePrimaryIncidentAction } from "./incidentDetailDomain";
 import { createIncidentDetailAdapter } from "./incidentDetailAdapterFactory";
 import type { DispatchResponderOption, IncidentCommandAction, IncidentDecisionPayload, IncidentDetailRecord, IncidentEvidence } from "./incidentDetailTypes";
 import "@/components/landing/landing.css";
@@ -137,7 +137,7 @@ export function IncidentCommandWorkspace({ publicId, invalidIdentifier = false }
   const evidences = useMemo(() => dedupeEvidences(record?.evidences ?? []), [record]);
   const evidence = evidences.find(item => item.detection_public_id === selectedEvidence) ?? evidences[0];
   const mode = record ? resolveIncidentWorkspaceMode(record.incident.status) : null;
-  const primary = useMemo(() => { const candidate = record && user ? resolvePrimaryIncidentAction(record.incident, { public_id: user.publicId ?? "", permissions: user.apiPermissions }) : null; if (candidate?.key === "assign" && record?.dispatch) return null; if (candidate && ["view_dispatch", "view_field"].includes(candidate.key)) return null; return adapter.mode === "api" && candidate && !["acknowledge", "claim", "review", "assign"].includes(candidate.key) ? null : candidate; }, [record, user]);
+  const primary = useMemo(() => { const candidate = record && user ? resolvePrimaryIncidentAction(record.incident, { public_id: user.publicId ?? "", permissions: user.apiPermissions }) : null; if (candidate?.key === "assign" && record?.dispatch) return null; if (candidate && ["view_dispatch", "view_field"].includes(candidate.key)) return null; return candidate && !isIncidentActionSupported(adapter.mode,candidate.key) ? null : candidate; }, [record, user]);
 
   const perform = async (action: IncidentCommandAction, payload?: IncidentDecisionPayload | { responder_public_id: string; request_message: string }) => {
     if (!record || busyRef.current) return; busyRef.current = true; setBusy(true); const idempotencyKey = createIdempotencyKey();

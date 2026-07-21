@@ -57,6 +57,7 @@ export function createMockDashboardSnapshot(): DashboardSnapshot {
 }
 
 export class MockDashboardAdapter implements DashboardAdapter {
+  readonly mode="mock" as const;
   async load(): Promise<DashboardSnapshot> {
     return createMockDashboardSnapshot();
   }
@@ -69,4 +70,5 @@ export class MockDashboardAdapter implements DashboardAdapter {
   async refreshDispatch(public_id: string) {
     return createMockDashboardSnapshot().dispatches.find(item => item.public_id === public_id) ?? null;
   }
+  async loadIncidentSelection(public_id:string){const snapshot=createMockDashboardSnapshot();const incident=snapshot.incidents.find(item=>item.public_id===public_id);return incident?{incident,dispatch:snapshot.dispatches.find(item=>item.incident_public_id===public_id)??null}:null}
 }

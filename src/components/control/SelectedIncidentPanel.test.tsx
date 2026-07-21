@@ -49,4 +49,15 @@ describe("selected incident workflow",()=>{
   expect(waiting).toContain("수락 대기");
   expect(waiting).not.toContain(">출동 배정</a>");
  });
+
+ it("does not offer assignment while the API dispatch state is unknown",()=>{
+  const target=snapshot.incidents.find(item=>item.status==="DISPATCH_REQUESTED")!;
+  const targetCctv=snapshot.cctvs.find(item=>item.public_id===target.cctv_public_id)!;
+  const loading=renderToStaticMarkup(<SelectedIncidentPanel incident={target} cctv={targetCctv} dispatch={null} dispatchLookupStatus="loading" canAct/>);
+  expect(loading).toContain("출동 상태 확인 중");
+  expect(loading).not.toContain(">출동 배정</a>");
+  const failed=renderToStaticMarkup(<SelectedIncidentPanel incident={target} cctv={targetCctv} dispatch={null} dispatchLookupStatus="error" canAct/>);
+  expect(failed).toContain("출동 상태 확인 실패");
+  expect(failed).not.toContain(">출동 배정</a>");
+ });
 });

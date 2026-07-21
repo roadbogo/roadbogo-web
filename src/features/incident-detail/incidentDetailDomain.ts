@@ -29,6 +29,11 @@ export function resolvePrimaryIncidentAction(incident: DashboardIncident, user: 
   return candidate;
 }
 
+const apiSupportedActions = new Set<IncidentCommandAction>(["acknowledge", "claim", "review", "decide", "assign"]);
+export function isIncidentActionSupported(mode:"api"|"mock",key:IncidentCommandAction|"view_dispatch"|"view_field"){
+  return mode === "mock" || apiSupportedActions.has(key as IncidentCommandAction);
+}
+
 export function dedupeEvidences<T extends { detection_public_id: string }>(items: T[]) {
   return [...new Map(items.map(item => [item.detection_public_id, item])).values()].sort((a, b) =>
     "detected_at" in a && "detected_at" in b ? String(a.detected_at).localeCompare(String(b.detected_at)) : 0,

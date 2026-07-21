@@ -67,11 +67,11 @@ export function DispatchWorkspace() {
     const key = createIdempotencyKey();
     try {
       const result = action === "accept"
-        ? await adapter.accept(detail.publicId, detail.versionNo, key)
-        : await adapter.reject(detail.publicId, detail.versionNo, reason.trim(), key);
+        ? await adapter.accept(detail.publicId, detail.versionNo, key, detail)
+        : await adapter.reject(detail.publicId, detail.versionNo, reason.trim(), key, detail);
       if (result.ok) {
         setDetail(result.detail);
-        setNotice(action === "accept" ? "출동 요청을 수락했습니다." : "출동 요청을 거절했습니다.");
+        setNotice(result.syncWarning ? "처리는 완료됐지만 최신 상세 정보를 다시 불러오지 못했습니다." : action === "accept" ? "출동 요청을 수락했습니다." : "출동 요청을 거절했습니다.");
         setRejecting(false); setReason("");
         await loadList();
         if (action === "accept") setSelectedId(result.detail.publicId);

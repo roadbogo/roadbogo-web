@@ -1,14 +1,14 @@
 import { useEffect, useRef } from "react";
 import { SelectedIncidentPanel } from "@/components/control/SelectedIncidentPanel";
-import type { DashboardCctv, DashboardDispatch, DashboardIncident } from "@/features/control-dashboard/dashboardTypes";
+import type { DashboardCctv, DashboardDispatch, DashboardIncident, DispatchLookupStatus } from "@/features/control-dashboard/dashboardTypes";
 import { incidentStatusLabel, riskLabel } from "@/features/control-dashboard/dashboardDomain";
 import { directionLabel, objectCategoryLabel, operationalStatusLabel } from "@/features/control-dashboard/dashboardMapper";
 
 interface Props {
- open:boolean;cctv:DashboardCctv|null;relatedIncidents:DashboardIncident[];selectedIncident:DashboardIncident|null;
+ open:boolean;cctv:DashboardCctv|null;relatedIncidents:DashboardIncident[];selectedIncident:DashboardIncident|null;dispatchLookupStatus?:DispatchLookupStatus;
  selectedDispatch:DashboardDispatch|null;canAct:boolean;blockedReason?:string|null;returnFocus:HTMLElement|null;onClose:()=>void;onSelectIncident:(publicId:string)=>void;
 }
-export function CctvFocusModal({open,cctv,relatedIncidents,selectedIncident,selectedDispatch,canAct,blockedReason,returnFocus,onClose,onSelectIncident}:Props){
+export function CctvFocusModal({open,cctv,relatedIncidents,selectedIncident,selectedDispatch,dispatchLookupStatus="ready",canAct,blockedReason,returnFocus,onClose,onSelectIncident}:Props){
  const closeRef=useRef<HTMLButtonElement>(null),dialogRef=useRef<HTMLElement>(null);
  useEffect(()=>{if(!open)return;const previousOverflow=document.body.style.overflow;document.body.style.overflow="hidden";closeRef.current?.focus();const key=(event:KeyboardEvent)=>{if(event.key==="Escape"){event.preventDefault();onClose();return}if(event.key!=="Tab")return;const focusable=dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])');if(!focusable?.length)return;const first=focusable[0],last=focusable[focusable.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}};document.addEventListener("keydown",key);return()=>{document.body.style.overflow=previousOverflow;document.removeEventListener("keydown",key);returnFocus?.focus()}},[onClose,open,returnFocus]);
  if(!open||!cctv)return null;
@@ -20,7 +20,7 @@ export function CctvFocusModal({open,cctv,relatedIncidents,selectedIncident,sele
   <div className="command-focus-modal__body"><div className="command-focus-modal__media"><div className={`command-modal__video is-${cctv.video_state.toLowerCase()}`}><span className="command-cctv__road"/><em>{evidence?"AI 탐지 결과":videoStatus}</em>{evidence&&<i><b>{evidence.class_name??objectCategoryLabel[evidence.object_category]}</b><small>{evidence.representative_confidence===null?"AI 신뢰도 없음":`AI ${Math.round(evidence.representative_confidence*100)}%`}</small></i>}</div></div>
    <aside className="command-focus-modal__info"><section className="command-current-detection"><h3>현재 탐지</h3>{evidence?<><strong>{evidence.class_name??objectCategoryLabel[evidence.object_category]}</strong><span>{riskLabel[evidence.current_risk_grade]} 위험 후보</span><dl><div><dt>대표 신뢰도</dt><dd>{evidence.representative_confidence===null?"정보 없음":`${Math.round(evidence.representative_confidence*100)}%`}</dd></div><div><dt>지속시간</dt><dd>{(evidence.duration_ms/1000).toFixed(1)}초</dd></div><div><dt>반복 탐지</dt><dd>{evidence.detection_count}회</dd></div><div><dt>위험 점수</dt><dd>{evidence.current_risk_score}</dd></div></dl></>:<p className="command-focus-modal__empty">현재 연결된 탐지 정보가 없습니다.</p>}</section>
     <section className="command-linked-incidents"><h3>연결 사건 <span>{relatedIncidents.length}건</span></h3>{relatedIncidents.length?<div role="listbox" aria-label="연결 사건 선택">{relatedIncidents.map(item=><button key={item.public_id} type="button" role="option" aria-selected={item.public_id===evidence?.public_id} onClick={()=>onSelectIncident(item.public_id)}><span aria-hidden="true">{item.public_id===evidence?.public_id?"✓":""}</span><strong>{item.incident_no}</strong><em>{incidentStatusLabel[item.status]}</em></button>)}</div>:<div className="command-focus-modal__empty"><strong>연결 사건 없음</strong><span>현재 CCTV 상태만 확인할 수 있습니다.</span></div>}</section>
-    <SelectedIncidentPanel incident={evidence} cctv={cctv} dispatch={evidence?.public_id===selectedIncident?.public_id?selectedDispatch:null} canAct={evidence?.public_id===selectedIncident?.public_id&&canAct} blockedReason={evidence?.public_id===selectedIncident?.public_id?blockedReason:"선택한 사건의 최신 업무 상태를 확인해 주세요."} className="selected-incident-panel--focus"/>
+    <SelectedIncidentPanel incident={evidence} cctv={cctv} dispatch={evidence?.public_id===selectedIncident?.public_id?selectedDispatch:null} dispatchLookupStatus={evidence?.public_id===selectedIncident?.public_id?dispatchLookupStatus:"idle"} canAct={evidence?.public_id===selectedIncident?.public_id&&canAct} blockedReason={evidence?.public_id===selectedIncident?.public_id?blockedReason:"선택한 사건의 최신 업무 상태를 확인해 주세요."} className="selected-incident-panel--focus"/>
    </aside>
   </div>
  </section></div>;

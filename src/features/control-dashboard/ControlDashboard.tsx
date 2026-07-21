@@ -5,16 +5,15 @@ import { useAuth } from "@/components/auth/AuthContext";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { CctvFocusModal } from "@/components/control/CctvFocusModal";
 import { SelectedIncidentPanel } from "@/components/control/SelectedIncidentPanel";
-import { mockIncidentPublicIds } from "@/features/mocks/mockResourceIds";
 import { createDashboardAdapter } from "./dashboardAdapterFactory";
-import { createMockDashboardSnapshot } from "./mockDashboardAdapter";
+import { beginDispatchLookup, completeDispatchLookup, createDashboardInitialState, failDispatchLookup, selectIncidentAfterDashboardLoad, type DashboardDispatchLookup } from "./dashboardInitialState";
 import {
   activeStatuses, countKpi, filterByKpi, formatCompactKst, formatKst,
   filterDashboardRail, highRiskAlertKey, incidentStatusLabel, prioritizeIncidents, relativeTime, resolveDispatchPresentation,
   resolvePrimaryActionAvailability, resolveUrgentIncidentSelection, riskLabel, selectHighRiskAlert, selectIncidentForCctv, type DashboardRailFilter, type KpiFilter,
 } from "./dashboardDomain";
 import { directionLabel, objectCategoryLabel, operationalStatusLabel } from "./dashboardMapper";
-import type { DashboardCctv, DashboardIncident, DashboardSnapshot } from "./dashboardTypes";
+import type { DashboardCctv, DashboardIncident, DashboardSnapshot, DispatchLookupStatus } from "./dashboardTypes";
 import "@/components/landing/landing.css";
 import "./controlDashboard.css";
 import "./dashboardEmptyState.css";
@@ -22,7 +21,7 @@ import "./dashboardReadability.css";
 import "./dashboardWorkflow.css";
 
 const adapter=createDashboardAdapter();
-const initialSnapshot=createMockDashboardSnapshot();
+const initialState=createDashboardInitialState(adapter.mode);
 const kpis:{key:Exclude<KpiFilter,null>;label:string}[]=[
   {key:"unconfirmed",label:"미확인"},{key:"review",label:"관제 처리 중"},
   {key:"dispatch",label:"출동·조치 중"},{key:"closing",label:"종료 대기"},
@@ -45,10 +44,11 @@ function Video({cctv,incident}:{cctv:DashboardCctv;incident?:DashboardIncident})
 
 export function ControlDashboard(){
   const{user}=useAuth();
-  const[data,setData]=useState<DashboardSnapshot|null>(initialSnapshot);
+  const[data,setData]=useState<DashboardSnapshot|null>(initialState.data);
   const[error,setError]=useState("");
-  const[loading,setLoading]=useState(false);
-  const[selectedIncident,setSelectedIncident]=useState<string|null>(mockIncidentPublicIds["INC-20260719-0013"]);
+  const[loading,setLoading]=useState(initialState.loading);
+  const[selectedIncident,setSelectedIncident]=useState<string|null>(initialState.selectedIncident);
+  const[dispatchLookup,setDispatchLookup]=useState<DashboardDispatchLookup>(beginDispatchLookup(null));
   const[standaloneCctv,setStandaloneCctv]=useState<string|null>(null);
   const[kpiFilter,setKpiFilter]=useState<KpiFilter>(null);
   const[railFilter,setRailFilter]=useState<DashboardRailFilter>("high");
@@ -63,11 +63,11 @@ export function ControlDashboard(){
   const incidentRefs=useRef(new Map<string,HTMLButtonElement>());
   const pendingReveal=useRef<{incidentId:string;cctvId:string}|null>(null);
   const highlightTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
+  const dispatchLookupSequence=useRef(0);
 
   const load=useCallback(()=>{setLoading(true);setError("");void adapter.load().then(snapshot=>{
     setData(snapshot);
-    const first=prioritizeIncidents(snapshot.incidents.filter(item=>activeStatuses.includes(item.status)))[0];
-    setSelectedIncident(current=>snapshot.incidents.some(item=>item.public_id===current)?current:first?.public_id??null);
+    setSelectedIncident(current=>selectIncidentAfterDashboardLoad(snapshot,current));
   }).catch(()=>setError("관제 데이터를 불러오지 못했습니다.")).finally(()=>setLoading(false))},[]);
   useEffect(load,[load]);
 
@@ -75,7 +75,23 @@ export function ControlDashboard(){
   const incident=data?.incidents.find(item=>item.public_id===selectedIncident)??null;
   const selectedCctv=incident?.cctv_public_id??standaloneCctv;
   const cctv=data?.cctvs.find(item=>item.public_id===selectedCctv)??null;
-  const dispatch=incident?data?.dispatches.find(item=>item.incident_public_id===incident.public_id)??null:null;
+  const mockDispatch=incident?data?.dispatches.find(item=>item.incident_public_id===incident.public_id)??null:null;
+  const dispatchLookupStatus:DispatchLookupStatus=adapter.mode==="mock"?"ready":dispatchLookup.incidentId===incident?.public_id?dispatchLookup.status:"idle";
+  const dispatch=adapter.mode==="mock"?mockDispatch:dispatchLookupStatus==="ready"?dispatchLookup.dispatch:null;
+
+  useEffect(()=>{
+    if(adapter.mode==="mock")return;
+    const publicId=incident?.public_id;
+    const sequence=++dispatchLookupSequence.current;
+    if(!publicId){setDispatchLookup(beginDispatchLookup(null));return}
+    setDispatchLookup(beginDispatchLookup(publicId));
+    void adapter.loadIncidentSelection(publicId).then(selection=>{
+      if(sequence!==dispatchLookupSequence.current)return;
+      if(!selection){setDispatchLookup(current=>failDispatchLookup(current,publicId));return}
+      setData(current=>current?{...current,incidents:current.incidents.map(item=>item.public_id===publicId?selection.incident:item)}:current);
+      setDispatchLookup(current=>completeDispatchLookup(current,publicId,selection.dispatch));
+    }).catch(()=>{if(sequence===dispatchLookupSequence.current)setDispatchLookup(current=>failDispatchLookup(current,publicId))});
+  },[incident?.public_id]);
 
   const rail=useMemo(()=>{
     return filterDashboardRail(filterByKpi(activeIncidents,kpiFilter),data?.cctvs??[],railFilter,query,user?.publicId);
@@ -111,9 +127,11 @@ export function ControlDashboard(){
   const chooseIncident=(item:DashboardIncident)=>{setSelectedIncident(item.public_id);setStandaloneCctv(null);setMobileBrief(true);reveal(item.public_id,item.cctv_public_id)};
   const chooseCctv=(item:DashboardCctv)=>{const candidate=selectIncidentForCctv(activeIncidents,item.public_id);setSelectedIncident(candidate?.public_id??null);setStandaloneCctv(candidate?null:item.public_id);setMobileBrief(false);reveal(candidate?.public_id??null,item.public_id)};
   const permissions=user?.apiPermissions??[];
-  const actionAvailability=incident&&user
+  const baseActionAvailability=incident&&user
     ?resolvePrimaryActionAvailability(incident,{publicId:user.publicId??"",apiPermissions:permissions})
     :{allowed:false,reason:incident?"로그인한 관제자 정보를 확인할 수 없습니다.":null};
+  const dispatchStateBlocksAssignment=adapter.mode==="api"&&incident?.status==="DISPATCH_REQUESTED"&&(dispatchLookupStatus!=="ready"||Boolean(dispatch));
+  const actionAvailability=dispatchStateBlocksAssignment?{allowed:false,reason:dispatchLookupStatus==="loading"?"활성 출동 상태를 확인하고 있습니다.":dispatchLookupStatus==="error"?"활성 출동 상태를 확인하지 못했습니다.":"이미 활성 출동이 있어 담당자 응답을 기다리고 있습니다."}:baseActionAvailability;
   const canAct=actionAvailability.allowed;
 
   const openUrgentIncident=()=>{
@@ -171,9 +189,9 @@ export function ControlDashboard(){
             {showSearch&&<label className="command-incident-search"><span className="sr-only">사건 검색</span><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="사건 번호 또는 CCTV 검색"/></label>}
           </div>
           {rail.length?<div className="command-incident-list command-incident-list--workflow" role="listbox" aria-label="우선 처리 사건 목록">{rail.map(item=>{const linked=data.cctvs.find(candidate=>candidate.public_id===item.cctv_public_id);const itemDispatch=data.dispatches.find(candidate=>candidate.incident_public_id===item.public_id)??null;const dispatchView=resolveDispatchPresentation(item,itemDispatch);const selected=selectedIncident===item.public_id;return <button ref={node=>{if(node)incidentRefs.current.set(item.public_id,node);else incidentRefs.current.delete(item.public_id)}} type="button" role="option" key={item.public_id} className={`${selected?"is-active":""} ${highlightedIncident===item.public_id?"is-revealed":""}`} aria-selected={selected} onClick={()=>chooseIncident(item)}><i className={`risk-${item.current_risk_grade.toLowerCase()}`}/><span><span className="command-incident-card__badges"><b>{riskLabel[item.current_risk_grade]}</b><b>{incidentStatusLabel[item.status]}</b></span><strong>{item.incident_no}{selected&&<span className="sr-only"> 선택됨</span>}</strong><em className="command-incident-card__object">{item.class_name??"분류 정보 없음"}</em><em>{linked?.cctv_name??"CCTV 정보 없음"} · {linked?`${linked.road.road_name} · ${linked.road_section.section_name} · ${directionLabel[linked.direction_code]}`:"위치 정보 없음"}</em><span className="command-incident-card__assignment">{dispatchView.compact}</span></span><time dateTime={item.created_at} title={`${formatKst(item.created_at)} KST`}><span className="command-time-exact">{formatCompactKst(item.created_at)}</span><span className="command-time-relative">{relativeTime(item.created_at)}</span></time></button>})}</div>:<p className="command-empty command-incident-list--workflow">조건에 맞는 사건이 없습니다.</p>}
-          <div className="command-panel-footer"><button className="command-brief__back" onClick={()=>setMobileBrief(false)}>사건 목록으로</button><SelectedIncidentPanel incident={incident} cctv={cctv} dispatch={dispatch} canAct={Boolean(canAct)} blockedReason={actionAvailability.reason} className="command-brief--workflow"/></div>
+          <div className="command-panel-footer"><button className="command-brief__back" onClick={()=>setMobileBrief(false)}>사건 목록으로</button><SelectedIncidentPanel incident={incident} cctv={cctv} dispatch={dispatch} dispatchLookupStatus={dispatchLookupStatus} canAct={Boolean(canAct)} blockedReason={actionAvailability.reason} className="command-brief--workflow"/></div>
         </section>
       </aside>
     </div>
-  </main><CctvFocusModal open={Boolean(focusCctv)} cctv={data.cctvs.find(item=>item.public_id===focusCctv)??null} relatedIncidents={prioritizeIncidents(activeIncidents.filter(item=>item.cctv_public_id===focusCctv))} selectedIncident={incident} selectedDispatch={dispatch} canAct={Boolean(canAct)} blockedReason={actionAvailability.reason} returnFocus={focusSource} onClose={()=>setFocusCctv(null)} onSelectIncident={publicId=>{const next=data.incidents.find(item=>item.public_id===publicId);if(next)chooseIncident(next)}}/></div>;
+  </main><CctvFocusModal open={Boolean(focusCctv)} cctv={data.cctvs.find(item=>item.public_id===focusCctv)??null} relatedIncidents={prioritizeIncidents(activeIncidents.filter(item=>item.cctv_public_id===focusCctv))} selectedIncident={incident} selectedDispatch={dispatch} dispatchLookupStatus={dispatchLookupStatus} canAct={Boolean(canAct)} blockedReason={actionAvailability.reason} returnFocus={focusSource} onClose={()=>setFocusCctv(null)} onSelectIncident={publicId=>{const next=data.incidents.find(item=>item.public_id===publicId);if(next)chooseIncident(next)}}/></div>;
 }
