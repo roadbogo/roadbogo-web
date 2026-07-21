@@ -16,7 +16,7 @@ export interface DashboardCctv {
   cctv_code: string;
   cctv_name: string;
   source_type: CctvSourceType;
-  stream_type: CctvStreamType;
+  stream_type: CctvStreamType | null;
   direction_code: DirectionCode;
   operational_status: OperationalStatus;
   has_stream: boolean;
@@ -31,11 +31,11 @@ export interface DashboardIncident {
   cctv_public_id: string;
   status: IncidentStatus;
   object_category: ObjectCategory;
-  class_code: string;
-  class_name: string;
+  class_code: string | null;
+  class_name: string | null;
   current_risk_score: number;
   current_risk_grade: RiskGrade;
-  representative_confidence: number;
+  representative_confidence: number | null;
   duration_ms: number;
   detection_count: number;
   assigned_controller: { public_id: string; display_name: string } | null;
@@ -52,15 +52,18 @@ export interface DashboardDispatch {
   updated_at: string;
 }
 export interface DashboardSnapshot {
+  summary: { total_count:number; new_count:number; acknowledged_count:number; claimed_count:number; under_review_count:number; dispatch_requested_count:number; dispatch_in_progress_count:number; action_completed_count:number; closed_count:number; false_positive_count:number; generated_at:string };
   cctvs: DashboardCctv[];
   incidents: DashboardIncident[];
   dispatches: DashboardDispatch[];
+  fallback_used: boolean;
   fetched_at: string;
   source: "mock" | "api";
 }
 export interface DashboardAdapter {
   load(): Promise<DashboardSnapshot>;
   refreshIncident(public_id: string): Promise<DashboardIncident | null>;
+  refreshCctv(public_id: string): Promise<DashboardCctv | null>;
   refreshDispatch(public_id: string): Promise<DashboardDispatch | null>;
 }
 export interface DashboardRealtimeEvent {

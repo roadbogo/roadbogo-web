@@ -1,0 +1,117 @@
+/* Readability layer: preserves the command layout while keeping operational text legible at 100% zoom. */
+.command-page{color:#142a37}
+.command-heading span,.command-wall header span,.command-rail header span,.command-flow header span{font-size:11px;line-height:1.4}
+.command-heading p{color:#455f6c;font-size:14px;line-height:1.45}
+.command-sync{gap:7px}
+.command-sync span,.command-sync small{color:#536b76;font-size:12px;font-weight:650;line-height:1.4}
+.command-kpis button>span{color:#3f5967;font-size:13px;font-weight:700;line-height:1.4}
+.command-kpis button strong{font-size:25px;line-height:1}
+.command-alert{min-height:48px;padding:12px 16px;color:#812d33}
+.command-alert strong,.command-alert span,.command-alert button{font-size:13px;line-height:1.4}
+.command-alert strong,.command-alert button{font-weight:800}
+.command-workspace{grid-template-columns:minmax(0,2.35fr) minmax(390px,1fr);gap:18px}
+.command-wall h2,.command-rail h2,.command-flow h2{font-size:20px;line-height:1.3}
+.command-wall header p{color:#4d6571;font-size:12px;font-weight:650;line-height:1.4}
+.command-cctv-grid{gap:14px}
+.command-cctv__top{min-height:46px;height:auto;padding:8px 12px;font-size:12px;line-height:1.35}
+.command-cctv__top>div{min-width:0;gap:8px}
+.command-cctv__top strong{overflow:hidden;font-size:14px;font-weight:800;text-overflow:ellipsis;white-space:nowrap}
+.command-cctv__top div span{flex:none;font-size:12px;font-weight:700}
+.command-cctv__top>span{flex:none;padding:5px 8px;font-size:11px;line-height:1.2}
+.command-cctv__top em{font-size:11px!important;line-height:1.2}
+.command-cctv__video.is-demo:after{right:10px;bottom:10px;color:#fff;font-size:11px;font-weight:750}
+.command-cctv__video em{max-width:calc(100% - 16px);padding:5px 7px;font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.command-cctv__skeleton,.command-cctv__empty{color:#465e69;font-size:13px;font-weight:650}
+.command-detection{align-content:end;border-width:2px}
+.command-detection b,.command-detection small{box-sizing:border-box;width:fit-content;max-width:min(160px,calc(100% + 42px));padding:4px 6px;overflow:hidden;font-weight:800;line-height:1.25;text-overflow:ellipsis;white-space:nowrap}
+.command-detection b{background:#285fd6;font-size:12px}
+.command-detection small{background:#142a37;font-size:11px}
+.command-cctv footer{min-height:64px;padding:11px 12px}
+.command-cctv footer div{gap:5px}
+.command-cctv footer strong{font-size:14px;line-height:1.3}
+.command-cctv footer span{color:#4f6875;font-size:12px;line-height:1.35}
+.command-cctv__incident{min-height:38px;align-items:center;padding:9px 12px;font-size:12px;line-height:1.3}
+.command-cctv__incident span{min-width:0;overflow:hidden;font-weight:650;text-overflow:ellipsis;white-space:nowrap}
+.command-cctv__incident b{flex:none;font-size:12px;font-weight:800}
+.command-priority,.command-brief{padding:16px}
+.command-priority header button{font-size:12px;font-weight:750}
+.command-rail-tabs{gap:5px;padding:4px}
+.command-rail-tabs button{min-height:42px;font-size:12px}
+.command-incident-list{max-height:310px;gap:8px;padding-right:8px;scrollbar-gutter:stable}
+.command-incident-list>button{grid-template-columns:7px minmax(0,1fr) auto;min-height:82px;gap:10px;padding:11px 10px}
+.command-incident-list i{height:48px}
+.command-incident-list span{gap:4px}
+.command-incident-list small{color:#526a76;font-size:11px;font-weight:650;line-height:1.3}
+.command-incident-list strong{color:#142a37;font-size:14px;font-weight:800;line-height:1.25}
+.command-incident-list em{display:-webkit-box;color:#4f6875;font-size:12px;line-height:1.35;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.command-incident-list time{color:#526a76;font-size:11px;line-height:1.3}
+.command-incident-list>button.is-active{border-color:#668fdf;background:#edf3fd;box-shadow:inset 4px 0 0 #3c6fe8}
+.command-brief__identity{gap:12px;padding:13px}
+.command-brief__identity strong{font-size:16px;line-height:1.3}
+.command-brief__identity p{font-size:12px;line-height:1.45}
+.command-brief__identity>span{padding:5px 8px;font-size:12px;font-weight:800}
+.command-brief__location{color:#405b69;font-size:12px;line-height:1.55}
+.command-brief dl div{gap:12px;padding:10px 6px;font-size:12px;line-height:1.4}
+.command-brief dt{color:#526a76;font-weight:650}
+.command-brief dd{color:#142a37;font-size:13px;font-weight:750;text-align:right}
+.command-ai-note{margin:12px 0;padding:10px;color:#4c6572;font-size:12px;line-height:1.5}
+.command-primary,.command-secondary{min-height:44px;font-size:14px}
+.command-brief__actions>p{color:#76502e;font-size:12px;line-height:1.45}
+.command-flow{padding:18px}
+.command-flow__body{grid-template-columns:minmax(0,1fr) minmax(210px,250px);gap:20px}
+.command-flow__steps{gap:10px}
+.command-flow__steps>div{gap:7px}
+.command-flow__steps>div:not(:last-child):after{top:15px}
+.command-flow__steps i{width:30px;height:30px;font-size:12px;font-weight:750}
+.command-flow__steps strong{color:#263f4c;font-size:12px;line-height:1.3}
+.command-flow__steps span{color:#526a76;font-size:11px;line-height:1.3}
+.command-flow__steps .is-current strong{color:#2457bb;font-size:13px;font-weight:800}
+.command-flow__action{gap:9px;padding-left:20px}
+.command-flow__action>span{color:#526a76;font-size:12px;font-weight:650}
+.command-flow__action>a{min-height:44px;font-size:14px}
+.command-flow__action>strong{color:#405b69;font-size:12px;line-height:1.5}
+.command-dispatch-flow{font-size:12px;line-height:1.45}
+
+@media(max-width:1279px){
+ .command-workspace{grid-template-columns:1fr}
+ .command-rail{grid-template-columns:1fr 1fr}
+ .command-flow__steps strong{font-size:12px}
+}
+
+@media(max-width:767px){
+ .command-heading{flex-direction:column;align-items:flex-start;gap:12px}
+ .command-heading h1{font-size:28px}
+ .command-heading p{max-width:none;font-size:13px}
+ .command-sync{justify-items:start}
+ .command-sync small{display:block}
+ .command-kpis button{min-width:0;gap:8px}
+ .command-kpis button>span{min-width:0;overflow-wrap:anywhere}
+ .command-kpis button strong{flex:none}
+ .command-kpis button>span{font-size:12px}
+ .command-kpis button strong{font-size:23px}
+ .command-alert{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px 12px}
+ .command-alert strong,.command-alert span,.command-alert button{font-size:12px}
+ .command-alert span{grid-column:1/-1;width:auto}
+ .command-alert button{grid-column:2;grid-row:1;margin-left:0}
+ .command-wall h2,.command-rail h2,.command-flow h2{font-size:19px}
+ .command-wall>header{flex-direction:column;align-items:flex-start;gap:6px}
+ .command-wall header p{max-width:none;text-align:left;white-space:normal}
+ .command-cctv__top{padding-inline:10px}
+ .command-cctv footer{padding-inline:10px}
+ .command-cctv__incident{padding-inline:10px}
+ .command-mobile-cctv-tabs button{min-width:64px;padding:0 10px;font-size:12px;font-weight:700}
+ .command-rail{grid-template-columns:1fr}
+ .command-flow__body{grid-template-columns:1fr}
+ .command-flow__steps>div{flex-basis:92px}
+ .command-flow__action{padding:14px 0 0}
+}
+
+@media(max-width:359px){
+ .command-shell{padding-inline:10px}
+ .command-heading h1{font-size:26px}
+ .command-kpis button{padding:10px}
+ .command-kpis button>span{font-size:11px;line-height:1.3}
+ .command-kpis button strong{font-size:22px}
+ .command-cctv__top>span{font-size:10px}
+ .command-detection b{font-size:11px}
+}

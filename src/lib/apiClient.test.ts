@@ -64,6 +64,19 @@ describe("apiClient authentication races", () => {
     expect(resourceCalls).toBe(4);
   });
 
+  it("reuses the idempotency key when an authenticated command is retried", async () => {
+    const api = await import("./apiClient");
+    api.completeLogin("old-token");
+    const commandHeaders:string[]=[];
+    vi.mocked(fetch).mockImplementation(async(input,init)=>{
+      if(String(input).endsWith("/auth/refresh"))return response(200,{access_token:"new-token"});
+      commandHeaders.push(new Headers(init?.headers).get("Idempotency-Key")??"");
+      return commandHeaders.length===1?response(401):response(200,{status:"ACKNOWLEDGED",version_no:1});
+    });
+    await expect(api.apiRequest("/incidents/id/acknowledge",{method:"POST",idempotencyKey:"stable-key",body:{expected_version_no:0}})).resolves.toMatchObject({status:"ACKNOWLEDGED",version_no:1});
+    expect(commandHeaders).toEqual(["stable-key","stable-key"]);
+  });
+
   it("expires the session when the single retry is also unauthorized", async () => {
     const api = await import("./apiClient");
     api.completeLogin("old-token");

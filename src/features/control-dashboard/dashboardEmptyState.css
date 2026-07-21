@@ -1,0 +1,4 @@
+.command-cctv-empty{display:grid;min-height:420px;place-content:center;justify-items:center;gap:8px;border:1px dashed #c8d4d1;border-radius:15px;background:#f7f9f8;color:#526a76;text-align:center}
+.command-cctv-empty strong{font-size:16px}
+.command-cctv-empty p{max-width:360px;margin:0;color:#71828b;font-size:12px;line-height:1.6}
+.device-fault:before{background:#8d999f}

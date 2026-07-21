@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AuthenticatedUser } from "@/components/auth/AuthContext";
-import { canReceiveNotification, compareNotificationPriority, deriveNotificationActionState, formatUnreadCount, notificationNavigationLabel, notificationPresentation, notificationQueueGroup, notificationStateCopy, notificationTaskCopy, resolveNotificationTarget, safeNotificationTarget, sortNotificationQueue } from "./notificationDomain";
+import { canReceiveNotification, compareNotificationPriority, deriveNotificationActionState, formatUnreadCount, hasNewUnreadNotification, notificationNavigationLabel, notificationPresentation, notificationQueueGroup, notificationStateCopy, notificationTaskCopy, resolveNotificationTarget, safeNotificationTarget, sortNotificationQueue } from "./notificationDomain";
 import type { LinkedResourceState, NotificationRecord, NotificationViewModel } from "./notificationTypes";
 import { mockDispatchPublicIds, mockIncidentPublicIds } from "@/features/mocks/mockResourceIds";
 
@@ -13,6 +13,10 @@ const notification = (type: NotificationRecord["notification_type"], resourceTyp
   public_id: "10000000-0000-4000-8000-000000000001", notification_type: type, severity: "HIGH", title: "알림", body: "본문",
   resource: { resource_type: resourceType, resource_public_id: resourceType === "INCIDENT" ? mockIncidentPublicIds["INC-20260719-0012"] : mockDispatchPublicIds["DSP-20260719-0031"], resource_label: resourceType === "INCIDENT" ? "INC-20260719-0012" : "DSP-20260719-0031" }, target_path: resourceType === "INCIDENT" ? "/control" : "/dispatch",
   delivery_status: "DELIVERED", read: false, delivered_at: "2026-07-19T00:00:00Z", read_at: null, created_at: "2026-07-19T00:00:00Z",
+});
+
+describe("notification bell state",()=>{
+  it("detects only newly visible unread notification IDs",()=>{expect(hasNewUnreadNotification(["visible-1"],new Set())).toBe(true);expect(hasNewUnreadNotification(["visible-1"],new Set(["visible-1"]))).toBe(false);expect(hasNewUnreadNotification([],new Set(["visible-1"]))).toBe(false)});
 });
 
 describe("deriveNotificationActionState", () => {
