@@ -1,9 +1,9 @@
-import type { DashboardSnapshotDto } from "./dashboardApiTypes";
-import { mapDashboardSnapshot } from "./dashboardMapper";
-import type { DashboardAdapter, DashboardSnapshot } from "./dashboardTypes";
+import type { DashboardAdapter, DashboardCctv, DashboardDispatch, DashboardIncident, DashboardSnapshot } from "./dashboardTypes";
 import { mockCctvPublicIds, mockDispatchPublicIds, mockIncidentPublicIds } from "@/features/mocks/mockResourceIds";
+import { mapMockDashboardSnapshot, type MockDashboardSnapshotDto } from "./dashboardMapper";
+import { applyMockIncidentRuntime } from "./mockIncidentRuntimeState";
 
-const mockDto: DashboardSnapshotDto = {
+const mockDto = {
   cctvs: [
     { public_id: mockCctvPublicIds["CAM 01"], cctv_code: "CCTV-ITS-001", cctv_name: "CAM 01", source_type: "ITS", stream_type: "LIVE", direction_code: "ASC", operational_status: "NORMAL", has_stream: true, fallback_used: false, video_state: "PLAYING", road: { road_name: "중부고속도로" }, road_section: { section_name: "일죽IC ~ 호법JC" } },
     { public_id: mockCctvPublicIds["CAM 02"], cctv_code: "CCTV-ITS-002", cctv_name: "CAM 02", source_type: "ITS", stream_type: "LIVE", direction_code: "ASC", operational_status: "NORMAL", has_stream: true, fallback_used: false, video_state: "PLAYING", road: { road_name: "중부고속도로" }, road_section: { section_name: "일죽IC ~ 호법JC" } },
@@ -11,8 +11,8 @@ const mockDto: DashboardSnapshotDto = {
     { public_id: mockCctvPublicIds["CAM 04"], cctv_code: "CCTV-ITS-004", cctv_name: "CAM 04", source_type: "ITS", stream_type: "LIVE", direction_code: "UNKNOWN", operational_status: "DELAYED", has_stream: true, fallback_used: true, video_state: "FALLBACK", road: { road_name: "경부고속도로" }, road_section: { section_name: "수원신갈IC ~ 서울TG" } },
     { public_id: mockCctvPublicIds["CAM 05"], cctv_code: "CCTV-ITS-005", cctv_name: "CAM 05", source_type: "ITS", stream_type: "LIVE", direction_code: "UNKNOWN", operational_status: "FAULT", has_stream: false, fallback_used: false, video_state: "UNAVAILABLE", road: { road_name: "영동고속도로" }, road_section: { section_name: "덕평IC ~ 호법JC" } },
     { public_id: mockCctvPublicIds["CAM 06"], cctv_code: "CCTV-MANUAL-006", cctv_name: "CAM 06", source_type: "MANUAL", stream_type: "LIVE", direction_code: "DESC", operational_status: "NORMAL", has_stream: true, fallback_used: false, video_state: "LOADING", road: { road_name: "서해안고속도로" }, road_section: { section_name: "서평택JC ~ 발안IC" } },
-  ],
-  incidents: [
+  ] satisfies DashboardCctv[],
+  incidents: ([
     ["INC-20260719-0012", mockCctvPublicIds["CAM 02"], "NEW", "DEBRIS", "TIRE", "타이어", 82.5, "HIGH", .91, 4200, 14, null, 0, "2026-07-19T05:24:00.000Z"],
     ["INC-20260719-0013", mockCctvPublicIds["CAM 01"], "NEW", "VEHICLE", "STOPPED_VEHICLE", "정지 차량", 96.2, "CRITICAL", .94, 8100, 22, null, 0, "2026-07-19T05:25:00.000Z"],
     ["INC-20260719-0008", mockCctvPublicIds["CAM 03"], "ACKNOWLEDGED", "OTHER", "PEDESTRIAN", "보행자", 71.4, "HIGH", .87, 3300, 8, null, 1, "2026-07-19T05:10:00.000Z"],
@@ -23,7 +23,7 @@ const mockDto: DashboardSnapshotDto = {
     ["INC-20260719-0003", mockCctvPublicIds["CAM 04"], "ACTION_COMPLETED", "OTHER", "PEDESTRIAN", "보행자", 55, "MEDIUM", .78, 2800, 6, { public_id: "user-controller-demo", display_name: "조정민" }, 5, "2026-07-19T03:55:00.000Z"],
     ["INC-20260719-0002", mockCctvPublicIds["CAM 05"], "CLOSED", "DEBRIS", "BOX", "박스", 39, "LOW", .74, 1700, 4, { public_id: "user-controller-demo", display_name: "조정민" }, 6, "2026-07-19T03:20:00.000Z"],
     ["INC-20260719-0001", mockCctvPublicIds["CAM 06"], "FALSE_POSITIVE", "OTHER", "SHADOW", "그림자", 18, "LOW", .63, 900, 2, { public_id: "user-controller-demo", display_name: "조정민" }, 1, "2026-07-19T03:05:00.000Z"],
-  ].map(([incident_no, cctv_public_id, status, object_category, class_code, class_name, current_risk_score, current_risk_grade, representative_confidence, duration_ms, detection_count, assigned_controller, version_no, created_at]) => ({
+  ] as const).map(([incident_no, cctv_public_id, status, object_category, class_code, class_name, current_risk_score, current_risk_grade, representative_confidence, duration_ms, detection_count, assigned_controller, version_no, created_at]) => ({
     public_id: mockIncidentPublicIds[incident_no as keyof typeof mockIncidentPublicIds],
     incident_no,
     cctv_public_id,
@@ -40,22 +40,24 @@ const mockDto: DashboardSnapshotDto = {
     version_no,
     created_at,
     updated_at: "2026-07-19T05:26:00.000Z",
-  })) as DashboardSnapshotDto["incidents"],
+  })) satisfies DashboardIncident[],
   dispatches: [
     { public_id: mockDispatchPublicIds["DSP-20260719-0005"], incident_public_id: mockIncidentPublicIds["INC-20260719-0005"], status: "REQUESTED", responder_label: "이천 대응팀", requested_at: "2026-07-19T04:36:00.000Z", updated_at: "2026-07-19T04:36:00.000Z" },
     { public_id: mockDispatchPublicIds["DSP-20260719-0004"], incident_public_id: mockIncidentPublicIds["INC-20260719-0004"], status: "EN_ROUTE", responder_label: "여주 대응팀", requested_at: "2026-07-19T04:22:00.000Z", updated_at: "2026-07-19T05:14:00.000Z" },
     { public_id: mockDispatchPublicIds["DSP-20260719-0003"], incident_public_id: mockIncidentPublicIds["INC-20260719-0003"], status: "ACTION_COMPLETED", responder_label: "수원 대응팀", requested_at: "2026-07-19T04:00:00.000Z", updated_at: "2026-07-19T05:18:00.000Z" },
     { public_id: mockDispatchPublicIds["DSP-20260719-0031"], incident_public_id: mockIncidentPublicIds["INC-20260719-0012"], status: "REQUESTED", responder_label: "안성 대응팀", requested_at: "2026-07-19T05:27:00.000Z", updated_at: "2026-07-19T05:27:00.000Z" },
     { public_id: mockDispatchPublicIds["DSP-20260718-0021"], incident_public_id: mockIncidentPublicIds["INC-20260719-0008"], status: "CANCELLED", responder_label: "여주 대응팀", requested_at: "2026-07-18T05:00:00.000Z", updated_at: "2026-07-18T05:20:00.000Z" },
-  ],
+  ] satisfies DashboardDispatch[],
   fetched_at: "2026-07-19T06:15:00.000Z",
-};
+} satisfies MockDashboardSnapshotDto;
 
 export function createMockDashboardSnapshot(): DashboardSnapshot {
-  return mapDashboardSnapshot(structuredClone(mockDto), "mock");
+  const snapshot=mapMockDashboardSnapshot(mockDto);
+  return {...snapshot,incidents:snapshot.incidents.map(applyMockIncidentRuntime)};
 }
 
 export class MockDashboardAdapter implements DashboardAdapter {
+  readonly mode="mock" as const;
   async load(): Promise<DashboardSnapshot> {
     return createMockDashboardSnapshot();
   }
@@ -63,8 +65,10 @@ export class MockDashboardAdapter implements DashboardAdapter {
   async refreshIncident(public_id: string) {
     return createMockDashboardSnapshot().incidents.find(item => item.public_id === public_id) ?? null;
   }
+  async refreshCctv(public_id:string){return createMockDashboardSnapshot().cctvs.find(item=>item.public_id===public_id)??null}
 
   async refreshDispatch(public_id: string) {
     return createMockDashboardSnapshot().dispatches.find(item => item.public_id === public_id) ?? null;
   }
+  async loadIncidentSelection(public_id:string){const snapshot=createMockDashboardSnapshot();const incident=snapshot.incidents.find(item=>item.public_id===public_id);return incident?{incident,dispatch:snapshot.dispatches.find(item=>item.incident_public_id===public_id)??null}:null}
 }

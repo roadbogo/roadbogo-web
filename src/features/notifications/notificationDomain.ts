@@ -85,6 +85,10 @@ export function formatUnreadCount(count: number) {
   return count > 99 ? "99+" : String(Math.max(0, count));
 }
 
+export function hasNewUnreadNotification(currentIds: string[], previousIds: ReadonlySet<string>) {
+  return currentIds.some(publicId => !previousIds.has(publicId));
+}
+
 export function notificationStateCopy(item: Pick<NotificationViewModel, "reason" | "state_label">) {
   const labels: Record<string, string> = {
     INCIDENT_UNACKNOWLEDGED: "확인 필요",

@@ -9,6 +9,7 @@ import {
   formatExactKst,
   formatRelativeTime,
   formatUnreadCount,
+  hasNewUnreadNotification,
   notificationPresentation,
   notificationStateCopy,
   severityLabels,
@@ -31,11 +32,13 @@ export function NotificationPopover() {
   const panelRef = useRef<HTMLElement>(null);
   const pendingOpen = useRef(new Set<string>());
   const ringTimer = useRef<number | null>(null);
+  const previousUnreadIds = useRef<Set<string>>(new Set());
   const pathname = usePathname();
   const router = useRouter();
   const actionItems = useMemo(() => items.filter(item => item.action_required).sort(compareNotificationPriority), [items]);
   const updates = useMemo(() => items.filter(item => !item.action_required).sort(compareNotificationPriority), [items]);
   const priorityItem = actionItems[0] ?? null;
+  const unreadIds = useMemo(() => items.filter(item => !item.read).map(item => item.public_id), [items]);
 
   useEffect(() => { setOpen(false); }, [pathname]);
   useEffect(()=>()=>{if(ringTimer.current!==null)window.clearTimeout(ringTimer.current)},[]);
@@ -84,6 +87,11 @@ export function NotificationPopover() {
     setRinging(true);
     ringTimer.current=window.setTimeout(()=>{setRinging(false);ringTimer.current=null},650);
   },[unreadCount]);
+  useEffect(()=>{
+    if(loading)return;
+    if(hasNewUnreadNotification(unreadIds,previousUnreadIds.current))ringOnce();
+    previousUnreadIds.current=new Set(unreadIds);
+  },[loading,ringOnce,unreadIds]);
   const onBellPointerEnter=(event:PointerEvent<HTMLButtonElement>)=>{
     if(event.pointerType==="mouse"&&window.matchMedia("(hover: hover) and (pointer: fine)").matches)ringOnce();
   };

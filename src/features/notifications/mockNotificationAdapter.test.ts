@@ -23,6 +23,10 @@ const responder = (publicId: string): AuthenticatedUser => ({
   uiRoles: ["FIELD_RESPONDER"],
   uiPermissions: ["profile:view", "dispatch:assigned"],
 });
+const general = (publicId: string): AuthenticatedUser => ({
+  publicId,name:"일반 사용자",role:"GENERAL_USER",roles:["GENERAL_USER"],email:`${publicId}@example.com`,
+  apiPermissions:[],uiRoles:[],uiPermissions:["profile:view"],
+});
 
 describe("mockNotificationAdapter read isolation", () => {
   it("keeps the same notification read state isolated by user", async () => {
@@ -71,5 +75,11 @@ describe("mockNotificationAdapter read isolation", () => {
 
     expect(notification?.resource.resource_public_id).toBe(dispatch?.public_id);
     expect(notification?.resource.resource_public_id).not.toBe(notification?.resource.resource_label);
+  });
+
+  it("keeps role-filtered unread counts without inventing general-user notifications",async()=>{
+    expect((await mockNotificationAdapter.list(controller("controller-visible"))).unread_count).toBeGreaterThan(0);
+    expect((await mockNotificationAdapter.list(responder("responder-visible"))).unread_count).toBeGreaterThan(0);
+    expect((await mockNotificationAdapter.list(general("general-filtered"))).unread_count).toBe(0);
   });
 });

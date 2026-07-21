@@ -12,6 +12,7 @@ import { getAuthenticatedSidebarMenus, getLandingSidebarMenus, type SidebarIconN
 import type { UserRole } from "@/types/auth";
 import { NotificationPopover } from "@/features/notifications/NotificationPopover";
 import { isPathActive } from "@/lib/auth/controlAccess";
+import "./sidebarUnified.css";
 
 const MenuIcon = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>;
 const ServerIcon = () => <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01M11 7h6M11 17h6"/></svg>;
@@ -115,7 +116,7 @@ export function LandingHeader({ showSections = true }: { showSections?: boolean 
   }, [pathname, sidebarMenus]);
 
   return <>
-    {showPublicSidebar && <aside ref={sidebarRef} id="landing-sidebar" className={`landing-sidebar landing-public-drawer ${sidebarOpen ? "is-open" : "is-collapsed"}`} aria-label="주요 메뉴" onKeyDown={(event)=>{if(!compactNavigation||event.key!=="Tab")return;const focusable=sidebarRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]),a[href]');if(!focusable?.length)return;const first=focusable[0],last=focusable[focusable.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}}}>
+    {showPublicSidebar && <aside ref={sidebarRef} id="landing-sidebar" className={`landing-sidebar landing-public-drawer${isPublicHome ? " is-home-sidebar" : ""} ${sidebarOpen ? "is-open" : "is-collapsed"}`} aria-label="주요 메뉴" onKeyDown={(event)=>{if(!compactNavigation||event.key!=="Tab")return;const focusable=sidebarRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]),a[href]');if(!focusable?.length)return;const first=focusable[0],last=focusable[focusable.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}}}>
       <div className="landing-sidebar__frame">
         <div className="landing-sidebar__header"><button ref={sidebarToggleRef} type="button" className="landing-sidebar__toggle" aria-label={compactNavigation?(sidebarOpen?"메뉴 닫기":"메뉴 열기"):(sidebarOpen?"메뉴 접기":"메뉴 펼치기")} aria-expanded={sidebarOpen} aria-controls="landing-sidebar-nav" onClick={() => compactNavigation && sidebarOpen ? close(true) : setSidebarOpen((value) => !value)}><MenuIcon /><span>운영 메뉴</span></button></div>
         <nav id="landing-sidebar-nav" className="landing-sidebar__navigation" aria-label="페이지 바로가기">

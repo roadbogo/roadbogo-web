@@ -1,25 +1,27 @@
 import { useEffect, useRef } from "react";
-import Link from "next/link";
-import type { DashboardCctv, DashboardIncident } from "@/features/control-dashboard/dashboardTypes";
-import { incidentStatusLabel } from "@/features/control-dashboard/dashboardDomain";
-import { directionLabel, operationalStatusLabel } from "@/features/control-dashboard/dashboardMapper";
+import { SelectedIncidentPanel } from "@/components/control/SelectedIncidentPanel";
+import type { DashboardCctv, DashboardDispatch, DashboardIncident, DispatchLookupStatus } from "@/features/control-dashboard/dashboardTypes";
+import { incidentStatusLabel, riskLabel } from "@/features/control-dashboard/dashboardDomain";
+import { directionLabel, objectCategoryLabel, operationalStatusLabel } from "@/features/control-dashboard/dashboardMapper";
 
 interface Props {
-  open:boolean; cctv:DashboardCctv|null; relatedIncidents:DashboardIncident[];
-  returnFocus:HTMLElement|null; onClose:()=>void; onOpenIncident:(publicId:string)=>void;
+ open:boolean;cctv:DashboardCctv|null;relatedIncidents:DashboardIncident[];selectedIncident:DashboardIncident|null;dispatchLookupStatus?:DispatchLookupStatus;
+ selectedDispatch:DashboardDispatch|null;canAct:boolean;blockedReason?:string|null;returnFocus:HTMLElement|null;onClose:()=>void;onSelectIncident:(publicId:string)=>void;
 }
-export function CctvFocusModal({open,cctv,relatedIncidents,returnFocus,onClose,onOpenIncident}:Props){
-  const closeRef=useRef<HTMLButtonElement>(null);
-  const dialogRef=useRef<HTMLElement>(null);
-  useEffect(()=>{if(!open)return;const previousOverflow=document.body.style.overflow;document.body.style.overflow="hidden";closeRef.current?.focus();const key=(event:KeyboardEvent)=>{if(event.key==="Escape"){onClose();return}if(event.key!=="Tab")return;const focusable=dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])');if(!focusable?.length)return;const first=focusable[0],last=focusable[focusable.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}};document.addEventListener("keydown",key);return()=>{document.body.style.overflow=previousOverflow;document.removeEventListener("keydown",key);returnFocus?.focus()}},[onClose,open,returnFocus]);
-  if(!open||!cctv)return null;
-  const evidence=relatedIncidents[0]??null;
-  return <div className="command-modal-backdrop" onMouseDown={event=>event.target===event.currentTarget&&onClose()}>
-    <section ref={dialogRef} className="command-modal" role="dialog" aria-modal="true" aria-labelledby="cctv-focus-title">
-      <header><div><span>{cctv.source_type} · {cctv.stream_type} · {operationalStatusLabel[cctv.operational_status]}</span><h2 id="cctv-focus-title">{cctv.cctv_name} 집중 보기</h2><p>{cctv.road.road_name} · {cctv.road_section.section_name} · {directionLabel[cctv.direction_code]}</p></div><button ref={closeRef} type="button" onClick={onClose} aria-label="집중 보기 닫기">×</button></header>
-      <div className="command-modal__video"><span>원본 영상과 AI 탐지 결과를 구분하여 표시합니다</span>{evidence&&<i><b>{evidence.class_name}</b><small>{Math.round(evidence.representative_confidence*100)}%</small></i>}</div>
-      {evidence&&<dl className="command-modal__evidence"><div><dt>탐지 클래스</dt><dd>{evidence.class_name} ({evidence.class_code})</dd></div><div><dt>신뢰도</dt><dd>{Math.round(evidence.representative_confidence*100)}%</dd></div><div><dt>지속시간</dt><dd>{(evidence.duration_ms/1000).toFixed(1)}초</dd></div><div><dt>반복 탐지</dt><dd>{evidence.detection_count}회</dd></div></dl>}
-      <div className="command-modal__incidents"><strong>연결된 진행 사건</strong>{relatedIncidents.length?relatedIncidents.map(item=><Link key={item.public_id} href={`/control/incidents/${item.public_id}`} onClick={()=>onOpenIncident(item.public_id)}><span>{item.incident_no}</span><small>{item.class_name} · {incidentStatusLabel[item.status]}</small></Link>):<p>연결된 진행 사건이 없습니다.</p>}</div>
-    </section>
+export function CctvFocusModal({open,cctv,relatedIncidents,selectedIncident,selectedDispatch,dispatchLookupStatus="ready",canAct,blockedReason,returnFocus,onClose,onSelectIncident}:Props){
+ const closeRef=useRef<HTMLButtonElement>(null),dialogRef=useRef<HTMLElement>(null);
+ useEffect(()=>{if(!open)return;const previousOverflow=document.body.style.overflow;document.body.style.overflow="hidden";closeRef.current?.focus();const key=(event:KeyboardEvent)=>{if(event.key==="Escape"){event.preventDefault();onClose();return}if(event.key!=="Tab")return;const focusable=dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])');if(!focusable?.length)return;const first=focusable[0],last=focusable[focusable.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}};document.addEventListener("keydown",key);return()=>{document.body.style.overflow=previousOverflow;document.removeEventListener("keydown",key);returnFocus?.focus()}},[onClose,open,returnFocus]);
+ if(!open||!cctv)return null;
+ const evidence=selectedIncident?.cctv_public_id===cctv.public_id?selectedIncident:relatedIncidents[0]??null;
+ const sourceLabel=cctv.source_type==="MANUAL"?"수동 등록":cctv.source_type==="DEMO"?"시연 데이터":"ITS 연계";
+ const videoStatus=cctv.fallback_used?"마지막 정상 탐지 이미지":cctv.video_state==="LOADING"?"실시간 연결 중":cctv.video_state==="UNAVAILABLE"?"영상 제공 없음":cctv.stream_type==="DEMO"||cctv.video_state==="DEMO"?"시연 영상":"실시간";
+ return <div className="command-modal-backdrop" onMouseDown={event=>event.target===event.currentTarget&&onClose()}><section ref={dialogRef} className="command-modal command-focus-modal" role="dialog" aria-modal="true" aria-labelledby="cctv-focus-title" aria-describedby="cctv-focus-location">
+  <header className="command-focus-modal__header"><div><h2 id="cctv-focus-title">{cctv.cctv_name} 집중 관제</h2><p id="cctv-focus-location">{cctv.road.road_name} · {cctv.road_section.section_name} · {directionLabel[cctv.direction_code]}</p><div className="command-focus-modal__badges"><span>{operationalStatusLabel[cctv.operational_status]}</span><span>{sourceLabel}</span><span>{videoStatus}</span></div>{evidence&&<p className="command-focus-modal__headline"><b>현재 탐지</b><strong>{evidence.class_name??objectCategoryLabel[evidence.object_category]}</strong><span>대표 신뢰도 {evidence.representative_confidence===null?"정보 없음":`${Math.round(evidence.representative_confidence*100)}%`} · 위험 점수 {evidence.current_risk_score}</span></p>}</div><button ref={closeRef} type="button" onClick={onClose} aria-label="집중 관제 닫기">×</button></header>
+  <div className="command-focus-modal__body"><div className="command-focus-modal__media"><div className={`command-modal__video is-${cctv.video_state.toLowerCase()}`}><span className="command-cctv__road"/><em>{evidence?"AI 탐지 결과":videoStatus}</em>{evidence&&<i><b>{evidence.class_name??objectCategoryLabel[evidence.object_category]}</b><small>{evidence.representative_confidence===null?"AI 신뢰도 없음":`AI ${Math.round(evidence.representative_confidence*100)}%`}</small></i>}</div></div>
+   <aside className="command-focus-modal__info"><section className="command-current-detection"><h3>현재 탐지</h3>{evidence?<><strong>{evidence.class_name??objectCategoryLabel[evidence.object_category]}</strong><span>{riskLabel[evidence.current_risk_grade]} 위험 후보</span><dl><div><dt>대표 신뢰도</dt><dd>{evidence.representative_confidence===null?"정보 없음":`${Math.round(evidence.representative_confidence*100)}%`}</dd></div><div><dt>지속시간</dt><dd>{(evidence.duration_ms/1000).toFixed(1)}초</dd></div><div><dt>반복 탐지</dt><dd>{evidence.detection_count}회</dd></div><div><dt>위험 점수</dt><dd>{evidence.current_risk_score}</dd></div></dl></>:<p className="command-focus-modal__empty">현재 연결된 탐지 정보가 없습니다.</p>}</section>
+    <section className="command-linked-incidents"><h3>연결 사건 <span>{relatedIncidents.length}건</span></h3>{relatedIncidents.length?<div role="listbox" aria-label="연결 사건 선택">{relatedIncidents.map(item=><button key={item.public_id} type="button" role="option" aria-selected={item.public_id===evidence?.public_id} onClick={()=>onSelectIncident(item.public_id)}><span aria-hidden="true">{item.public_id===evidence?.public_id?"✓":""}</span><strong>{item.incident_no}</strong><em>{incidentStatusLabel[item.status]}</em></button>)}</div>:<div className="command-focus-modal__empty"><strong>연결 사건 없음</strong><span>현재 CCTV 상태만 확인할 수 있습니다.</span></div>}</section>
+    <SelectedIncidentPanel incident={evidence} cctv={cctv} dispatch={evidence?.public_id===selectedIncident?.public_id?selectedDispatch:null} dispatchLookupStatus={evidence?.public_id===selectedIncident?.public_id?dispatchLookupStatus:"idle"} canAct={evidence?.public_id===selectedIncident?.public_id&&canAct} blockedReason={evidence?.public_id===selectedIncident?.public_id?blockedReason:"선택한 사건의 최신 업무 상태를 확인해 주세요."} className="selected-incident-panel--focus"/>
+   </aside>
   </div>
+ </section></div>;
 }

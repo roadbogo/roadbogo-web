@@ -1,12 +1,31 @@
-import type { DashboardSnapshotDto } from "./dashboardApiTypes";
-import { mapDashboardSnapshot } from "./dashboardMapper";
+import { apiRequest } from "@/lib/apiClient";
+import type { CctvDetailDto, CctvListDto, IncidentListDto, IncidentSummaryDto } from "./dashboardApiTypes";
+import { mapDashboardCctvDetail, mapDashboardIncident, mapDashboardSnapshot } from "./dashboardMapper";
+import type { IncidentDetailDto } from "@/features/incident-detail/incidentApiTypes";
+import { mapIncidentDetail, mapIncidentDetailRecord } from "@/features/incident-detail/incidentMapper";
 import type { DashboardAdapter, DashboardDispatch, DashboardIncident, DashboardRealtimeAdapter, DashboardSnapshot } from "./dashboardTypes";
+
 export class ApiDashboardAdapter implements DashboardAdapter {
-  async load():Promise<DashboardSnapshot>{const dto=await this.fetchSnapshot();return mapDashboardSnapshot(dto,"api")}
-  async refreshIncident(public_id:string):Promise<DashboardIncident|null>{void public_id;throw new Error("사건 REST API가 아직 연결되지 않았습니다.")}
-  async refreshDispatch(public_id:string):Promise<DashboardDispatch|null>{void public_id;throw new Error("출동 REST API가 아직 연결되지 않았습니다.")}
-  private async fetchSnapshot():Promise<DashboardSnapshotDto>{throw new Error("관제 REST API가 아직 연결되지 않았습니다.")}
+  readonly mode="api" as const;
+  async load():Promise<DashboardSnapshot>{
+    const [summary,incidents,cctvs]=await Promise.all([
+      apiRequest<IncidentSummaryDto>("/incidents/summary"),
+      apiRequest<IncidentListDto>("/incidents?size=100&sort=priority%2Cdesc"),
+      apiRequest<CctvListDto>("/cctvs?size=100&sort=cctv_name%2Casc"),
+    ]);
+    return mapDashboardSnapshot({summary,incidents:incidents.items,cctvs:cctvs.items,fallbackUsed:cctvs.fallback_used,fetchedAt:summary.generated_at});
+  }
+  async refreshIncident(publicId:string):Promise<DashboardIncident|null>{
+    const list=await apiRequest<IncidentListDto>(`/incidents?size=100&keyword=${encodeURIComponent(publicId)}`);
+    const dto=list.items.find(item=>item.public_id===publicId);
+    return dto?mapDashboardIncident(dto):null;
+  }
+  async refreshCctv(publicId:string){return mapDashboardCctvDetail(await apiRequest<CctvDetailDto>(`/cctvs/${encodeURIComponent(publicId)}`))}
+  async refreshDispatch(publicId:string):Promise<DashboardDispatch|null>{void publicId;return null}
+  async loadIncidentSelection(publicId:string){
+    const detail=await apiRequest<IncidentDetailDto>(`/incidents/${encodeURIComponent(publicId)}`);
+    const record=mapIncidentDetailRecord(detail,[],[]);
+    return{incident:mapIncidentDetail(detail),dispatch:record.dispatch};
+  }
 }
-export class UnavailableDashboardRealtimeAdapter implements DashboardRealtimeAdapter {
-  connect(){return()=>undefined}
-}
+export class UnavailableDashboardRealtimeAdapter implements DashboardRealtimeAdapter { connect(){return()=>undefined} }

@@ -1,62 +1,37 @@
-import type {
-  CctvSourceType,
-  CctvStreamType,
-  DirectionCode,
-  DispatchStatus,
-  IncidentStatus,
-  ObjectCategory,
-  OperationalStatus,
-  RiskGrade,
-  VideoState,
-} from "./dashboardTypes";
+import type { CctvSourceType, DirectionCode, IncidentStatus, ObjectCategory, OperationalStatus, RiskGrade } from "./dashboardTypes";
 
-/** Backend response contracts. Keep these separate from screen-facing dashboard models. */
-export interface DashboardCctvDto {
-  public_id: string;
-  cctv_code: string;
-  cctv_name: string;
-  source_type: CctvSourceType;
-  stream_type: CctvStreamType;
-  direction_code: DirectionCode;
-  operational_status: OperationalStatus;
-  has_stream: boolean;
-  fallback_used: boolean;
-  video_state: VideoState;
-  road: { road_name: string };
-  road_section: { section_name: string };
+export interface PaginationDto { page:number; size:number; total_elements:number; total_pages:number }
+export interface PublicUserDto { public_id:string; user_name:string }
+
+export interface IncidentSummaryDto {
+  total_count:number; new_count:number; acknowledged_count:number; claimed_count:number;
+  under_review_count:number; dispatch_requested_count:number; dispatch_in_progress_count:number;
+  action_completed_count:number; closed_count:number; false_positive_count:number;
+  risk_grade_counts:Record<RiskGrade,number>; object_category_counts:Record<ObjectCategory,number>;
+  generated_at:string;
 }
 
-export interface DashboardIncidentDto {
-  public_id: string;
-  incident_no: string;
-  cctv_public_id: string;
-  status: IncidentStatus;
-  object_category: ObjectCategory;
-  class_code: string;
-  class_name: string;
-  current_risk_score: number;
-  current_risk_grade: RiskGrade;
-  representative_confidence: number;
-  duration_ms: number;
-  detection_count: number;
-  assigned_controller: { public_id: string; display_name: string } | null;
-  version_no: number;
-  created_at: string;
-  updated_at: string;
+export interface IncidentListItemDto {
+  public_id:string; incident_no:string; status:IncidentStatus; object_category:ObjectCategory;
+  class_code:string|null; class_name:string|null; ai_risk_score:number; ai_risk_grade:RiskGrade;
+  representative_confidence:number|null; detection_count:number; duration_ms:number;
+  first_detected_at:string; last_detected_at:string; acknowledged_at:string|null;
+  claimed_by:PublicUserDto|null;
+  cctv:{public_id:string;cctv_name:string;direction_code:DirectionCode};
+  location:{road_name:string;road_section_name:string;latitude:number;longitude:number};
+  representative_image_url:string|null; version_no:number; updated_at:string;
 }
+export interface IncidentListDto { items:IncidentListItemDto[]; pagination:PaginationDto }
 
-export interface DashboardDispatchDto {
-  public_id: string;
-  incident_public_id: string;
-  status: DispatchStatus;
-  responder_label: string;
-  requested_at: string;
-  updated_at: string;
+export interface CctvListItemDto {
+  public_id:string; cctv_code:string; cctv_name:string; source_type:CctvSourceType;
+  direction_code:DirectionCode; latitude:number; longitude:number; km_post:number|null;
+  operational_status:OperationalStatus; is_active:boolean; has_stream:boolean;
+  road:{public_id:string;road_code:string;road_name:string};
+  road_section:{public_id:string;section_code:string;section_name:string};
+  last_successful_sync_at:string|null;
 }
-
-export interface DashboardSnapshotDto {
-  cctvs: DashboardCctvDto[];
-  incidents: DashboardIncidentDto[];
-  dispatches: DashboardDispatchDto[];
-  fetched_at: string;
+export interface CctvListDto { items:CctvListItemDto[]; pagination:PaginationDto; fallback_used:boolean }
+export interface CctvDetailDto extends Omit<CctvListItemDto,"has_stream"> {
+  external_its_cctv_id:string|null; stream:{available:boolean;stream_type:"LIVE"|"DEMO"|null;protocol_type:"RTSP"|"HLS"|"HTTP"|"FILE"|"OTHER"|null;stream_status:"ACTIVE"|"INACTIVE"|"ERROR"|null};created_at:string;updated_at:string;
 }
