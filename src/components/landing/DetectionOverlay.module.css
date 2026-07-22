@@ -25,6 +25,16 @@
   --detection-label:#552126;
   --detection-dot:#f06a70;
 }
+.traffic,.tracking{
+  --detection-line:#26999e;
+  --detection-label:#176f73;
+  --detection-dot:#72d1d0;
+}
+.default{
+  --detection-line:#3c6fe8;
+  --detection-label:#2451b8;
+  --detection-dot:#78a0ff;
+}
 .animated{
   opacity:0;
   animation:overlay-lock .46s cubic-bezier(.2,.8,.2,1) .34s 1 forwards;

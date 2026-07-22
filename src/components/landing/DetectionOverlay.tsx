@@ -18,11 +18,13 @@ type Props={
   children?:ReactNode;
 };
 
-export function DetectionOverlay({objectType,label,confidence,bbox,variant,className="",style,animated=true,labelPosition="start",children}:Props){
+export function DetectionOverlay({objectType,label,confidence,bbox,variant,visualVariant,className="",style,animated=true,labelPosition="start",children}:Props){
   const position=bbox?{left:`${bbox.x*100}%`,top:`${bbox.y*100}%`,width:`${bbox.width*100}%`,height:`${bbox.height*100}%`}:style;
   const displayLabel=label.replace(/\s*감지$/u,"");
-  return <div className={`${styles.position} ${variant==="hazard"?styles.positionHazard:""} ${className}`.trim()} style={position} data-object-type={objectType??displayLabel} aria-hidden="true">
-    <div className={`${styles.box} ${styles[variant]} ${animated?styles.animated:""}`}>
+  const presentationClass=visualVariant?styles[visualVariant]:styles[variant];
+  const isHazard=visualVariant?visualVariant==="hazard":variant==="hazard";
+  return <div className={`${styles.position} ${isHazard?styles.positionHazard:""} ${className}`.trim()} style={position} data-object-type={objectType??displayLabel} data-visual-variant={visualVariant} aria-hidden="true">
+    <div className={`${styles.box} ${presentationClass} ${animated?styles.animated:""}`}>
       <span className={`${styles.corner} ${styles.topLeft}`}/><span className={`${styles.corner} ${styles.topRight}`}/><span className={`${styles.corner} ${styles.bottomRight}`}/><span className={`${styles.corner} ${styles.bottomLeft}`}/>
       <span className={`${styles.label} ${labelPosition==="end"?styles.labelEnd:""}`}><i className={styles.dot}/><b className={styles.name}>{displayLabel}</b>{confidence!==null&&<><span className={styles.separator}>·</span><b className={styles.confidence}>{confidence}%</b></>}</span>
       {children}

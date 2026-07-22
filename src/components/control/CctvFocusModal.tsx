@@ -3,7 +3,7 @@ import Image from "next/image";
 import { DetectionOverlay, type NormalizedBBox } from "@/components/landing/DetectionOverlay";
 import { SelectedIncidentPanel } from "@/components/control/SelectedIncidentPanel";
 import type { DashboardCctv, DashboardDispatch, DashboardIncident, DispatchLookupStatus } from "@/features/control-dashboard/dashboardTypes";
-import { incidentStatusLabel, riskLabel } from "@/features/control-dashboard/dashboardDomain";
+import { incidentStatusLabel, riskLabel, selectIncidentForCctv } from "@/features/control-dashboard/dashboardDomain";
 import { directionLabel, objectCategoryLabel, operationalStatusLabel } from "@/features/control-dashboard/dashboardMapper";
 import { getDetectionVisualVariant } from "@/features/detection/detectionVisualVariant";
 
@@ -43,6 +43,6 @@ export function CctvFocusModal({open,cctv,relatedIncidents,selectedIncident,sele
     </div></section></div>
    </aside>
   </div>
-  {quickCctvs.length>0&&<nav className="command-focus-modal__quick" aria-label="다른 CCTV 빠른 전환"><header><strong>다른 CCTV</strong><span>{quickCctvs.length}개 빠른 전환</span></header><div>{quickCctvs.map(item=>{const linked=incidents.find(candidate=>candidate.cctv_public_id===item.public_id)??null;const thumbnail=linked?.representative_image_url??null;return <button key={item.public_id} type="button" onClick={()=>onSelectCctv?.(item.public_id)} aria-label={`${item.cctv_name} 집중 관제로 전환`}><span className={`command-focus-modal__thumb media-${thumbnail?"ready":item.video_state.toLowerCase()}`}>{thumbnail&&<Image src={thumbnail} alt="" fill sizes="180px" unoptimized/>}<i className={`device-${item.operational_status.toLowerCase()}`}/></span><span><strong>{item.cctv_name}</strong><small>{operationalStatusLabel[item.operational_status]}{linked?` · ${linked.class_name??objectCategoryLabel[linked.object_category]}`:" · 탐지 없음"}</small></span>{linked&&<b className={`risk-${linked.current_risk_grade.toLowerCase()}`}>{riskLabel[linked.current_risk_grade]}</b>}</button>})}</div></nav>}
+  {quickCctvs.length>0&&<nav className="command-focus-modal__quick" aria-label="다른 CCTV 빠른 전환"><header><strong>다른 CCTV</strong><span>{quickCctvs.length}개 빠른 전환</span></header><div>{quickCctvs.map(item=>{const linked=selectIncidentForCctv(incidents,item.public_id);const thumbnail=linked?.representative_image_url??null;return <button key={item.public_id} type="button" onClick={()=>onSelectCctv?.(item.public_id)} aria-label={`${item.cctv_name} 집중 관제로 전환`}><span className={`command-focus-modal__thumb media-${thumbnail?"ready":item.video_state.toLowerCase()}`}>{thumbnail&&<Image src={thumbnail} alt="" fill sizes="180px" unoptimized/>}<i className={`device-${item.operational_status.toLowerCase()}`}/></span><span><strong>{item.cctv_name}</strong><small>{operationalStatusLabel[item.operational_status]}{linked?` · ${linked.class_name??objectCategoryLabel[linked.object_category]}`:" · 탐지 없음"}</small></span>{linked&&<b className={`risk-${linked.current_risk_grade.toLowerCase()}`}>{riskLabel[linked.current_risk_grade]}</b>}</button>})}</div></nav>}
  </section></div>;
 }
