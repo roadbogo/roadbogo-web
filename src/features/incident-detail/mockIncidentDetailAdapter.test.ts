@@ -23,11 +23,22 @@ describe("MockIncidentDetailAdapter commands",()=>{
     expect(acknowledged).toMatchObject({ok:true,status:"ACKNOWLEDGED"});
     const claimed=await adapter.act({incident_public_id:publicId,expected_version_no:acknowledged.ok?acknowledged.version_no:-1,action:"claim",idempotency_key:"mock-2"});
     expect(claimed).toMatchObject({ok:true,status:"CLAIMED"});
+    if(!claimed.ok)throw new Error("mock claim failed");
+    expect(claimed.record?.incident.claimed_at).not.toBeNull();
     const reviewed=await adapter.act({incident_public_id:publicId,expected_version_no:claimed.ok?claimed.version_no:-1,action:"review",idempotency_key:"mock-3"});
     expect(reviewed).toMatchObject({ok:true,status:"UNDER_REVIEW"});
     expect(adapter.supportsRelease).toBe(true);
     const released=await adapter.act({incident_public_id:publicId,expected_version_no:reviewed.ok?reviewed.version_no:-1,action:"release",idempotency_key:"mock-4"});
     expect(released).toMatchObject({ok:true,status:"ACKNOWLEDGED"});
+    if(!released.ok)throw new Error("mock release failed");
+    expect(released.record?.incident.claimed_at).toBeNull();
+  });
+
+  it("keeps a realistic claimed timestamp on assigned mock incidents",async()=>{
+    const adapter=new MockIncidentDetailAdapter();
+    const assigned=createMockDashboardSnapshot().incidents.find(item=>item.assigned_controller)!;
+    const detail=await adapter.get(assigned.public_id);
+    expect(detail?.incident.claimed_at).not.toBeNull();
   });
 
   it.each([

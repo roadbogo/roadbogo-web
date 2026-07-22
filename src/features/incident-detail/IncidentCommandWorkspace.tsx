@@ -13,7 +13,7 @@ import { getDetectionVisualVariant } from "@/features/detection/detectionVisualV
 import { useContainedBbox } from "@/features/detection/containedBbox";
 import { createIncidentDetailAdapter } from "./incidentDetailAdapterFactory";
 import { getIncidentRefreshChanges, resolveEvidenceSelection } from "./incidentRefresh";
-import { getCompactProgressStates, progressStateLabel } from "./incidentProgress";
+import { getIncidentProgressPresentation, progressStateLabel } from "./incidentProgress";
 import { getEvidenceOverlayBbox } from "./incidentEvidencePresentation";
 import type { DispatchResponderOption, IncidentCommandAction, IncidentDecisionPayload, IncidentDetailRecord, IncidentEvidence, IncidentMemo, IncidentMemoType } from "./incidentDetailTypes";
 import "@/components/landing/landing.css";
@@ -21,7 +21,7 @@ import "./incidentDetail.css";
 import "./incidentCommand.css";
 
 const adapter = createIncidentDetailAdapter();
-const flow = ["AI 탐지", "사건 생성", "관제 검토", "출동 대응", "현장 조치", "관제 종료"];
+const flow = ["AI 탐지", "사건 생성", "관제 처리", "출동 대응", "현장 조치", "관제 종료"];
 const actionDescription: Record<string, string> = {
   acknowledge: "신규 사건을 확인 상태로 변경합니다. 확인 후 사건 선점이 가능합니다.",
   claim: "이 사건의 담당 관제자로 지정됩니다.",
@@ -113,7 +113,7 @@ function RiskCandidateSummary({ evidence }: { evidence: IncidentEvidence }) {
 }
 
 function CompactProgress({ status }: { status: IncidentDetailRecord["incident"]["status"] }) {
-  const states = getCompactProgressStates(status);
+  const {states}=getIncidentProgressPresentation(status);
   return <div className="compact-progress" aria-label="사건 처리 진행 단계">{flow.map((label, index) => { const state = states[index]; return <span key={label} className={`is-${state}`} aria-label={`${label}: ${progressStateLabel[state]}`}><i aria-hidden="true">{state === "skipped" ? "−" : state === "done" ? "✓" : state === "current" ? "●" : "○"}</i>{label}</span>; })}</div>;
 }
 
@@ -184,7 +184,7 @@ export function IncidentCommandWorkspace({ publicId, invalidIdentifier = false }
   if (error || !record) return <><LandingHeader showSections={false} /><main className="incident-state"><p>{error}</p><button onClick={() => void load()}>다시 시도</button></main></>;
 
   const { incident, cctv } = record;
-  const assignedHistory=[...record.histories].reverse().find(item=>item.label==="담당 지정");
+  const progress=getIncidentProgressPresentation(incident.status);
   return <div className="incident-page"><LandingHeader showSections={false} />{toast && <div className="incident-toast" role="status">{toast}<button aria-label="안내 닫기" onClick={() => setToast("")}>×</button></div>}
     <main className="incident-shell incident-console">
       <section className="console-status">
@@ -194,9 +194,9 @@ export function IncidentCommandWorkspace({ publicId, invalidIdentifier = false }
         <section className="evidence-console"><header><span>EVIDENCE REVIEW</span><h2>AI 증거 캔버스</h2></header>{evidence ? <><div className="evidence-tabs" role="tablist" aria-label="증거 보기 방식">{([['annotated','탐지 결과'],['original','원본'],['compare','비교']] as const).map(([key, label]) => <button key={key} role="tab" aria-selected={view === key} onClick={() => setView(key)}>{label}</button>)}</div><div className="evidence-toolbar"><span><strong>현재 선택 근거 · {evidence.class_name ?? "분류 정보 없음"}</strong> · {evidenceTime(evidence.detected_at)} KST</span>{(evidence.annotated_image_url ?? evidence.original_image_url) && <a href={view === "original" || view === "compare" ? evidence.original_image_url ?? "" : evidence.annotated_image_url ?? evidence.original_image_url ?? ""} target="_blank" rel="noreferrer" aria-label="현재 증거 전체 화면으로 열기">⛶ 전체 화면</a>}</div><div className={`console-evidence-view is-${view}`}>{view === "annotated" && <EvidenceFigure evidence={evidence} annotated />}{view === "original" && <EvidenceFigure evidence={evidence} annotated={false} />}{view === "compare" && <EvidenceCompareViewer evidence={evidence} />}</div><section className="evidence-strip"><header><h3>증거 {evidences.length}건</h3></header><div>{evidences.map((item,index) => { const thumbnail = item.annotated_image_url ?? item.original_image_url; const selected = item.detection_public_id === evidence.detection_public_id; return <button key={item.detection_public_id} className={selected ? "is-active" : ""} aria-pressed={selected} onClick={() => setSelectedEvidence(item.detection_public_id)} onKeyDown={event=>{if(event.key!=="ArrowRight"&&event.key!=="ArrowLeft")return;event.preventDefault();const next=evidences[(index+(event.key==="ArrowRight"?1:-1)+evidences.length)%evidences.length];setSelectedEvidence(next.detection_public_id);document.querySelector<HTMLButtonElement>(`[data-evidence-id="${next.detection_public_id}"]`)?.focus()}} data-evidence-id={item.detection_public_id}>{thumbnail && <span><Image src={thumbnail} alt="" fill sizes="78px" /></span>}<strong>{item.class_name ?? "분류 정보 없음"}</strong><time>{evidenceTime(item.detected_at)} KST</time><small>{item.confidence === null ? "신뢰도 정보 없음" : `신뢰도 ${Math.round(item.confidence * 100)}%`}</small><em>{item.is_representative ? "대표 근거" : selected ? "현재 선택" : "추가 근거"}</em></button>; })}</div></section><RiskCandidateSummary evidence={evidence} /></> : <p className="console-empty">제공된 탐지 근거가 없습니다.</p>}</section>
         <aside className="command-panel" id="incident-command">
           <header><span>INCIDENT COMMAND</span><h2>사건 처리</h2><div className="command-badges"><b>{incidentStatusLabel[incident.status]}</b><b>{incident.assigned_controller?.public_id===user?.publicId?"내 담당":incident.assigned_controller?"담당 지정":"담당 미지정"}</b></div></header>
-          <section className="command-current-stage"><span>현재 처리 상태</span><strong>{incident.status === "NEW" ? "사건 접수" : incident.status === "ACKNOWLEDGED" ? "사건 확인 완료" : incident.status === "CLAIMED" ? "담당 지정 완료" : incident.status === "UNDER_REVIEW" ? "위험 판정 진행" : mode === "FIELD_RESPONSE" ? "출동 대응" : mode === "CLOSURE_REVIEW" ? "현장 조치" : "관제 종료"}</strong><CompactProgress status={incident.status} /></section>
+          <section className="command-current-stage"><span>현재 처리 상태</span><strong>{progress.currentLabel}</strong><CompactProgress status={incident.status} /></section>
           {dialog?<ActionDialog type={dialog} busy={busy} embedded onClose={() => setDialog(null)} onConfirm={payload => void perform(dialog === "decision" ? "decide" : dialog === "dispatch" ? "assign" : "close", payload)} />:<><div className="command-next"><span>다음 업무</span><strong>{primary?.label ?? (mode === "READ_ONLY" ? "처리 완료" : "현재 가능한 업무 없음")}</strong><p>{primary ? actionDescription[primary.key] : mode === "READ_ONLY" ? "최종 처리된 사건입니다." : "현재 계정에는 이 단계의 사건 처리 권한이 없거나 아직 지원되지 않는 업무입니다."}</p></div>{primary && <button className="incident-primary" disabled={busy} aria-busy={busy} onClick={() => primary.key === "decide" ? setDialog("decision") : primary.key === "assign" ? setDialog("dispatch") : primary.key === "close" ? setDialog("close") : void perform(primary.key as IncidentCommandAction)}>{busy ? primary.key === "claim" ? "담당 지정 중" : "처리 중" : primary.label}</button>}<p className="incident-permission-note">{primary?.key === "acknowledge" || primary?.key === "claim" ? "사건 확인 및 선점 권한이 필요합니다." : primary?.key === "review" || primary?.key === "decide" ? "사건 검토 권한이 필요합니다." : primary?.key === "assign" ? "출동 배정 권한이 필요합니다." : "권한과 사건 상태에 따라 업무가 제공됩니다."}</p>{incident.status === "CLAIMED" && adapter.mode === "mock" && <button className="incident-secondary" disabled={!adapter.supportsRelease} title={adapter.supportsRelease ? "선점 해제" : "준비 중"} onClick={() => adapter.supportsRelease && void perform("release")}>{adapter.supportsRelease ? "선점 해제" : "선점 해제 · 준비 중"}</button>}</>}
-          <dl className="command-assignee"><div><dt>담당 관제자</dt><dd>{incident.assigned_controller?.display_name??"담당 미지정"}</dd></div><div><dt>담당 상태</dt><dd>{incident.assigned_controller?.public_id===user?.publicId?"내 담당":incident.assigned_controller?"다른 담당자":"미지정"}</dd></div><div><dt>담당 시각</dt><dd>{assignedHistory?`${evidenceTime(assignedHistory.occurred_at)} KST`:"-"}</dd></div></dl>
+          <dl className="command-assignee"><div><dt>담당 관제자</dt><dd>{incident.assigned_controller?.display_name??"담당 미지정"}</dd></div><div><dt>담당 상태</dt><dd>{incident.assigned_controller?.public_id===user?.publicId?"내 담당":incident.assigned_controller?"다른 담당자":"미지정"}</dd></div><div><dt>담당 시각</dt><dd>{incident.claimed_at?`${evidenceTime(incident.claimed_at)} KST`:"-"}</dd></div></dl>
         </aside>
       </div>
       <DetailTabs record={record} user={user} onRefresh={load} onNotify={setToast} onMemoCreated={memo=>setRecord(current=>current?{...current,memos:[memo,...current.memos.filter(item=>item.public_id!==memo.public_id)]}:current)} />

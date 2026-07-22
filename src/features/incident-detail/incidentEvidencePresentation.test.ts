@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { IncidentEvidence } from "./incidentDetailTypes";
-import { getEvidenceOverlayBbox } from "./incidentEvidencePresentation";
+import { getEvidenceOverlayBbox, getRepresentativeOverlayBbox } from "./incidentEvidencePresentation";
+import { createMockDashboardSnapshot } from "@/features/control-dashboard/mockDashboardAdapter";
 
 const base: IncidentEvidence = {
   detection_public_id: "detection-1", detected_at: "2026-07-22T00:00:00Z", object_category: "VEHICLE",
@@ -22,5 +23,13 @@ describe("incident evidence overlay policy", () => {
   it("does not draw a box in original view or when coordinates are missing", () => {
     expect(getEvidenceOverlayBbox(base, "original")).toBeNull();
     expect(getEvidenceOverlayBbox({ ...base, bbox: null }, "annotated")).toBeNull();
+  });
+
+  it("only overlays an original representative image in focus monitoring", () => {
+    const incident=createMockDashboardSnapshot().incidents.find(item=>item.detection_bbox)!;
+    expect(getRepresentativeOverlayBbox(incident)).toEqual(incident.detection_bbox);
+    expect(getRepresentativeOverlayBbox({...incident,representative_image_kind:"ANNOTATED"})).toBeNull();
+    expect(getRepresentativeOverlayBbox({...incident,representative_image_kind:null})).toBeNull();
+    expect(getRepresentativeOverlayBbox({...incident,detection_bbox:null})).toBeNull();
   });
 });

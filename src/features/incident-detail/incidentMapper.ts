@@ -3,6 +3,12 @@ import { incidentStatusLabel } from "@/features/control-dashboard/dashboardDomai
 import type { DispatchResponderOption, IncidentDetailRecord, IncidentEvidence, IncidentHistory } from "./incidentDetailTypes";
 import type { IncidentDetailDto, IncidentEvidenceDto, IncidentHistoryDto, ResponderListItemDto } from "./incidentApiTypes";
 
+export function selectRepresentativeImage(evidence:IncidentDetailDto["representative_evidence"]){
+ if(evidence?.annotated_image_url)return{url:evidence.annotated_image_url,kind:"ANNOTATED" as const};
+ if(evidence?.original_image_url)return{url:evidence.original_image_url,kind:"ORIGINAL" as const};
+ return{url:null,kind:null};
+}
+
 export function normalizeDetectionBbox(bbox:IncidentEvidenceDto["bbox"]){
  if(!bbox)return null;
  const{x,y,width,height}=bbox;
@@ -11,7 +17,8 @@ export function normalizeDetectionBbox(bbox:IncidentEvidenceDto["bbox"]){
 }
 export function mapIncidentDetail(dto:IncidentDetailDto):DashboardIncident{
  const evidence=dto.representative_evidence;
- return{public_id:dto.public_id,incident_no:dto.incident_no,cctv_public_id:dto.cctv_snapshot.cctv_public_id,status:dto.status,object_category:dto.object.object_category,class_code:dto.object.class_code,class_name:dto.object.class_name,current_risk_score:dto.ai_analysis.risk_score,current_risk_grade:dto.ai_analysis.risk_grade,representative_confidence:dto.ai_analysis.representative_confidence,duration_ms:dto.ai_analysis.duration_ms,detection_count:dto.ai_analysis.repeat_count??dto.evidence_count,representative_image_url:evidence?.annotated_image_url??evidence?.original_image_url??null,detection_bbox:normalizeDetectionBbox(evidence?.bbox??null),assigned_controller:dto.controller?{public_id:dto.controller.public_id,display_name:dto.controller.user_name}:null,version_no:dto.version_no,created_at:dto.timeline.created_at,updated_at:dto.timeline.updated_at};
+ const representativeImage=selectRepresentativeImage(evidence);
+ return{public_id:dto.public_id,incident_no:dto.incident_no,cctv_public_id:dto.cctv_snapshot.cctv_public_id,status:dto.status,object_category:dto.object.object_category,class_code:dto.object.class_code,class_name:dto.object.class_name,current_risk_score:dto.ai_analysis.risk_score,current_risk_grade:dto.ai_analysis.risk_grade,representative_confidence:dto.ai_analysis.representative_confidence,duration_ms:dto.ai_analysis.duration_ms,detection_count:dto.ai_analysis.repeat_count??dto.evidence_count,representative_image_url:representativeImage.url,representative_image_kind:representativeImage.kind,detection_bbox:normalizeDetectionBbox(evidence?.bbox??null),assigned_controller:dto.controller?{public_id:dto.controller.public_id,display_name:dto.controller.user_name}:null,claimed_at:dto.timeline.claimed_at,version_no:dto.version_no,created_at:dto.timeline.created_at,updated_at:dto.timeline.updated_at};
 }
 export function mapIncidentCctv(dto:IncidentDetailDto):DashboardCctv{return{public_id:dto.cctv_snapshot.cctv_public_id,cctv_code:"",cctv_name:dto.cctv_snapshot.cctv_name,source_type:"MANUAL",stream_type:null,direction_code:dto.cctv_snapshot.direction_code,operational_status:"UNKNOWN",has_stream:false,fallback_used:false,video_state:"UNAVAILABLE",road:{road_name:dto.cctv_snapshot.road_name},road_section:{section_name:dto.cctv_snapshot.road_section_name}}}
 export function mapIncidentEvidence(dto:IncidentEvidenceDto,index:number,detail:IncidentDetailDto):IncidentEvidence{return{detection_public_id:dto.detection_public_id??`evidence-${index}`,detected_at:dto.detected_at,object_category:detail.object.object_category,class_code:dto.class_code,class_name:dto.class_name,confidence:dto.confidence,is_representative:dto.is_representative,bbox:normalizeDetectionBbox(dto.bbox),original_image_url:dto.original_image_url,annotated_image_url:dto.annotated_image_url,risk:dto.risk?{risk_score:dto.risk.risk_score,risk_grade:dto.risk.risk_grade,duration_ms:dto.risk.duration_ms,repeat_count:dto.risk.repeat_count,track_id:dto.risk.external_track_id,reason_codes:dto.risk.reason_codes}:{risk_score:detail.ai_analysis.risk_score,risk_grade:detail.ai_analysis.risk_grade,duration_ms:detail.ai_analysis.duration_ms,repeat_count:detail.ai_analysis.repeat_count??0,track_id:detail.object.external_track_id,reason_codes:detail.ai_analysis.reason_codes}}}

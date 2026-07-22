@@ -7,6 +7,7 @@ import { incidentStatusLabel, riskLabel, selectIncidentForCctv } from "@/feature
 import { directionLabel, objectCategoryLabel, operationalStatusLabel } from "@/features/control-dashboard/dashboardMapper";
 import { getDetectionVisualVariant } from "@/features/detection/detectionVisualVariant";
 import { useContainedBbox } from "@/features/detection/containedBbox";
+import { getRepresentativeOverlayBbox } from "@/features/incident-detail/incidentEvidencePresentation";
 
 interface Props {
  open:boolean;cctv:DashboardCctv|null;relatedIncidents:DashboardIncident[];selectedIncident:DashboardIncident|null;dispatchLookupStatus?:DispatchLookupStatus;
@@ -20,7 +21,7 @@ export function CctvFocusModal({open,cctv,relatedIncidents,selectedIncident,sele
  const evidence=cctv?(selectedIncident?.cctv_public_id===cctv.public_id?selectedIncident:relatedIncidents[0]??null):null;
  const mediaUrl=evidence?.representative_image_url??null;
  const mediaKey=cctv&&mediaUrl?getFocusMediaKey(cctv.public_id,evidence?.public_id,mediaUrl):"no-media";
- const {containerRef:mediaRef,onImageLoad,projectedBbox:displayedDetectionBox}=useContainedBbox(evidence?.detection_bbox??null,mediaKey);
+ const {containerRef:mediaRef,onImageLoad,projectedBbox:displayedDetectionBox}=useContainedBbox(getRepresentativeOverlayBbox(evidence),mediaKey);
  useEffect(()=>{if(!open)return;const previousOverflow=document.body.style.overflow;document.body.style.overflow="hidden";closeRef.current?.focus();const key=(event:KeyboardEvent)=>{if(event.key==="Escape"){event.preventDefault();onClose();return}if(event.key!=="Tab")return;const focusable=dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])');if(!focusable?.length)return;const first=focusable[0],last=focusable[focusable.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}};document.addEventListener("keydown",key);return()=>{document.body.style.overflow=previousOverflow;document.removeEventListener("keydown",key);returnFocus?.focus()}},[onClose,open,returnFocus]);
  useEffect(()=>{setMediaFailed(false)},[cctv?.public_id,mediaUrl]);
  if(!open||!cctv)return null;

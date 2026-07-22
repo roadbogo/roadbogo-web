@@ -1,4 +1,4 @@
-import{describe,expect,it}from"vitest";import type{IncidentDetailDto,IncidentEvidenceDto,IncidentHistoryDto}from"./incidentApiTypes";import{mapIncidentDetail,mapIncidentDetailRecord,normalizeDetectionBbox}from"./incidentMapper";
+import{describe,expect,it}from"vitest";import type{IncidentDetailDto,IncidentEvidenceDto,IncidentHistoryDto}from"./incidentApiTypes";import{mapIncidentDetail,mapIncidentDetailRecord,normalizeDetectionBbox,selectRepresentativeImage}from"./incidentMapper";
 const detail={public_id:"i",incident_no:"INC-1",status:"NEW",version_no:0,object:{object_category:"DEBRIS",class_code:null,class_name:null,tracked_object_public_id:null,external_track_id:null},ai_analysis:{representative_confidence:null,confidence_calculation_type:null,risk_score:81,risk_grade:"HIGH",duration_ms:1200,repeat_count:null,rule_code:null,rule_version:null,reason_codes:["STOPPED"]},cctv_snapshot:{cctv_public_id:"c",cctv_name:"CAM",direction_code:"ASC",road_name:"도로",road_section_name:"구간",latitude:37,longitude:127,km_post:null},timeline:{first_detected_at:"2026-07-20T00:00:00.000Z",last_detected_at:"2026-07-20T00:01:00.000Z",created_at:"2026-07-20T00:00:00.000Z",updated_at:"2026-07-20T00:01:00.000Z",acknowledged_at:null,claimed_at:null,review_started_at:null,closed_at:null},controller:null,decision:null,active_dispatch:null,representative_evidence:null,evidence_count:1,memo_count:0}satisfies IncidentDetailDto;
 const evidence={detection_public_id:null,evidence_type:"PRIMARY",is_representative:true,detected_at:"2026-07-20T00:00:00.000Z",class_code:null,class_name:null,confidence:null,bbox:null,original_image_url:null,annotated_image_url:null,risk:null}satisfies IncidentEvidenceDto;
 const history={public_id:"h",from_status:null,to_status:"NEW",actor_type:"SYSTEM",actor:null,change_source:"SYSTEM",reason_code:null,reason_text:null,changed_at:"2026-07-20T00:00:00.000Z"}satisfies IncidentHistoryDto;
@@ -8,12 +8,26 @@ describe("representative evidence mapping",()=>{
  it("prefers the annotated image and maps a valid normalized bbox",()=>{
   const mapped=mapIncidentDetail({...detail,representative_evidence:{detection_public_id:"d",original_image_url:"/original.jpg",annotated_image_url:"/annotated.jpg",bbox:{x:.1,y:.2,width:.3,height:.4}}});
   expect(mapped.representative_image_url).toBe("/annotated.jpg");
+  expect(mapped.representative_image_kind).toBe("ANNOTATED");
   expect(mapped.detection_bbox).toEqual({x:.1,y:.2,width:.3,height:.4});
  });
  it("uses the original image when an annotation is absent",()=>{
   const mapped=mapIncidentDetail({...detail,representative_evidence:{detection_public_id:"d",original_image_url:"/original.jpg",annotated_image_url:null,bbox:null}});
   expect(mapped.representative_image_url).toBe("/original.jpg");
+  expect(mapped.representative_image_kind).toBe("ORIGINAL");
   expect(mapped.detection_bbox).toBeNull();
+ });
+ it("keeps the claimed timestamp from the incident timeline",()=>{
+  const mapped=mapIncidentDetail({...detail,timeline:{...detail.timeline,claimed_at:"2026-07-20T00:00:30.000Z"}});
+  expect(mapped.claimed_at).toBe("2026-07-20T00:00:30.000Z");
+ });
+ it.each([
+  ["/annotated.jpg","/original.jpg","/annotated.jpg","ANNOTATED"],
+  [null,"/original.jpg","/original.jpg","ORIGINAL"],
+  ["/annotated.jpg",null,"/annotated.jpg","ANNOTATED"],
+  [null,null,null,null],
+ ] as const)("selects an explicit representative image kind %#",(annotated,original,url,kind)=>{
+  expect(selectRepresentativeImage({detection_public_id:"d",annotated_image_url:annotated,original_image_url:original,bbox:null})).toEqual({url,kind});
  });
  it.each([
   {x:-.1,y:0,width:.2,height:.2},{x:0,y:-.1,width:.2,height:.2},

@@ -9,6 +9,7 @@ export type CctvStreamType = "LIVE" | "DEMO";
 export type DirectionCode = "ASC" | "DESC" | "BOTH" | "UNKNOWN";
 export type ObjectCategory = "VEHICLE" | "DEBRIS" | "WILDLIFE" | "OTHER";
 export type VideoState = "LOADING" | "PLAYING" | "DEMO" | "FALLBACK" | "UNAVAILABLE";
+export type RepresentativeImageKind = "ANNOTATED" | "ORIGINAL";
 export type DispatchStatus = "REQUESTED" | "ACCEPTED" | "DEPARTED" | "EN_ROUTE" | "ARRIVED" | "ACTION_IN_PROGRESS" | "ACTION_COMPLETED" | "REJECTED" | "CANCELLED";
 
 export interface DashboardCctv {
@@ -39,8 +40,10 @@ export interface DashboardIncident {
   duration_ms: number;
   detection_count: number;
   representative_image_url?: string | null;
+  representative_image_kind: RepresentativeImageKind | null;
   detection_bbox?: { x:number;y:number;width:number;height:number } | null;
   assigned_controller: { public_id: string; display_name: string } | null;
+  claimed_at: string | null;
   version_no: number;
   created_at: string;
   updated_at: string;

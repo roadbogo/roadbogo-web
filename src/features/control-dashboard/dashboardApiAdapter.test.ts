@@ -33,6 +33,6 @@ describe("ApiDashboardAdapter",()=>{
   const selection=await new ApiDashboardAdapter().loadIncidentSelection(detail.public_id);
   expect(request).toHaveBeenCalledOnce();
   expect(request).toHaveBeenCalledWith(`/incidents/${detail.public_id}`);
-  expect(selection).toMatchObject({incident:{public_id:detail.public_id,status:"DISPATCH_REQUESTED",version_no:4,representative_image_url:"/annotated.jpg",detection_bbox:{x:.1,y:.2,width:.3,height:.4}},dispatch:{public_id:"dispatch-1",incident_public_id:detail.public_id,status:"REQUESTED",responder_label:"출동 담당자"}});
+  expect(selection).toMatchObject({incident:{public_id:detail.public_id,status:"DISPATCH_REQUESTED",version_no:4,representative_image_url:"/annotated.jpg",representative_image_kind:"ANNOTATED",detection_bbox:{x:.1,y:.2,width:.3,height:.4},claimed_at:generatedAt},dispatch:{public_id:"dispatch-1",incident_public_id:detail.public_id,status:"REQUESTED",responder_label:"출동 담당자"}});
  });
 });

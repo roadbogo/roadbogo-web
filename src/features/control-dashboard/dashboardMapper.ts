@@ -21,17 +21,19 @@ export function mapDashboardIncident(dto:IncidentListItemDto):DashboardIncident 
     object_category:dto.object_category,class_code:dto.class_code,class_name:dto.class_name,
     current_risk_score:dto.ai_risk_score,current_risk_grade:dto.ai_risk_grade,
     representative_confidence:dto.representative_confidence,duration_ms:dto.duration_ms,
-    detection_count:dto.detection_count,representative_image_url:dto.representative_image_url,detection_bbox:null,
+    detection_count:dto.detection_count,representative_image_url:dto.representative_image_url,representative_image_kind:null,detection_bbox:null,
     assigned_controller:dto.claimed_by?{public_id:dto.claimed_by.public_id,display_name:dto.claimed_by.user_name}:null,
-    version_no:dto.version_no,created_at:dto.first_detected_at,updated_at:dto.updated_at,
+    claimed_at:null,version_no:dto.version_no,created_at:dto.first_detected_at,updated_at:dto.updated_at,
   };
 }
 
 export function mergeDashboardIncidentSelection(current:DashboardIncident,detail:DashboardIncident):DashboardIncident{
+ const useDetailEvidence=detail.representative_image_url!==null&&detail.representative_image_url!==undefined;
  return{
   ...detail,
-  representative_image_url:detail.representative_image_url??current.representative_image_url??null,
-  detection_bbox:detail.detection_bbox??current.detection_bbox??null,
+  representative_image_url:useDetailEvidence?detail.representative_image_url:current.representative_image_url??null,
+  representative_image_kind:useDetailEvidence?detail.representative_image_kind:current.representative_image_kind,
+  detection_bbox:useDetailEvidence?detail.detection_bbox:current.detection_bbox??null,
  };
 }
 

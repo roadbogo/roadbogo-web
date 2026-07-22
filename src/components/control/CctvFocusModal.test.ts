@@ -1,12 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { getFocusCctvOptions, getFocusMediaKey } from "./CctvFocusModal";
 import { createMockDashboardSnapshot } from "@/features/control-dashboard/mockDashboardAdapter";
+import { getRepresentativeOverlayBbox } from "@/features/incident-detail/incidentEvidencePresentation";
 
 describe("focus monitoring detection boxes", () => {
   it("keeps missing backend or mock coordinates missing instead of inventing a fallback", () => {
     const snapshot=createMockDashboardSnapshot();
     const incident={...snapshot.incidents[0],detection_bbox:null};
     expect(incident.detection_bbox).toBeNull();
+  });
+  it("shows an overlay only for an original representative image with a bbox",()=>{
+    const incident=createMockDashboardSnapshot().incidents[0];
+    expect(getRepresentativeOverlayBbox({...incident,representative_image_kind:"ORIGINAL"})).toEqual(incident.detection_bbox);
+    expect(getRepresentativeOverlayBbox({...incident,representative_image_kind:"ANNOTATED"})).toBeNull();
+    expect(getRepresentativeOverlayBbox({...incident,representative_image_kind:null})).toBeNull();
+    expect(getRepresentativeOverlayBbox({...incident,representative_image_kind:"ORIGINAL",detection_bbox:null})).toBeNull();
   });
   it("uses public IDs to exclude the selected CCTV and renders at most five alternatives",()=>{
     const cctvs=createMockDashboardSnapshot().cctvs;
