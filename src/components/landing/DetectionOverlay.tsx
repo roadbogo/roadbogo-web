@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
+import type { DetectionVisualVariant } from "@/features/detection/detectionVisualVariant";
 import styles from "./DetectionOverlay.module.css";
 
 export type NormalizedBBox={x:number;y:number;width:number;height:number};
@@ -6,8 +7,9 @@ export type NormalizedBBox={x:number;y:number;width:number;height:number};
 type Props={
   objectType?:string;
   variant:"hazard"|"tracking";
+  visualVariant?:DetectionVisualVariant;
   label:string;
-  confidence:number;
+  confidence:number|null;
   bbox?:NormalizedBBox;
   className?:string;
   style?:CSSProperties;
@@ -22,7 +24,7 @@ export function DetectionOverlay({objectType,label,confidence,bbox,variant,class
   return <div className={`${styles.position} ${variant==="hazard"?styles.positionHazard:""} ${className}`.trim()} style={position} data-object-type={objectType??displayLabel} aria-hidden="true">
     <div className={`${styles.box} ${styles[variant]} ${animated?styles.animated:""}`}>
       <span className={`${styles.corner} ${styles.topLeft}`}/><span className={`${styles.corner} ${styles.topRight}`}/><span className={`${styles.corner} ${styles.bottomRight}`}/><span className={`${styles.corner} ${styles.bottomLeft}`}/>
-      <span className={`${styles.label} ${labelPosition==="end"?styles.labelEnd:""}`}><i className={styles.dot}/><b className={styles.name}>{displayLabel}</b><span className={styles.separator}>·</span><b className={styles.confidence}>{confidence}%</b></span>
+      <span className={`${styles.label} ${labelPosition==="end"?styles.labelEnd:""}`}><i className={styles.dot}/><b className={styles.name}>{displayLabel}</b>{confidence!==null&&<><span className={styles.separator}>·</span><b className={styles.confidence}>{confidence}%</b></>}</span>
       {children}
       <span className={styles.lockRing}/>
     </div>

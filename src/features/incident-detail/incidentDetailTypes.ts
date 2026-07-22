@@ -39,6 +39,8 @@ export interface IncidentDetailAdapter {
   readonly mode:"api"|"mock";
   readonly supportsRelease:boolean;
   readonly supportsDispatchAssignment:boolean;
+  readonly supportsMemoRead:boolean;
+  readonly supportsMemoWrite:boolean;
   get(public_id:string):Promise<IncidentDetailRecord|null>;
   act(request:IncidentActionRequest):Promise<IncidentActionResult>;
   listResponders():Promise<DispatchResponderOption[]>;

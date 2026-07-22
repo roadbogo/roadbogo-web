@@ -34,4 +34,3 @@ export interface IncidentDispatchResponseDto {
  request_message:string|null;
  requested_at:string;
 }
-export interface IncidentMemoDto {public_id:string;incident_public_id:string;memo_type:"GENERAL"|"REVIEW"|"DISPATCH"|"CLOSURE";content:string;created_by:PublicUserDto;created_at:string}

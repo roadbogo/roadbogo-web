@@ -1,5 +1,5 @@
 import type { DashboardIncident, IncidentStatus } from "@/features/control-dashboard/dashboardTypes";
-import type { IncidentCommandAction, IncidentEvidence, IncidentWorkspaceMode } from "./incidentDetailTypes";
+import type { IncidentCommandAction, IncidentEvidence, IncidentHistory, IncidentWorkspaceMode } from "./incidentDetailTypes";
 
 export function resolveMemoAvailability(incident:DashboardIncident,user:{public_id:string;permissions:string[]}){
   if(["FALSE_POSITIVE","CLOSED"].includes(incident.status))return{allowed:false,reason:"종료된 사건에는 새 메모를 작성할 수 없습니다"};
@@ -11,6 +11,14 @@ export function resolveMemoAvailability(incident:DashboardIncident,user:{public_
   if(incident.status!=="UNDER_REVIEW")return{allowed:false,reason:"현재 사건 상태에서는 메모를 작성할 수 없습니다"};
   if(!incident.assigned_controller)return{allowed:false,reason:"담당 관제자만 메모를 작성할 수 있습니다"};
   return{allowed:true,reason:"관제 메모를 작성할 수 있습니다"};
+}
+
+export function availableMemoTypes(incident:DashboardIncident):Array<"GENERAL"|"REVIEW">{
+  return incident.status==="UNDER_REVIEW"?["GENERAL","REVIEW"]:[];
+}
+
+export function sortIncidentHistories(histories:IncidentHistory[]):IncidentHistory[]{
+  return [...histories].sort((a,b)=>Date.parse(a.occurred_at)-Date.parse(b.occurred_at)||a.public_id.localeCompare(b.public_id));
 }
 
 export function resolveIncidentWorkspaceMode(status: IncidentStatus): IncidentWorkspaceMode {

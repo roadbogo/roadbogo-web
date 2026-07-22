@@ -1,18 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { DashboardIncident } from "@/features/control-dashboard/dashboardTypes";
-import { apiRequest } from "@/lib/apiClient";
+import { createMockDashboardSnapshot } from "@/features/control-dashboard/mockDashboardAdapter";
 import { ApiIncidentDetailAdapter } from "./incidentApiAdapter";
-import { resolveMemoAvailability } from "./incidentDetailDomain";
+import { availableMemoTypes, resolveMemoAvailability } from "./incidentDetailDomain";
+import { MockIncidentDetailAdapter } from "./mockIncidentDetailAdapter";
 
-vi.mock("@/lib/apiClient", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/apiClient")>("@/lib/apiClient");
-  return { ...actual, apiRequest: vi.fn() };
-});
-
-const request = vi.mocked(apiRequest);
-const incidentPublicId = "11111111-1111-4111-8111-111111111112";
 const incident = {
-  public_id: incidentPublicId,
+  public_id: "11111111-1111-4111-8111-111111111112",
   status: "UNDER_REVIEW",
   assigned_controller: { public_id: "controller-id", display_name: "관제 담당자" },
 } as DashboardIncident;
@@ -24,33 +18,41 @@ describe("incident memo policy", () => {
     expect(resolveMemoAvailability(incident, { public_id: "controller-id", permissions: [] }).allowed).toBe(false);
   });
 
-  it.each(["NEW", "ACKNOWLEDGED", "CLAIMED", "FALSE_POSITIVE", "CLOSED"] as const)("disables creation in %s", status => {
-    expect(resolveMemoAvailability({ ...incident, status } as DashboardIncident, { public_id: "controller-id", permissions: ["INCIDENT.DECIDE"] }).allowed).toBe(false);
+  it("offers only memo types that are usable in the mock review workflow", () => {
+    expect(availableMemoTypes(incident)).toEqual(["GENERAL", "REVIEW"]);
+  });
+
+  it.each(["NEW", "ACKNOWLEDGED", "CLAIMED", "DISPATCHED", "ACTION_COMPLETED", "FALSE_POSITIVE", "CLOSED"] as const)("disables memo creation and types in %s", status => {
+    const target={ ...incident, status } as DashboardIncident;
+    expect(resolveMemoAvailability(target, { public_id: "controller-id", permissions: ["INCIDENT.DECIDE"] }).allowed).toBe(false);
+    expect(availableMemoTypes(target)).toEqual([]);
   });
 });
 
 describe("incident memo API adapter", () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it("posts trimmed content with only the documented request fields", async () => {
-    request.mockResolvedValue({
-      public_id: "44444444-4444-4444-8444-444444444444",
-      incident_public_id: incidentPublicId,
-      memo_type: "REVIEW",
-      content: "현장 영상 재확인 필요",
-      created_by: { public_id: "controller-id", user_name: "관제 담당자" },
-      created_at: "2026-07-22T09:00:00Z",
-    });
+  it("marks the real API memo contract as unavailable", () => {
     const adapter = new ApiIncidentDetailAdapter();
-    await expect(adapter.createMemo({ incident_public_id: incidentPublicId, memo_type: "REVIEW", content: "  현장 영상 재확인 필요  ", actor_public_id: "local-only", actor_name: "local-only" })).resolves.toMatchObject({ memo_type: "REVIEW", content: "현장 영상 재확인 필요" });
-    expect(request).toHaveBeenCalledOnce();
-    expect(request).toHaveBeenCalledWith(`/incidents/${incidentPublicId}/memos`, { method: "POST", body: { memo_type: "REVIEW", content: "현장 영상 재확인 필요" } });
+    expect(adapter.supportsMemoRead).toBe(false);
+    expect(adapter.supportsMemoWrite).toBe(false);
   });
 
-  it("rejects empty and oversized content before requesting", async () => {
+  it("does not issue a request through the unsupported memo method", async () => {
     const adapter = new ApiIncidentDetailAdapter();
-    await expect(adapter.createMemo({ incident_public_id: incidentPublicId, memo_type: "GENERAL", content: "   ", actor_public_id: "me", actor_name: "me" })).rejects.toThrow("INVALID_INCIDENT_MEMO");
-    await expect(adapter.createMemo({ incident_public_id: incidentPublicId, memo_type: "GENERAL", content: "a".repeat(2001), actor_public_id: "me", actor_name: "me" })).rejects.toThrow("INVALID_INCIDENT_MEMO");
-    expect(request).not.toHaveBeenCalled();
+    await expect(adapter.createMemo({ incident_public_id: incident.public_id, memo_type: "GENERAL", content: "메모", actor_public_id: "me", actor_name: "me" })).rejects.toThrow("UNSUPPORTED_INCIDENT_MEMO");
+  });
+});
+
+describe("incident memo mock adapter", () => {
+  it("persists a supported memo in the mock record and rejects unsupported types", async () => {
+    const target=createMockDashboardSnapshot().incidents.find(item=>item.status==="UNDER_REVIEW" && item.assigned_controller);
+    expect(target).toBeDefined();
+    const adapter=new MockIncidentDetailAdapter();
+    const before=await adapter.get(target!.public_id);
+    const request={incident_public_id:target!.public_id,memo_type:"REVIEW" as const,content:"최종 회귀 검증 메모",actor_public_id:target!.assigned_controller!.public_id,actor_name:target!.assigned_controller!.display_name};
+    const created=await adapter.createMemo(request);
+    const refreshed=await adapter.get(target!.public_id);
+    expect(refreshed?.memos[0]).toMatchObject({public_id:created.public_id,memo_type:"REVIEW",content:"최종 회귀 검증 메모"});
+    expect(refreshed?.memos).toHaveLength((before?.memos.length??0)+1);
+    await expect(adapter.createMemo({...request,memo_type:"DISPATCH"})).rejects.toThrow("INCIDENT_INVALID_MEMO_TYPE");
   });
 });

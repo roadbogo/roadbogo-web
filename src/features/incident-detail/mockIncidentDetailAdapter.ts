@@ -1,6 +1,7 @@
 import { createMockDashboardSnapshot } from "@/features/control-dashboard/mockDashboardAdapter";
 import type { DashboardIncident, IncidentStatus } from "@/features/control-dashboard/dashboardTypes";
 import { updateMockIncidentRuntime } from "@/features/control-dashboard/mockIncidentRuntimeState";
+import { availableMemoTypes } from "./incidentDetailDomain";
 import type { DispatchResponderOption, IncidentActionRequest, IncidentActionResult, IncidentDecisionPayload, IncidentDetailAdapter, IncidentDetailRecord, IncidentDispatchAssignmentRequest, IncidentEvidence, IncidentHistory, IncidentMemoRequest } from "./incidentDetailTypes";
 const snapshot=createMockDashboardSnapshot();
 const image="/images/incidents/fallen-object-realistic.png";
@@ -36,6 +37,8 @@ export class MockIncidentDetailAdapter implements IncidentDetailAdapter{
   readonly mode="mock" as const;
   readonly supportsRelease=true;
   readonly supportsDispatchAssignment=true;
+  readonly supportsMemoRead=true;
+  readonly supportsMemoWrite=true;
   async get(public_id:string){return createMockIncidentDetailRecord(public_id)}
   async act(request:IncidentActionRequest):Promise<IncidentActionResult>{
     const current=records.get(request.incident_public_id);
@@ -62,6 +65,7 @@ export class MockIncidentDetailAdapter implements IncidentDetailAdapter{
     const content=request.content.trim();
     if(!content||content.length>2000)throw new Error("COMMON_VALIDATION_ERROR");
     if(current.incident.status!=="UNDER_REVIEW")throw new Error("INCIDENT_INVALID_STATE_TRANSITION");
+    if(!availableMemoTypes(current.incident).includes(request.memo_type as "GENERAL"|"REVIEW"))throw new Error("INCIDENT_INVALID_MEMO_TYPE");
     if(current.incident.assigned_controller?.public_id!==request.actor_public_id)throw new Error("INCIDENT_NOT_ASSIGNED_CONTROLLER");
     const memo={public_id:`memo-${request.incident_public_id}-${Date.now()}`,incident_public_id:request.incident_public_id,memo_type:request.memo_type,content,created_by:{public_id:request.actor_public_id,user_name:request.actor_name},created_at:new Date().toISOString()};
     const memos=[memo,...current.memos.filter(item=>item.public_id!==memo.public_id)];

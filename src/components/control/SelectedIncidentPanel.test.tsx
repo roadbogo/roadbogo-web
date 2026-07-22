@@ -20,6 +20,9 @@ describe("selected incident workflow",()=>{
   expect((html.match(/<b/g)??[]).length).toBe(2);
   expect(html).toContain("selected-incident-panel__primary");
   expect(html).not.toContain("<strong>사건 확인</strong>");
+  expect(html).toContain("사건 처리하기");
+  expect(html).not.toContain("사건 상세 보기");
+  expect((html.match(new RegExp(`/control/incidents/${incident.public_id}`,"g"))??[])).toHaveLength(1);
  });
 
  it("keeps the selected linked incident in focus monitoring",()=>{
@@ -53,35 +56,52 @@ describe("selected incident workflow",()=>{
   expect(html).not.toContain(`${cctv.cctv_name} 집중 관제로 전환`);
  });
 
- it("explains why the primary work is unavailable instead of rendering a dead button",()=>{
+ it("keeps navigation wording honest even when direct actions are unavailable",()=>{
   const html=renderToStaticMarkup(<SelectedIncidentPanel incident={incident} cctv={cctv} dispatch={dispatch} canAct={false} blockedReason="담당 관제자만 판정을 진행할 수 있습니다."/>);
-  expect(html).toContain("담당 관제자만 판정을 진행할 수 있습니다.");
-  expect(html).not.toContain('class="command-primary"');
-  expect(html).toContain("사건 상세 보기");
+  expect(html).toContain("사건 처리하기");
+  expect(html).not.toContain("사건 확인</");
+  expect(html).not.toContain("사건 상세 보기");
+ });
+
+ it.each([
+  ["ACKNOWLEDGED","사건 처리하기"],
+  ["CLAIMED","사건 처리하기"],
+  ["UNDER_REVIEW","사건 처리하기"],
+  ["DISPATCH_REQUESTED","진행 내용 보기"],
+  ["DISPATCHED","진행 내용 보기"],
+  ["ON_SCENE","현장 상태 보기"],
+  ["ACTION_IN_PROGRESS","조치 상태 보기"],
+  ["ACTION_COMPLETED","사건 기록 보기"],
+  ["CLOSED","사건 기록 보기"],
+ ] as const)("uses honest detail-navigation wording in %s",(status,label)=>{
+  const target={...incident,status};
+  const html=renderToStaticMarkup(<SelectedIncidentPanel incident={target} cctv={cctv} dispatch={null} canAct/>);
+  expect(html).toContain(`>${label}</span>`);
+  expect((html.match(new RegExp(`/control/incidents/${target.public_id}`,"g"))??[])).toHaveLength(1);
+  expect(html).not.toContain("사건 상세 보기");
  });
 
  it("offers assignment only when a dispatch-requested incident has no active dispatch",()=>{
   const target=snapshot.incidents.find(item=>item.status==="DISPATCH_REQUESTED")!;
   const targetCctv=snapshot.cctvs.find(item=>item.public_id===target.cctv_public_id)!;
   const withoutDispatch=renderToStaticMarkup(<SelectedIncidentPanel incident={target} cctv={targetCctv} dispatch={null} canAct/>);
-  expect(withoutDispatch).toContain("출동 담당자 배정");
   expect(withoutDispatch).toContain("출동 담당자</dt><dd>미배정");
-  expect(withoutDispatch).toContain(">출동 배정</a>");
+  expect(withoutDispatch).toContain(">진행 내용 보기</span>");
   const activeDispatch=snapshot.dispatches.find(item=>item.incident_public_id===target.public_id)!;
   const waiting=renderToStaticMarkup(<SelectedIncidentPanel incident={target} cctv={targetCctv} dispatch={activeDispatch} canAct/>);
-  expect(waiting).toContain("출동 담당자 응답 대기");
+  expect(waiting).toContain("담당자의 응답을 기다리고 있습니다");
   expect(waiting).toContain("수락 대기");
-  expect(waiting).not.toContain(">출동 배정</a>");
+  expect(waiting).toContain(">진행 내용 보기</span>");
  });
 
  it("does not offer assignment while the API dispatch state is unknown",()=>{
   const target=snapshot.incidents.find(item=>item.status==="DISPATCH_REQUESTED")!;
   const targetCctv=snapshot.cctvs.find(item=>item.public_id===target.cctv_public_id)!;
   const loading=renderToStaticMarkup(<SelectedIncidentPanel incident={target} cctv={targetCctv} dispatch={null} dispatchLookupStatus="loading" canAct/>);
-  expect(loading).toContain("출동 상태 확인 중");
-  expect(loading).not.toContain(">출동 배정</a>");
+  expect(loading).toContain("출동 정보를 확인하고 있습니다");
+  expect(loading).toContain(">진행 내용 보기</span>");
   const failed=renderToStaticMarkup(<SelectedIncidentPanel incident={target} cctv={targetCctv} dispatch={null} dispatchLookupStatus="error" canAct/>);
-  expect(failed).toContain("출동 상태 확인 실패");
-  expect(failed).not.toContain(">출동 배정</a>");
+  expect(failed).toContain("최신 출동 정보를 확인하지 못했습니다");
+  expect(failed).toContain(">진행 내용 보기</span>");
  });
 });

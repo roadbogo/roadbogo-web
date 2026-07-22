@@ -1,6 +1,6 @@
 import { ApiError, apiRequest } from "@/lib/apiClient";
-import type { IncidentActionRequest, IncidentActionResult, IncidentDetailAdapter, IncidentDetailRecord, IncidentDecisionPayload, IncidentDispatchAssignmentRequest, IncidentMemoRequest } from "./incidentDetailTypes";
-import type { IncidentCommandResponseDto, IncidentDetailDto, IncidentDispatchResponseDto, IncidentEvidenceListDto, IncidentHistoryListDto, IncidentMemoDto, ResponderListDto } from "./incidentApiTypes";
+import type { IncidentActionRequest, IncidentActionResult, IncidentDetailAdapter, IncidentDetailRecord, IncidentDecisionPayload, IncidentDispatchAssignmentRequest, IncidentMemo, IncidentMemoRequest } from "./incidentDetailTypes";
+import type { IncidentCommandResponseDto, IncidentDetailDto, IncidentDispatchResponseDto, IncidentEvidenceListDto, IncidentHistoryListDto, ResponderListDto } from "./incidentApiTypes";
 import { mapDispatchResponder, mapIncidentDetailRecord } from "./incidentMapper";
 
 const commandErrorCodes=["INCIDENT_VERSION_CONFLICT","INCIDENT_ALREADY_CLAIMED","INCIDENT_NOT_ASSIGNED_CONTROLLER","INCIDENT_INVALID_STATE_TRANSITION"] as const;
@@ -11,6 +11,8 @@ export class ApiIncidentDetailAdapter implements IncidentDetailAdapter{
  readonly mode="api" as const;
  readonly supportsRelease=false;
  readonly supportsDispatchAssignment=true;
+ readonly supportsMemoRead=false;
+ readonly supportsMemoWrite=false;
 
  async get(publicId:string):Promise<IncidentDetailRecord|null>{
   if(!incidentPublicIdPattern.test(publicId))throw new Error("INVALID_INCIDENT_PUBLIC_ID");
@@ -79,15 +81,12 @@ export class ApiIncidentDetailAdapter implements IncidentDetailAdapter{
    const latest=await this.get(request.incident_public_id);
    if(!latest)throw error;
    return{ok:false,code:error.code as typeof dispatchErrorCodes[number],latest};
-  }
+ }
  }
 
- async createMemo(request:IncidentMemoRequest){
-  if(!incidentPublicIdPattern.test(request.incident_public_id))throw new Error("INVALID_INCIDENT_PUBLIC_ID");
-  const content=request.content.trim();
-  if(!content||content.length>2000)throw new Error("INVALID_INCIDENT_MEMO");
-  const id=encodeURIComponent(request.incident_public_id);
-  return apiRequest<IncidentMemoDto>(`/incidents/${id}/memos`,{method:"POST",body:{memo_type:request.memo_type,content}});
+ async createMemo(request:IncidentMemoRequest):Promise<IncidentMemo>{
+  void request;
+  throw new Error("UNSUPPORTED_INCIDENT_MEMO");
  }
 }
 
