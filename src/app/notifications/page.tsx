@@ -7,7 +7,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { useAuth } from "@/components/auth/AuthContext";
 import { useNotifications } from "@/features/notifications/NotificationContext";
-import { NotificationTypeIcon } from "@/features/notifications/NotificationRow";
+import { NotificationRow, NotificationTypeIcon } from "@/features/notifications/NotificationRow";
+import { resolveNotificationAudience } from "@/features/notifications/notificationAudience";
 import {
   formatExactKst,
   formatRelativeTime,
@@ -17,24 +18,24 @@ import {
   notificationStateCopy,
   notificationTaskCopy,
   severityLabels,
+  type NotificationSort,
 } from "@/features/notifications/notificationDomain";
 import type { NotificationSeverity, NotificationViewModel } from "@/features/notifications/notificationTypes";
 import styles from "@/features/notifications/notifications.module.css";
 import "@/components/landing/landing.css";
 
 type View = "action" | "all" | "unread";
-type Sort = "newest" | "oldest";
 type TypeFilter = "ALL" | "INCIDENT" | "DISPATCH" | "COMPLETED";
 const views: View[] = ["action", "all", "unread"];
 const severities = ["ALL", "INFO", "WARNING", "HIGH", "CRITICAL"] as const;
 const typeFilters = ["ALL", "INCIDENT", "DISPATCH", "COMPLETED"] as const;
-const sorts: Sort[] = ["newest", "oldest"];
+const sorts: NotificationSort[] = ["newest", "severity", "unread"];
 
 const CloseIcon = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>;
 
 function EmptyState({ view, general }: { view: View; general: boolean }) {
   const content = general
-    ? ["새로운 업무 알림이 없습니다", "계정과 서비스 관련 안내가 도착하면 이곳에서 확인할 수 있습니다."]
+    ? ["새로운 알림이 없습니다", "계정과 서비스 관련 안내가 도착하면 이곳에서 확인할 수 있습니다."]
     : view === "action"
       ? ["현재 처리할 업무가 없습니다", "전체 알림에서 최근 상태 변경을 확인할 수 있습니다."]
       : view === "unread"
@@ -90,20 +91,29 @@ function NotificationDetail({ item, onNavigate, onClose, mobile }: {
   </aside>;
 }
 
-function NotificationInbox() {
+function GeneralNotificationInbox(){
+  const{items,unreadCount,loading,error,refresh,markRead,markAllRead,targetFor}=useNotifications();
+  const router=useRouter();
+  const[unreadOnly,setUnreadOnly]=useState(false);
+  const visible=useMemo(()=>sortNotificationQueue(unreadOnly?items.filter(item=>!item.read):items,"newest"),[items,unreadOnly]);
+  const openItem=async(item:NotificationViewModel)=>{const read=await markRead(item.public_id);if(!read)return;const target=targetFor(item);if(target)router.push(target)};
+  return <div className={styles.page}><LandingHeader showSections={false}/><main className={`${styles.workspace} ${styles.generalWorkspace}`}><nav className={styles.breadcrumb} aria-label="현재 위치"><Link href="/">홈</Link><span>/</span><span>알림</span></nav><div className={styles.heading}><div><h1>알림</h1><p>계정과 서비스 관련 안내를 확인할 수 있습니다</p></div><div className={styles.headingActions}><span>읽지 않음 <b>{unreadCount}</b></span><button type="button" onClick={()=>void markAllRead()} disabled={unreadCount===0}>모두 읽음</button></div></div><section className={styles.generalInbox}><header><div className={styles.segmentedTabs} role="tablist" aria-label="알림 보기"><button type="button" role="tab" aria-selected={!unreadOnly} onClick={()=>setUnreadOnly(false)}>전체 알림 <b>{items.length}</b></button><button type="button" role="tab" aria-selected={unreadOnly} onClick={()=>setUnreadOnly(true)}>읽지 않음 <b>{unreadCount}</b></button></div></header><div className={styles.generalList}>{loading?<div className={styles.queueSkeleton} aria-label="알림을 불러오는 중"><i/><i/><i/></div>:error?<div className={styles.error}><strong>알림을 불러오지 못했습니다</strong><p>{error}</p><button type="button" onClick={()=>void refresh()}>다시 시도</button></div>:visible.length===0?<EmptyState view={unreadOnly?"unread":"all"} general/>:<div>{visible.map(item=><NotificationRow key={item.public_id} item={item} onOpen={openItem} showOperationsMetadata={false}/>)}</div>}</div></section></main></div>;
+}
+
+function OperationsNotificationInbox() {
   const { user } = useAuth();
   const { items, unreadCount, actionCount, loading, error, refresh, markRead, markAllRead, targetFor, realtimeStatus } = useNotifications();
   const params = useSearchParams();
   const router = useRouter();
   const requested = params.get("tab") as View | null;
-  const defaultView: View = user?.role === "SYSTEM_ADMIN" || user?.role === "GENERAL_USER" ? "all" : "action";
+  const defaultView: View = user?.role === "SYSTEM_ADMIN" ? "all" : "action";
   const [view, setView] = useState<View>(requested && views.includes(requested) ? requested : defaultView);
   const requestedSeverity = params.get("severity") as NotificationSeverity | "ALL" | null;
   const requestedType = params.get("type") as TypeFilter | null;
-  const requestedSort = params.get("sort") as Sort | null;
+  const requestedSort = params.get("sort") as NotificationSort | null;
   const [severity, setSeverity] = useState<NotificationSeverity | "ALL">(requestedSeverity && severities.includes(requestedSeverity) ? requestedSeverity : "ALL");
   const [type, setType] = useState<TypeFilter>(requestedType && typeFilters.includes(requestedType) ? requestedType : "ALL");
-  const [sort, setSort] = useState<Sort>(requestedSort && sorts.includes(requestedSort) ? requestedSort : "newest");
+  const [sort, setSort] = useState<NotificationSort>(requestedSort && sorts.includes(requestedSort) ? requestedSort : "severity");
   const [selectedId, setSelectedId] = useState<string | null>(params.get("selected"));
   const [mobileDetailOpen, setMobileDetailOpen] = useState(Boolean(params.get("selected")));
 
@@ -113,13 +123,13 @@ function NotificationInbox() {
   useEffect(() => {
     setSeverity(requestedSeverity && severities.includes(requestedSeverity) ? requestedSeverity : "ALL");
     setType(requestedType && typeFilters.includes(requestedType) ? requestedType : "ALL");
-    setSort(requestedSort && sorts.includes(requestedSort) ? requestedSort : "newest");
+    setSort(requestedSort && sorts.includes(requestedSort) ? requestedSort : "severity");
     setSelectedId(params.get("selected"));
   }, [params, requestedSeverity, requestedSort, requestedType]);
 
   const replaceQuery = useCallback((updates: Record<string, string | null>) => {
     const next = new URLSearchParams(params.toString());
-    Object.entries(updates).forEach(([key, value]) => value && value !== "ALL" && value !== "newest" ? next.set(key, value) : next.delete(key));
+    Object.entries(updates).forEach(([key, value]) => value && value !== "ALL" && value !== "severity" ? next.set(key, value) : next.delete(key));
     const query = next.toString();
     router.replace(query ? `/notifications?${query}` : "/notifications", { scroll: false });
   }, [params, router]);
@@ -136,7 +146,7 @@ function NotificationInbox() {
         || type === "INCIDENT" && item.resource.resource_type === "INCIDENT" && item.notification_type !== "ACTION_COMPLETED"
         || type === "DISPATCH" && item.resource.resource_type === "DISPATCH"
         || type === "COMPLETED" && item.notification_type === "ACTION_COMPLETED");
-    return sortNotificationQueue(matching, view, sort);
+    return sortNotificationQueue(matching, sort);
   }, [items, severity, sort, type, view]);
   const selected = useMemo(() => items.find(item => item.public_id === selectedId) ?? filtered[0] ?? null, [filtered, items, selectedId]);
 
@@ -184,8 +194,6 @@ function NotificationInbox() {
     const target = targetFor(item);
     if (target) router.push(target);
   };
-  const general = user?.role === "GENERAL_USER";
-
   return <div className={styles.page}>
     <LandingHeader showSections={false} />
     <main className={styles.workspace}>
@@ -199,11 +207,9 @@ function NotificationInbox() {
               {views.map(tab => <button key={tab} id={`notification-tab-${tab}`} type="button" role="tab" aria-selected={view === tab} aria-controls="notification-queue" tabIndex={view === tab ? 0 : -1} onClick={() => selectView(tab)} onKeyDown={onTabKey}>{tab === "action" ? "처리 필요" : tab === "all" ? "전체 알림" : "읽지 않음"} <b>{tab === "action" ? actionCount : tab === "all" ? items.length : unreadCount}</b></button>)}
             </div>
             <div className={styles.filters}>
-              <label><span>중요도</span><select value={severity} onChange={event => { const value = event.target.value as NotificationSeverity | "ALL"; setSeverity(value); replaceQuery({ severity: value }); }}><option value="ALL">전체</option><option value="CRITICAL">긴급</option><option value="HIGH">높음</option><option value="WARNING">주의</option><option value="INFO">일반</option></select></label>
+              <label><span>중요도</span><select value={severity} onChange={event => { const value = event.target.value as NotificationSeverity | "ALL"; setSeverity(value); replaceQuery({ severity: value }); }}><option value="ALL">전체</option><option value="CRITICAL">긴급</option><option value="HIGH">주의</option><option value="WARNING">주의</option><option value="INFO">일반</option></select></label>
               <label><span>유형</span><select value={type} onChange={event => { const value = event.target.value as TypeFilter; setType(value); replaceQuery({ type: value }); }}><option value="ALL">전체</option><option value="INCIDENT">사건</option><option value="DISPATCH">출동</option><option value="COMPLETED">조치 완료</option></select></label>
-              {view === "action"
-                ? <div className={styles.fixedSort}><span>정렬</span><strong>우선순위순</strong></div>
-                : <label><span>정렬</span><select value={sort} onChange={event => { const value = event.target.value as Sort; setSort(value); replaceQuery({ sort: value }); }}><option value="newest">최신순</option><option value="oldest">오래된순</option></select></label>}
+              <label className={styles.sortControl}><span>정렬</span><select aria-label="알림 정렬" value={sort} onChange={event => { const value = event.target.value as NotificationSort; setSort(value); replaceQuery({ sort: value }); }}><option value="newest">최신순</option><option value="severity">긴급도순</option><option value="unread">미열람순</option></select></label>
             </div>
           </div>
         </header>
@@ -212,7 +218,7 @@ function NotificationInbox() {
             <div id="notification-queue" className={styles.queueList} role="tabpanel" aria-labelledby={`notification-tab-${view}`}>
             {loading ? <div className={styles.queueSkeleton} aria-label="알림을 불러오는 중"><i /><i /><i /><i /></div>
               : error ? <div className={styles.error}><strong>알림을 불러오지 못했습니다</strong><p>{error}</p><button type="button" onClick={() => void refresh()}>다시 시도</button></div>
-                : filtered.length === 0 ? <EmptyState view={view} general={Boolean(general)} />
+                : filtered.length === 0 ? <EmptyState view={view} general={false} />
                   : <ul className={styles.queueItems}>{filtered.map(item => {
                     const presentation = notificationPresentation[item.notification_type];
                     const isSelected = selected?.public_id === item.public_id;
@@ -233,5 +239,10 @@ function NotificationInbox() {
 }
 
 export default function NotificationsPage() {
-  return <Suspense><NotificationInbox /></Suspense>;
+  return <Suspense><NotificationAudienceInbox /></Suspense>;
+}
+
+function NotificationAudienceInbox(){
+  const{user}=useAuth();
+  return resolveNotificationAudience(user).general?<GeneralNotificationInbox/>:<OperationsNotificationInbox/>;
 }
