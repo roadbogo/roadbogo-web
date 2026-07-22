@@ -11,10 +11,10 @@ function deferred<T>(): Deferred<T> {
   return { promise, resolve };
 }
 
-function response(status: number, data: unknown = null) {
+function response(status: number, data: unknown = null, errorCode = status === 401 ? "AUTH_ACCESS_TOKEN_EXPIRED" : `HTTP_${status}`) {
   return new Response(JSON.stringify(status >= 200 && status < 300
     ? { success: true, data, trace_id: "trace" }
-    : { success: false, error: { code: `HTTP_${status}`, message: "failed" }, trace_id: "trace" }), {
+    : { success: false, error: { code: errorCode, message: "failed" }, trace_id: "trace" }), {
     status,
     headers: { "Content-Type": "application/json" },
   });
@@ -44,6 +44,22 @@ beforeEach(() => {
 });
 
 describe("apiClient authentication races", () => {
+  it("sends the withdrawal contract to the API v1 URL with access token and cookies", async () => {
+    const api = await import("./apiClient");
+    api.completeLogin("withdrawal-token");
+    vi.mocked(fetch).mockResolvedValue(response(200));
+
+    await api.apiRequest("/auth/me/withdraw", { method: "POST", body: { current_password: "test-value" } });
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(String(url)).toBe("http://localhost:8000/api/v1/auth/me/withdraw");
+    expect(init?.method).toBe("POST");
+    expect(init?.credentials).toBe("include");
+    expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer withdrawal-token");
+    expect(JSON.parse(String(init?.body))).toEqual({ current_password: "test-value" });
+    expect(String(url)).not.toContain("/auth/logout");
+  });
   it("uses one refresh for simultaneous 401 responses and retries each request once", async () => {
     const api = await import("./apiClient");
     api.completeLogin("old-token");
@@ -160,6 +176,30 @@ describe("apiClient authentication races", () => {
     await expect(logout).resolves.toBeNull();
     expect(refreshCalls).toBe(0);
     expect(sessionStorage.getItem("roadbogo_auth_expired")).toBeNull();
+  });
+
+  it("does not refresh or retry withdrawal after an invalid current password", async () => {
+    const api = await import("./apiClient");
+    api.completeLogin("token");
+    vi.mocked(fetch).mockResolvedValue(response(401, null, "AUTH_CURRENT_PASSWORD_INVALID"));
+
+    await expect(api.apiRequest("/auth/me/withdraw", { method: "POST", body: { current_password: "test-value" } })).rejects.toMatchObject({ code: "AUTH_CURRENT_PASSWORD_INVALID" });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).endsWith("/auth/refresh"))).toBe(false);
+  });
+
+  it("prevents a late refresh response from restoring a token after withdrawal cleanup", async () => {
+    const api = await import("./apiClient");
+    api.completeLogin("old-token");
+    const refresh = deferred<Response>();
+    vi.mocked(fetch).mockImplementation(input => String(input).endsWith("/auth/refresh") ? refresh.promise : Promise.resolve(response(200)));
+
+    const pending = api.refreshAccessToken();
+    api.finishLogoutSession();
+    refresh.resolve(response(200, { access_token: "late-token" }));
+
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+    expect((await import("./auth/accessToken")).getAccessToken()).toBeNull();
   });
 
   it("does not let an old refresh finally clear a newer refresh", async () => {

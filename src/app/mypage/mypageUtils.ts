@@ -7,8 +7,50 @@ export type ProfileUpdate = { user_name?: string; phone?: string | null };
 export type ProfileFieldErrors = { name?: string; phone?: string };
 export type AccountTab = "overview" | "profile" | "security";
 
-const phonePattern = /^[+0-9() -]{7,30}$/;
 const accountTabs: AccountTab[] = ["overview", "profile", "security"];
+
+export function normalizePhoneForComparison(value?: string | null) {
+  if (!value?.trim()) return "";
+  const trimmed = value.trim();
+  const digits = trimmed.replace(/\D/g, "");
+  return trimmed.startsWith("+") ? `+${digits}` : digits;
+}
+
+export function formatPhoneForDisplay(value?: string | null) {
+  if (!value?.trim()) return "";
+  const trimmed = value.trimStart();
+  const international = trimmed.startsWith("+");
+  const digits = trimmed.replace(/\D/g, "");
+  if (international) {
+    if (!digits.startsWith("82")) return `+${digits.slice(0, 12)}`;
+    const local = digits.slice(2, 12);
+    if (!local) return "+82";
+    if (local.length <= 2) return `+82 ${local}`;
+    if (local.length <= 6) return `+82 ${local.slice(0, 2)}-${local.slice(2)}`;
+    return `+82 ${local.slice(0, 2)}-${local.slice(2, 6)}-${local.slice(6, 10)}`;
+  }
+  const local = digits.slice(0, 11);
+  if (local.length <= 3) return local;
+  if (local.length <= 7) return `${local.slice(0, 3)}-${local.slice(3)}`;
+  return `${local.slice(0, 3)}-${local.slice(3, 7)}-${local.slice(7, 11)}`;
+}
+
+export function validatePhone(value?: string | null) {
+  if (!value?.trim()) return true;
+  const normalized = normalizePhoneForComparison(value);
+  return /^010\d{8}$/.test(normalized) || /^\+8210\d{8}$/.test(normalized);
+}
+
+export function phoneCursorPosition(rawValue: string, rawCursor: number, formattedValue: string) {
+  const tokenCount = (rawValue.slice(0, rawCursor).match(/[+0-9]/g) ?? []).length;
+  if (!tokenCount) return 0;
+  let seen = 0;
+  for (let index = 0; index < formattedValue.length; index += 1) {
+    if (/[+0-9]/.test(formattedValue[index])) seen += 1;
+    if (seen === tokenCount) return index + 1;
+  }
+  return formattedValue.length;
+}
 
 export function validateProfile(name: string, phone: string, currentPhone?: string): ProfileFieldErrors {
   const errors: ProfileFieldErrors = {};
@@ -18,8 +60,8 @@ export function validateProfile(name: string, phone: string, currentPhone?: stri
   }
   if (currentPhone && !phone.trim()) {
     errors.phone = "전화번호 삭제는 ‘등록된 전화번호 삭제’를 이용해 주세요.";
-  } else if (phone.trim() && !phonePattern.test(phone.trim())) {
-    errors.phone = "전화번호는 숫자, 공백, 하이픈, 괄호와 + 기호를 사용해 입력해 주세요.";
+  } else if (phone.trim() && !validatePhone(phone)) {
+    errors.phone = "전화번호 형식을 확인해 주세요";
   }
   return errors;
 }
@@ -40,9 +82,9 @@ export function buildProfileUpdate(
 ): ProfileUpdate {
   const update: ProfileUpdate = {};
   const trimmedName = name.trim();
-  const trimmedPhone = phone.trim();
+  const trimmedPhone = formatPhoneForDisplay(phone);
   if (trimmedName !== current.name) update.user_name = trimmedName;
-  if (trimmedPhone && trimmedPhone !== (current.phone ?? "")) update.phone = trimmedPhone;
+  if (trimmedPhone && normalizePhoneForComparison(trimmedPhone) !== normalizePhoneForComparison(current.phone)) update.phone = trimmedPhone;
   return update;
 }
 
@@ -73,6 +115,10 @@ export function getRoleDisplay(primaryRole: UserRole, roles: UserRole[]) {
 }
 export function isOperationalAccount(roles: UserRole[]) {
   return roles.some(role => ["SYSTEM_ADMIN","CONTROL_MANAGER","CONTROLLER","RESPONDER"].includes(role));
+}
+
+export function canWithdrawAccount(roles: UserRole[] | undefined) {
+  return roles?.length === 1 && roles[0] === "GENERAL_USER";
 }
 
 export type AccountShortcut = { href: string; label: string; description: string };

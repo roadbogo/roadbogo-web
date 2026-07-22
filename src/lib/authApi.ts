@@ -49,6 +49,7 @@ export const authApi = {
   refresh: async () => ({ access_token: await refreshAccessToken() }),
   me: async (retryAuth = true) => (await apiRequest<UserResponse>("/auth/me", { retryAuth })).user,
   updateMe: async (body: { user_name?: string; phone?: string | null }) => (await apiRequest<UserResponse>("/auth/me", { method: "PATCH", body })).user,
+  withdrawMe: (currentPassword: string) => apiRequest<null>("/auth/me/withdraw", { method: "POST", body: { current_password: currentPassword } }),
   requestPasswordReset: (email: string) => apiRequest<PasswordResetRequestResponse>("/auth/password-reset/request", { method: "POST", auth: false, retryAuth: false, body: { email } }),
   confirmPasswordReset: (token: string, newPassword: string, confirmation: string) => apiRequest<null>("/auth/password-reset/confirm", { method: "POST", auth: false, retryAuth: false, body: { token, new_password: newPassword, new_password_confirmation: confirmation } }),
 };

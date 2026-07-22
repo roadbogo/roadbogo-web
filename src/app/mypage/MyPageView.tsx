@@ -8,15 +8,18 @@ import { UserAvatar } from "@/components/auth/UserAvatar";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import {
   buildProfileUpdate,
+  canWithdrawAccount,
   formatKstDate,
   getAccountShortcuts,
   getAccountStatusLabel,
   getNextAccountTab,
   getPermissionGroups,
   getProfileErrorMessage,
+  formatPhoneForDisplay,
   getRoleDisplay,
   isOperationalAccount,
   hasProfileChanges,
+  phoneCursorPosition,
   validateProfile,
   type AccountTab,
   type ProfileFieldErrors,
@@ -24,6 +27,7 @@ import {
 } from "./mypageUtils";
 import styles from "./mypage.module.css";
 import { canAccessControl } from "@/lib/auth/controlAccess";
+import { AccountWithdrawalDialog } from "@/features/account-withdrawal/AccountWithdrawalDialog";
 
 type Props = {
   user: AuthenticatedUser;
@@ -60,7 +64,7 @@ export function MyPageView({ user, initialEditing = false, onSave, isLoggingOut 
   const errorRef = useRef<HTMLParagraphElement>(null);
   const [editing, setEditing] = useState(initialEditing);
   const [name, setName] = useState(user.name);
-  const [phone, setPhone] = useState(user.phone ?? "");
+  const [phone, setPhone] = useState(() => formatPhoneForDisplay(user.phone));
   const [fieldErrors, setFieldErrors] = useState<ProfileFieldErrors>({});
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -69,18 +73,20 @@ export function MyPageView({ user, initialEditing = false, onSave, isLoggingOut 
   const [discardConfirm, setDiscardConfirm] = useState(false);
   const [activeTab, setActiveTab] = useState<AccountTab>("overview");
   const [permissionsOpen, setPermissionsOpen] = useState(false);
+  const [withdrawalOpen, setWithdrawalOpen] = useState(false);
+  const withdrawalTriggerRef = useRef<HTMLButtonElement>(null);
   const update = useMemo(() => buildProfileUpdate(user, name, phone), [name, phone, user]);
   const validationErrors = useMemo(() => validateProfile(name, phone, user.phone), [name, phone, user.phone]);
   const changed = hasProfileChanges(update) || Boolean(user.phone && !phone.trim());
 
   useEffect(() => {
     setName(user.name);
-    setPhone(user.phone ?? "");
+    setPhone(formatPhoneForDisplay(user.phone));
   }, [user]);
 
   const cancel = useCallback(() => {
     setName(user.name);
-    setPhone(user.phone ?? "");
+    setPhone(formatPhoneForDisplay(user.phone));
     setFieldErrors({});
     setSaveError("");
     setDeleteConfirm(false);
@@ -220,13 +226,45 @@ export function MyPageView({ user, initialEditing = false, onSave, isLoggingOut 
 
   const formStatus = saving
     ? "변경사항을 저장하고 있습니다"
-    : validationErrors.name || validationErrors.phone
+    : fieldErrors.name || fieldErrors.phone
       ? "입력 내용을 확인해 주세요"
       : changed
         ? "변경사항이 있습니다"
         : "변경사항 없음";
 
   const selectTab = (tab: AccountTab) => setActiveTab(tab);
+  const updatePhoneInput = (rawValue: string, rawCursor: number) => {
+    const formatted = formatPhoneForDisplay(rawValue);
+    const nextCursor = phoneCursorPosition(rawValue, rawCursor, formatted);
+    setPhone(formatted);
+    setFieldErrors(errors => ({ ...errors, phone: undefined }));
+    setDeleteConfirm(false);
+    setSaveError("");
+    window.requestAnimationFrame(() => phoneInputRef.current?.setSelectionRange(nextCursor, nextCursor));
+  };
+  const handlePhoneKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    const start = input.selectionStart ?? 0;
+    const end = input.selectionEnd ?? start;
+    if (start !== end) return;
+    if (event.key === "Backspace" && start > 0 && /[ -]/.test(input.value[start - 1])) {
+      let removeAt = start - 2;
+      while (removeAt >= 0 && /[ -]/.test(input.value[removeAt])) removeAt -= 1;
+      if (removeAt >= 0 && /\d/.test(input.value[removeAt])) {
+        event.preventDefault();
+        const raw = input.value.slice(0, removeAt) + input.value.slice(removeAt + 1);
+        updatePhoneInput(raw, removeAt);
+      }
+    } else if (event.key === "Delete" && /[ -]/.test(input.value[start] ?? "")) {
+      let removeAt = start + 1;
+      while (removeAt < input.value.length && /[ -]/.test(input.value[removeAt])) removeAt += 1;
+      if (/\d/.test(input.value[removeAt] ?? "")) {
+        event.preventDefault();
+        const raw = input.value.slice(0, removeAt) + input.value.slice(removeAt + 1);
+        updatePhoneInput(raw, start);
+      }
+    }
+  };
   const handleTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
     const next = getNextAccountTab(activeTab, event.key);
     if (!next) return;
@@ -299,16 +337,19 @@ export function MyPageView({ user, initialEditing = false, onSave, isLoggingOut 
         <dl className={styles.settingsList}>
           <div><dt><span><MailIcon /></span><b>이메일</b><small>로그인에 사용하는 이메일이며 변경할 수 없습니다.</small></dt><dd>{user.email}</dd></div>
           <div><dt><span><UserAvatar /></span><b>사용자명</b></dt><dd>{user.name}<button type="button" onClick={() => startEditing("name")}>수정</button></dd></div>
-          <div><dt><span><PhoneIcon /></span><b>전화번호</b></dt><dd>{user.phone || "등록된 전화번호가 없습니다"}<button type="button" onClick={() => startEditing("phone")}>{user.phone ? "수정" : "등록"}</button></dd></div>
+          <div><dt><span><PhoneIcon /></span><b>전화번호</b></dt><dd>{formatPhoneForDisplay(user.phone) || "등록된 전화번호가 없습니다"}<button type="button" onClick={() => startEditing("phone")}>{user.phone ? "수정" : "등록"}</button></dd></div>
         </dl>
       </section> : <section id="mypage-panel-security" role="tabpanel" aria-labelledby="mypage-tab-security" className={styles.tabPanel}>
         <div className={styles.panelHeading}><div><h2>보안·활동</h2><span>실제 계정 활동과 현재 브라우저의 보안 작업입니다.</span></div></div>
         <div className={styles.securityGrid}>
           <section className={styles.activityTimeline}><h3>최근 계정 활동</h3><ol><li><i aria-hidden="true"/><div><strong>최근 로그인</strong><time>{lastLogin}</time><span>현재 계정으로 마지막 로그인한 시각입니다.</span></div></li><li><i aria-hidden="true"/><div><strong>최근 정보 수정</strong><time>{lastUpdated}</time><span>계정 정보가 마지막으로 갱신된 시각입니다.</span></div></li></ol></section>
           <section className={styles.securityTasks}><h3>계정 보안</h3><div><span><strong>비밀번호 재설정</strong><small>비밀번호를 잊었거나 새 비밀번호가 필요한 경우 등록된 이메일로 재설정 링크를 받을 수 있습니다.</small></span><Link href="/forgot-password">비밀번호 재설정</Link></div><div><span><strong>현재 세션</strong><small>현재 브라우저에서 로그인 중입니다.</small></span><button type="button" disabled={isLoggingOut} aria-busy={isLoggingOut} onClick={event => onLogout?.(event.currentTarget)}>{isLoggingOut ? "로그아웃 중…" : "로그아웃"}</button></div></section>
+          {canWithdrawAccount(user.roles) && <section className={styles.withdrawalEntry}><div className={styles.withdrawalCopy}><i aria-hidden="true">!</i><span><strong>회원 탈퇴</strong><small>계정과 개인정보를 삭제하고 서비스 이용을 종료합니다</small></span></div><button ref={withdrawalTriggerRef} type="button" onClick={() => setWithdrawalOpen(true)}>탈퇴 진행</button></section>}
         </div>
       </section>}
     </main>
+
+    <AccountWithdrawalDialog open={withdrawalOpen} user={user} triggerRef={withdrawalTriggerRef} onClose={() => setWithdrawalOpen(false)} />
 
     {editing && <>
       <button type="button" className={styles.dialogBackdrop} aria-label="정보 수정 닫기" onClick={requestClose} />
@@ -318,14 +359,14 @@ export function MyPageView({ user, initialEditing = false, onSave, isLoggingOut 
           <div className={styles.dialogBody}>
             <div className={styles.editFields}>
               <label htmlFor="profile-name-input">사용자명<input ref={nameInputRef} id="profile-name-input" value={name} onChange={event => { const nextName = event.target.value; setName(nextName); setFieldErrors(errors => ({ ...errors, name: validateProfile(nextName, phone, user.phone).name })); setSaveError(""); }} minLength={2} maxLength={100} autoComplete="name" aria-invalid={Boolean(fieldErrors.name)} aria-describedby={fieldErrors.name ? "profile-name-help profile-name-error" : "profile-name-help"} /><small id="profile-name-help">2~100자로 입력해 주세요</small>{fieldErrors.name && <small id="profile-name-error" className={styles.fieldError}>{fieldErrors.name}</small>}</label>
-              <label htmlFor="profile-phone"><span className={styles.fieldLabel}>전화번호{user.phone && <button type="button" disabled={changed} title={changed ? "변경사항을 저장하거나 취소한 후 삭제할 수 있습니다." : undefined} onClick={() => { setDeleteConfirm(true); setDiscardConfirm(false); setSaveError(""); }}>등록된 전화번호 삭제</button>}</span><input ref={phoneInputRef} id="profile-phone" type="tel" value={phone} onChange={event => { const nextPhone = event.target.value; setPhone(nextPhone); setFieldErrors(errors => ({ ...errors, phone: validateProfile(name, nextPhone, user.phone).phone })); setDeleteConfirm(false); setSaveError(""); }} placeholder="010-1234-5678 또는 +82 형식" inputMode="tel" autoComplete="tel" aria-invalid={Boolean(fieldErrors.phone)} aria-describedby={fieldErrors.phone ? "profile-phone-help profile-phone-error" : "profile-phone-help"} /><small id="profile-phone-help">010-1234-5678 또는 +82 형식으로 입력해 주세요</small>{fieldErrors.phone && <small id="profile-phone-error" className={styles.fieldError}>{fieldErrors.phone}</small>}</label>
+              <label htmlFor="profile-phone"><span className={styles.fieldLabel}>전화번호{user.phone && <button type="button" disabled={changed} title={changed ? "변경사항을 저장하거나 취소한 후 삭제할 수 있습니다." : undefined} onClick={() => { setDeleteConfirm(true); setDiscardConfirm(false); setSaveError(""); }}>등록된 전화번호 삭제</button>}</span><input ref={phoneInputRef} id="profile-phone" type="tel" value={phone} onChange={event => updatePhoneInput(event.target.value, event.target.selectionStart ?? event.target.value.length)} onKeyDown={handlePhoneKeyDown} onBlur={() => setFieldErrors(errors => ({ ...errors, phone: validateProfile(name, phone, user.phone).phone }))} placeholder="010-1234-5678 또는 +82 10-1234-5678" inputMode="tel" autoComplete="tel" aria-invalid={Boolean(fieldErrors.phone)} aria-describedby={fieldErrors.phone ? "profile-phone-help profile-phone-error" : "profile-phone-help"} /><small id="profile-phone-help">국내 번호 또는 +82 국제 형식으로 입력해 주세요</small>{fieldErrors.phone && <small id="profile-phone-error" className={styles.fieldError}>{fieldErrors.phone}</small>}</label>
             </div>
             {deleteConfirm && <div className={styles.confirmArea} role="alertdialog" aria-labelledby="phone-delete-title" aria-describedby="phone-delete-description"><div><strong id="phone-delete-title">전화번호를 삭제할까요?</strong><span id="phone-delete-description">삭제 후에는 연락처가 미등록 상태로 표시됩니다.</span></div><div><button type="button" onClick={() => setDeleteConfirm(false)} disabled={saving}>유지</button><button type="button" onClick={() => void deletePhone()} disabled={saving}>{saving ? "삭제 중…" : "전화번호 삭제"}</button></div></div>}
             {discardConfirm && <div className={styles.confirmArea} role="alertdialog" aria-labelledby="discard-title" aria-describedby="discard-description"><div><strong id="discard-title">수정 중인 내용이 저장되지 않았습니다</strong><span id="discard-description">변경사항을 취소하고 닫을까요?</span></div><div><button type="button" onClick={() => setDiscardConfirm(false)}>계속 수정</button><button type="button" onClick={cancel}>변경사항 취소</button></div></div>}
             <div className={styles.readOnlyBlock}><h3>변경할 수 없는 계정 정보</h3><dl><div><dt>이메일</dt><dd>{user.email}</dd></div><div><dt>계정 유형</dt><dd>{operationalUser ? "운영 계정" : "일반 계정"}</dd></div></dl></div>
             <p ref={errorRef} id="profile-form-error" className={styles.formError} role={saveError ? "alert" : undefined} aria-live="assertive" tabIndex={saveError ? -1 : undefined}>{saveError || " "}</p>
           </div>
-          <footer className={styles.dialogFooter}><span role="status" aria-live="polite">{formStatus}</span><div className={styles.formActions}><button type="button" onClick={requestClose} disabled={saving}>취소</button><button type="submit" disabled={!changed || Boolean(validationErrors.name || validationErrors.phone) || deleteConfirm || saving} aria-busy={saving}>{saving ? "저장 중…" : "변경사항 저장"}</button></div></footer>
+          <footer className={styles.dialogFooter}><span role="status" aria-live="polite">{formStatus}</span><div className={styles.formActions}><button type="button" onClick={requestClose} disabled={saving}>취소</button><button type="submit" disabled={!changed || Boolean(fieldErrors.name || fieldErrors.phone) || deleteConfirm || saving} aria-busy={saving}>{saving ? "저장 중…" : "변경사항 저장"}</button></div></footer>
         </form>
       </section>
     </>}
