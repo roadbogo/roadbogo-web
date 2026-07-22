@@ -17,11 +17,14 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "latest",
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "eslint": "latest",
     "eslint-config-next": "latest",
+    "jsdom": "^29.1.1",
     "typescript": "latest",
     "vitest": "^4.1.10"
   }
