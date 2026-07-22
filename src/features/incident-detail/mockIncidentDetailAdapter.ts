@@ -32,7 +32,12 @@ records.set(base.public_id,records.get(base.public_id)!);
 const initialRecords=new Map([...records].map(([publicId,record])=>[publicId,structuredClone(record)]));
 const transition:Record<string,IncidentStatus>={acknowledge:"ACKNOWLEDGED",claim:"CLAIMED",release:"ACKNOWLEDGED",review:"UNDER_REVIEW",assign:"DISPATCH_REQUESTED",close:"CLOSED"};
 const decisionTransition:Record<IncidentDecisionPayload["decision_type"],IncidentStatus>={REAL_RISK:"DISPATCH_REQUESTED",FALSE_POSITIVE:"FALSE_POSITIVE",NEEDS_REVIEW:"UNDER_REVIEW",NO_DISPATCH:"CLOSED"};
+const decisionLabel:Record<IncidentDecisionPayload["decision_type"],string>={REAL_RISK:"실제 위험",FALSE_POSITIVE:"오탐",NEEDS_REVIEW:"추가 검토",NO_DISPATCH:"출동 불필요"};
+const actionSources:Partial<Record<IncidentActionRequest["action"],IncidentStatus[]>>={acknowledge:["NEW"],claim:["ACKNOWLEDGED"],release:["CLAIMED","UNDER_REVIEW"],review:["CLAIMED"],decide:["UNDER_REVIEW"],close:["ACTION_COMPLETED"]};
 const responders:DispatchResponderOption[]=[{public_id:"mock-responder-1",display_name:"이천 도로대응 1팀",organization_name:"이천 도로관리소",available:true},{public_id:"mock-responder-2",display_name:"이천 도로대응 2팀",organization_name:"이천 도로관리소",available:true},{public_id:"mock-responder-3",display_name:"광주 현장지원팀",organization_name:"광주 도로관리소",available:false}];
+function appendHistory(record:IncidentDetailRecord,{label,actorName,occurredAt,detail}:{label:string;actorName:string|null;occurredAt:string;detail:string|null}):IncidentHistory[]{
+  return [...record.histories,{public_id:`history-${record.incident.public_id}-${Date.now()}-${record.histories.length}`,event_type:"INCIDENT_UPDATED",label,actor_name:actorName,occurred_at:occurredAt,detail}];
+}
 export function createMockIncidentDetailRecord(public_id:string){const value=records.get(public_id);return value?structuredClone(value):null}
 export function resetMockIncidentDetailRuntime(){
   records.clear();
@@ -53,6 +58,8 @@ export class MockIncidentDetailAdapter implements IncidentDetailAdapter{
     const current=records.get(request.incident_public_id);
     if(!current)throw new Error("NOT_FOUND");
     if(request.expected_version_no!==current.incident.version_no)return{ok:false,code:"INCIDENT_VERSION_CONFLICT",latest:structuredClone(current)};
+    const allowedSources=actionSources[request.action];
+    if(allowedSources&&!allowedSources.includes(current.incident.status))return{ok:false,code:"INVALID_TRANSITION",latest:structuredClone(current)};
     const decision=request.action==="decide"?request.payload as IncidentDecisionPayload|undefined:undefined;
     const status=decision?decisionTransition[decision.decision_type]:transition[request.action];
     if(!status)return{ok:false,code:"INVALID_TRANSITION",latest:structuredClone(current)};
@@ -60,9 +67,11 @@ export class MockIncidentDetailAdapter implements IncidentDetailAdapter{
     const actor=request.payload&&typeof request.payload==="object"&&"actor_name" in request.payload?String(request.payload.actor_name):"관제 담당자";
     const actorPublicId=request.payload&&typeof request.payload==="object"&&"actor_public_id" in request.payload?String(request.payload.actor_public_id):"mock:controller@roadbogo.kr";
     const assignedController=request.action==="claim"?{public_id:actorPublicId,display_name:actor}:request.action==="release"?null:current.incident.assigned_controller;
-    const actionLabel=request.action==="acknowledge"?"사건 확인":request.action==="claim"?"담당 지정":request.action==="release"?"담당 해제":request.action==="review"?"검토 시작":null;
+    const actionLabel=request.action==="acknowledge"?"사건 확인":request.action==="claim"?"담당 지정":request.action==="release"?"담당 해제":request.action==="review"?"검토 시작":request.action==="decide"?"위험 판정 완료":request.action==="close"?"사건 최종 종료":null;
+    const decisionReason=decision?.decision_reason.trim()??"";
+    const actionDetail=decision?`${decisionLabel[decision.decision_type]}${decisionReason?` · ${decisionReason}`:""}`:request.action==="close"?"현장 조치 결과를 확인하고 사건을 종료했습니다.":null;
     const claimedAt=request.action==="claim"?now:request.action==="release"?null:current.incident.claimed_at;
-    const updated={...current,incident:{...current.incident,status,assigned_controller:assignedController,claimed_at:claimedAt,version_no:current.incident.version_no+1,updated_at:now},histories:actionLabel?[...current.histories,{public_id:`history-${current.incident.public_id}-${Date.now()}`,event_type:"INCIDENT_UPDATED",label:actionLabel,actor_name:actor,occurred_at:now,detail:null}]:current.histories,decision:decision?{result:decision.decision_type,reason:decision.decision_reason,decided_by:current.incident.assigned_controller?.display_name??"관제 담당자",decided_at:now}:current.decision};
+    const updated={...current,incident:{...current.incident,status,assigned_controller:assignedController,claimed_at:claimedAt,version_no:current.incident.version_no+1,updated_at:now},histories:actionLabel?appendHistory(current,{label:actionLabel,actorName:actor,occurredAt:now,detail:actionDetail}):current.histories,decision:decision?{result:decision.decision_type,reason:decisionReason,decided_by:current.incident.assigned_controller?.display_name??"관제 담당자",decided_at:now}:current.decision};
     records.set(request.incident_public_id,updated);
     updateMockIncidentRuntime(request.incident_public_id,{status,assigned_controller:assignedController,claimed_at:claimedAt,version_no:updated.incident.version_no,updated_at:now});
     return{ok:true,status,version_no:updated.incident.version_no,record:structuredClone(updated)};
@@ -72,14 +81,17 @@ export class MockIncidentDetailAdapter implements IncidentDetailAdapter{
     const current=records.get(request.incident_public_id);
     if(!current)throw new Error("NOT_FOUND");
     if(request.expected_version_no!==current.incident.version_no)return{ok:false,code:"INCIDENT_VERSION_CONFLICT",latest:structuredClone(current)};
+    if(!["UNDER_REVIEW","DISPATCH_REQUESTED"].includes(current.incident.status))return{ok:false,code:"INVALID_TRANSITION",latest:structuredClone(current)};
     if(current.dispatch && !["REJECTED","CANCELLED"].includes(current.dispatch.status))return{ok:false,code:"DISPATCH_ALREADY_ASSIGNED",latest:structuredClone(current)};
     const responder=responders.find(item=>item.public_id===request.responder_public_id);
     if(!responder)return{ok:false,code:"DISPATCH_RESPONDER_NOT_FOUND",latest:structuredClone(current)};
     if(!responder.available)return{ok:false,code:"DISPATCH_RESPONDER_UNAVAILABLE",latest:structuredClone(current)};
     const now=new Date().toISOString();
-    const dispatch={public_id:`mock-dispatch-${request.incident_public_id}-${Date.now()}`,incident_public_id:request.incident_public_id,status:"REQUESTED" as const,responder_public_id:responder.public_id,responder_label:responder.display_name,requested_at:now,updated_at:now};
+    const requestMessage=request.request_message?.trim()||null;
+    const dispatch={public_id:crypto.randomUUID(),incident_public_id:request.incident_public_id,status:"REQUESTED" as const,responder_public_id:responder.public_id,responder_label:responder.display_name,requested_at:now,updated_at:now};
     const incident={...current.incident,status:"DISPATCH_REQUESTED" as const,version_no:current.incident.version_no+1,updated_at:now};
-    const updated={...current,incident,dispatch,request_message:request.request_message?.trim()||null};
+    const historyDetail=`${responder.display_name}${requestMessage?` · ${requestMessage}`:""}`;
+    const updated={...current,incident,dispatch,histories:appendHistory(current,{label:"출동 담당자 배정",actorName:current.incident.assigned_controller?.display_name??"관제 담당자",occurredAt:now,detail:historyDetail}),request_message:requestMessage};
     records.set(request.incident_public_id,updated);
     updateMockIncidentRuntime(request.incident_public_id,{status:incident.status,version_no:incident.version_no,updated_at:now});
     updateMockDispatchRuntime(dispatch);
