@@ -199,7 +199,7 @@ function NotificationInbox() {
         <header className={styles.inboxHeader}>
           <div className={styles.queueHeader}><div><h2>{audience.listTitle}</h2><p>{audience.listDescription??(realtimeStatus === "unavailable" ? "시연 알림 표시 중" : "알림 상태 확인 중")}</p></div></div>
           <div className={styles.queueTools}>
-            <div className={styles.segmentedTabs} role="tablist" aria-label="업무 알림 보기">
+            <div className={styles.segmentedTabs} role="tablist" aria-label={general ? "알림 보기" : "업무 알림 보기"}>
               {audience.views.map(tab => <button key={tab} id={`notification-tab-${tab}`} type="button" role="tab" aria-selected={view === tab} aria-controls="notification-queue" tabIndex={view === tab ? 0 : -1} onClick={() => selectView(tab)} onKeyDown={onTabKey}>{tab === "action" ? "처리 필요" : tab === "all" ? "전체 알림" : "읽지 않음"} <b>{tab === "action" ? actionCount : tab === "all" ? items.length : unreadCount}</b></button>)}
             </div>
             {audience.showOperationsControls&&<div className={styles.filters}>
