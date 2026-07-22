@@ -1,6 +1,18 @@
 import type { DashboardIncident, IncidentStatus } from "@/features/control-dashboard/dashboardTypes";
 import type { IncidentCommandAction, IncidentEvidence, IncidentWorkspaceMode } from "./incidentDetailTypes";
 
+export function resolveMemoAvailability(incident:DashboardIncident,user:{public_id:string;permissions:string[]}){
+  if(["FALSE_POSITIVE","CLOSED"].includes(incident.status))return{allowed:false,reason:"종료된 사건에는 새 메모를 작성할 수 없습니다"};
+  if(incident.assigned_controller&&incident.assigned_controller.public_id!==user.public_id)return{allowed:false,reason:"담당 관제자만 메모를 작성할 수 있습니다"};
+  if(!user.permissions.includes("INCIDENT.DECIDE"))return{allowed:false,reason:"관제 메모 작성 권한이 없습니다"};
+  if(incident.status==="NEW")return{allowed:false,reason:"사건을 확인한 후 담당할 수 있습니다"};
+  if(incident.status==="ACKNOWLEDGED")return{allowed:false,reason:"사건을 담당하고 검토를 시작하면 메모를 작성할 수 있습니다"};
+  if(incident.status==="CLAIMED")return{allowed:false,reason:"검토를 시작하면 메모를 작성할 수 있습니다"};
+  if(incident.status!=="UNDER_REVIEW")return{allowed:false,reason:"현재 사건 상태에서는 메모를 작성할 수 없습니다"};
+  if(!incident.assigned_controller)return{allowed:false,reason:"담당 관제자만 메모를 작성할 수 있습니다"};
+  return{allowed:true,reason:"관제 메모를 작성할 수 있습니다"};
+}
+
 export function resolveIncidentWorkspaceMode(status: IncidentStatus): IncidentWorkspaceMode {
   if (["NEW", "ACKNOWLEDGED", "CLAIMED", "UNDER_REVIEW"].includes(status)) return "EVIDENCE_REVIEW";
   if (["DISPATCH_REQUESTED", "DISPATCHED", "ON_SCENE", "ACTION_IN_PROGRESS"].includes(status)) return "FIELD_RESPONSE";

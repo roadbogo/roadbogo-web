@@ -1,16 +1,19 @@
 import type { DashboardCctv, DashboardDispatch, DashboardIncident } from "@/features/control-dashboard/dashboardTypes";
 export type IncidentWorkspaceMode="EVIDENCE_REVIEW"|"FIELD_RESPONSE"|"CLOSURE_REVIEW"|"READ_ONLY";
 export interface IncidentEvidence {
-  detection_public_id:string;detected_at:string;class_name:string|null;confidence:number|null;is_representative:boolean;
+  detection_public_id:string;detected_at:string;object_category:string;class_code:string|null;class_name:string|null;confidence:number|null;is_representative:boolean;
   bbox:{x:number;y:number;width:number;height:number}|null;original_image_url:string|null;annotated_image_url:string|null;
   risk:{risk_score:number;risk_grade:string;duration_ms:number;repeat_count:number;track_id:string|null;reason_codes:string[]};
 }
 export interface IncidentHistory {public_id:string;event_type:string;label:string;actor_name:string|null;occurred_at:string;detail:string|null}
+export type IncidentMemoType="GENERAL"|"REVIEW"|"DISPATCH"|"CLOSURE";
+export interface IncidentMemo {public_id:string;incident_public_id:string;memo_type:IncidentMemoType;content:string;created_by:{public_id:string;user_name:string};created_at:string}
+export interface IncidentMemoRequest {incident_public_id:string;memo_type:IncidentMemoType;content:string;actor_public_id:string;actor_name:string}
 export interface FieldAction {action_type:string;detail:string;before_image_url:string|null;after_image_url:string|null;completed_at:string}
 export interface IncidentDetailRecord {
   incident:DashboardIncident;cctv:DashboardCctv;evidences:IncidentEvidence[];dispatch:DashboardDispatch|null;
   histories:IncidentHistory[];field_action:FieldAction|null;decision:{result:string;reason:string;decided_by:string;decided_at:string}|null;
-  controller_note:string|null;request_message:string|null;
+  controller_note:string|null;memos:IncidentMemo[];request_message:string|null;
 }
 export type IncidentDecisionType="REAL_RISK"|"FALSE_POSITIVE"|"NEEDS_REVIEW"|"NO_DISPATCH";
 export interface IncidentDecisionPayload{decision_type:IncidentDecisionType;decision_reason:string}
@@ -40,4 +43,5 @@ export interface IncidentDetailAdapter {
   act(request:IncidentActionRequest):Promise<IncidentActionResult>;
   listResponders():Promise<DispatchResponderOption[]>;
   assignDispatch(request:IncidentDispatchAssignmentRequest):Promise<IncidentActionResult>;
+  createMemo(request:IncidentMemoRequest):Promise<IncidentMemo>;
 }

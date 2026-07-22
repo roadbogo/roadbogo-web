@@ -13,7 +13,8 @@ export const incidentStatusLabel: Record<IncidentStatus, string> = {
   DISPATCH_REQUESTED:"출동 배정 단계", DISPATCHED:"출동 중", ON_SCENE:"현장 도착",
   ACTION_IN_PROGRESS:"조치 중", ACTION_COMPLETED:"종료 대기", CLOSED:"종료", FALSE_POSITIVE:"오탐",
 };
-export const riskLabel: Record<RiskGrade, string> = { CRITICAL:"긴급", HIGH:"높음", MEDIUM:"보통", LOW:"낮음" };
+export const riskLabel: Record<RiskGrade, string> = { CRITICAL:"긴급", HIGH:"주의", MEDIUM:"보통", LOW:"낮음" };
+export function formatRiskGrade(grade:string){return riskLabel[grade as RiskGrade]??grade}
 export const nextActionLabel: Record<IncidentStatus, string> = {
   NEW:"사건 확인", ACKNOWLEDGED:"사건 선점", CLAIMED:"검토 시작", UNDER_REVIEW:"위험 판정",
   DISPATCH_REQUESTED:"출동 배정", DISPATCHED:"출동 상태 보기", ON_SCENE:"현장 상태 보기",

@@ -21,7 +21,7 @@ export function mapDashboardIncident(dto:IncidentListItemDto):DashboardIncident 
     object_category:dto.object_category,class_code:dto.class_code,class_name:dto.class_name,
     current_risk_score:dto.ai_risk_score,current_risk_grade:dto.ai_risk_grade,
     representative_confidence:dto.representative_confidence,duration_ms:dto.duration_ms,
-    detection_count:dto.detection_count,
+    detection_count:dto.detection_count,representative_image_url:dto.representative_image_url,detection_bbox:null,
     assigned_controller:dto.claimed_by?{public_id:dto.claimed_by.public_id,display_name:dto.claimed_by.user_name}:null,
     version_no:dto.version_no,created_at:dto.first_detected_at,updated_at:dto.updated_at,
   };

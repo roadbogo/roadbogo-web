@@ -36,6 +36,8 @@ const mockDto = {
     representative_confidence,
     duration_ms,
     detection_count,
+    representative_image_url:"/images/incidents/response-ai-detection-v2.png",
+    detection_bbox:class_code==="STOPPED_VEHICLE"?{x:.49,y:.4,width:.1,height:.12}:class_code==="WRONG_WAY"?{x:.69,y:.37,width:.07,height:.13}:class_code==="PEDESTRIAN"?{x:.68,y:.39,width:.05,height:.13}:class_code==="TIRE"||class_code==="BOX"?{x:.52,y:.55,width:.08,height:.1}:null,
     assigned_controller,
     version_no,
     created_at,

@@ -22,9 +22,11 @@
 .command-cctv__video.is-demo:after{right:10px;bottom:10px;color:#fff;font-size:11px;font-weight:750}
 .command-cctv__video em{max-width:calc(100% - 16px);padding:5px 7px;font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .command-cctv__skeleton,.command-cctv__empty{color:#465e69;font-size:13px;font-weight:650}
-.command-detection{align-content:end;border-width:2px}
+.command-detection{--detection-color:#3c6fe8;--detection-label:#285fd6;align-content:end;border-width:2px;border-color:var(--detection-color)}
+.command-detection[data-visual-variant="traffic"]{--detection-color:#26999e;--detection-label:#176f73}
+.command-detection[data-visual-variant="hazard"]{--detection-color:#df595d;--detection-label:#9f3439}
 .command-detection b,.command-detection small{box-sizing:border-box;width:fit-content;max-width:min(160px,calc(100% + 42px));padding:4px 6px;overflow:hidden;font-weight:800;line-height:1.25;text-overflow:ellipsis;white-space:nowrap}
-.command-detection b{background:#285fd6;font-size:12px}
+.command-detection b{background:var(--detection-label);font-size:12px}
 .command-detection small{background:#142a37;font-size:11px}
 .command-cctv footer{min-height:64px;padding:11px 12px}
 .command-cctv footer div{gap:5px}

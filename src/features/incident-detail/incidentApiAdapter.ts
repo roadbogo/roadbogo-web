@@ -1,6 +1,6 @@
 import { ApiError, apiRequest } from "@/lib/apiClient";
-import type { IncidentActionRequest, IncidentActionResult, IncidentDetailAdapter, IncidentDetailRecord, IncidentDecisionPayload, IncidentDispatchAssignmentRequest } from "./incidentDetailTypes";
-import type { IncidentCommandResponseDto, IncidentDetailDto, IncidentDispatchResponseDto, IncidentEvidenceListDto, IncidentHistoryListDto, ResponderListDto } from "./incidentApiTypes";
+import type { IncidentActionRequest, IncidentActionResult, IncidentDetailAdapter, IncidentDetailRecord, IncidentDecisionPayload, IncidentDispatchAssignmentRequest, IncidentMemoRequest } from "./incidentDetailTypes";
+import type { IncidentCommandResponseDto, IncidentDetailDto, IncidentDispatchResponseDto, IncidentEvidenceListDto, IncidentHistoryListDto, IncidentMemoDto, ResponderListDto } from "./incidentApiTypes";
 import { mapDispatchResponder, mapIncidentDetailRecord } from "./incidentMapper";
 
 const commandErrorCodes=["INCIDENT_VERSION_CONFLICT","INCIDENT_ALREADY_CLAIMED","INCIDENT_NOT_ASSIGNED_CONTROLLER","INCIDENT_INVALID_STATE_TRANSITION"] as const;
@@ -80,6 +80,14 @@ export class ApiIncidentDetailAdapter implements IncidentDetailAdapter{
    if(!latest)throw error;
    return{ok:false,code:error.code as typeof dispatchErrorCodes[number],latest};
   }
+ }
+
+ async createMemo(request:IncidentMemoRequest){
+  if(!incidentPublicIdPattern.test(request.incident_public_id))throw new Error("INVALID_INCIDENT_PUBLIC_ID");
+  const content=request.content.trim();
+  if(!content||content.length>2000)throw new Error("INVALID_INCIDENT_MEMO");
+  const id=encodeURIComponent(request.incident_public_id);
+  return apiRequest<IncidentMemoDto>(`/incidents/${id}/memos`,{method:"POST",body:{memo_type:request.memo_type,content}});
  }
 }
 

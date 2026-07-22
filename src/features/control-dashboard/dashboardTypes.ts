@@ -38,6 +38,8 @@ export interface DashboardIncident {
   representative_confidence: number | null;
   duration_ms: number;
   detection_count: number;
+  representative_image_url?: string | null;
+  detection_bbox?: { x:number;y:number;width:number;height:number } | null;
   assigned_controller: { public_id: string; display_name: string } | null;
   version_no: number;
   created_at: string;

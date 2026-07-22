@@ -13,10 +13,13 @@ describe("selected incident workflow",()=>{
  it("uses the incident UUID for the shared detail action and limits identity badges to two",()=>{
   const html=renderToStaticMarkup(<SelectedIncidentPanel incident={incident} cctv={cctv} dispatch={dispatch} canAct/>);
   expect(html).toContain(`/control/incidents/${incident.public_id}`);
-  expect(html).toContain("선택 사건");
+  expect(html).toContain("현재 사건");
+  expect(html).not.toContain("선택 사건");
   expect(html).not.toContain("사건 상세 보기 →");
   expect((html.match(/selected-incident-panel__identity/g)??[]).length).toBe(1);
   expect((html.match(/<b/g)??[]).length).toBe(2);
+  expect(html).toContain("selected-incident-panel__primary");
+  expect(html).not.toContain("<strong>사건 확인</strong>");
  });
 
  it("keeps the selected linked incident in focus monitoring",()=>{
@@ -25,8 +28,29 @@ describe("selected incident workflow",()=>{
   const html=renderToStaticMarkup(<CctvFocusModal open cctv={cctv} relatedIncidents={related} selectedIncident={selected} selectedDispatch={null} canAct returnFocus={null} onClose={vi.fn()} onSelectIncident={vi.fn()}/>);
   expect(html).toContain("현재 탐지");
   expect(html).toContain("연결 사건");
+  expect(html).toContain("command-linked-incidents__scroll");
+  expect(html).toContain("selected-incident-panel__actions");
+  expect(html).toContain("발생 시각");
+  expect(html).toContain("현재 상태");
+  expect(html).toContain("대표 탐지 이미지");
+  expect(html).toContain("response-ai-detection-v2.png");
   expect(html).toContain(`aria-selected="true"`);
   expect(html).toContain(`/control/incidents/${selected.public_id}`);
+ });
+
+ it("shows an honest loading state when neither a stream frame nor representative image is available",()=>{
+  const loadingCctv={...cctv,video_state:"LOADING" as const};
+  const withoutImage={...incident,representative_image_url:null,detection_bbox:null};
+  const html=renderToStaticMarkup(<CctvFocusModal open cctv={loadingCctv} relatedIncidents={[withoutImage]} selectedIncident={withoutImage} selectedDispatch={null} canAct={false} returnFocus={null} onClose={vi.fn()} onSelectIncident={vi.fn()}/>);
+  expect(html).toContain("영상 연결 중");
+  expect(html).toContain("대표 탐지 이미지를 준비하고 있습니다.");
+  expect(html).not.toContain("command-focus-modal__overlay");
+ });
+
+ it("renders the other five available CCTVs as public-ID based quick switches",()=>{
+  const html=renderToStaticMarkup(<CctvFocusModal open cctv={cctv} cctvs={snapshot.cctvs} incidents={snapshot.incidents} relatedIncidents={[incident]} selectedIncident={incident} selectedDispatch={dispatch} canAct returnFocus={null} onClose={vi.fn()} onSelectIncident={vi.fn()} onSelectCctv={vi.fn()}/>);
+  expect((html.match(/집중 관제로 전환/g)??[])).toHaveLength(5);
+  expect(html).not.toContain(`${cctv.cctv_name} 집중 관제로 전환`);
  });
 
  it("explains why the primary work is unavailable instead of rendering a dead button",()=>{
