@@ -65,9 +65,9 @@ function NotificationDetail({ item, onNavigate, onClose, mobile, general }: {
     {mobile && <header className={styles.mobileDetailHeader}><strong>{audience.detailTitle}</strong><button type="button" onClick={onClose} aria-label={`${audience.detailTitle} 닫기`}><CloseIcon /></button></header>}
     <header className={styles.detailHeader}>
       <p className={styles.detailEyebrow}>{audience.detailTitle}</p>
-      <div className={styles.detailTitle}>
-        <span className={`${styles.typeIcon} ${styles[`severity${item.severity}`]}`}><NotificationTypeIcon kind={presentation.icon} /></span>
-        <div><h2 id="notification-detail-title">{presentation.label}</h2><p><b>{severityLabels[item.severity]}</b><span>·</span><strong className={styles.taskState}>{notificationStateCopy(item)}</strong><span>·</span><span className={styles.readLabel}>{item.read ? "읽음" : "읽지 않음"}</span><span>·</span><time dateTime={item.created_at} title={formatExactKst(item.created_at)}>{formatRelativeTime(item.created_at)}</time></p></div>
+      <div className={`${styles.detailTitle} ${general ? styles.detailTitleGeneral : ""}`}>
+        {!general && <span className={`${styles.typeIcon} ${styles[`severity${item.severity}`]}`}><NotificationTypeIcon kind={presentation.icon} /></span>}
+        <div><h2 id="notification-detail-title">{general ? item.title : presentation.label}</h2><p>{!general && <><b>{severityLabels[item.severity]}</b><span>·</span><strong className={styles.taskState}>{notificationStateCopy(item)}</strong><span>·</span></>}<span className={styles.readLabel}>{item.read ? "읽음" : "읽지 않음"}</span><span>·</span><time dateTime={item.created_at} title={formatExactKst(item.created_at)}>{formatRelativeTime(item.created_at)}</time></p></div>
       </div>
       <p className={styles.detailBody}>{item.body}</p>
     </header>
@@ -220,10 +220,10 @@ function NotificationInbox() {
                   : <ul className={styles.queueItems}>{filtered.map(item => {
                     const presentation = notificationPresentation[item.notification_type];
                     const isSelected = selected?.public_id === item.public_id;
-                    return <li key={item.public_id}><button type="button" className={`${styles.queueItem} ${isSelected ? styles.queueItemSelected : ""} ${!item.read ? styles.queueItemUnread : ""}`} aria-pressed={isSelected} onClick={() => void selectItem(item)}>
+                    return <li key={item.public_id}><button type="button" className={`${styles.queueItem} ${general ? styles.queueItemGeneral : ""} ${isSelected ? styles.queueItemSelected : ""} ${!item.read ? styles.queueItemUnread : ""}`} aria-pressed={isSelected} onClick={() => void selectItem(item)}>
                       <span className={styles.readState} aria-hidden="true" />
-                      <span className={`${styles.typeIcon} ${styles[`severity${item.severity}`]}`}><NotificationTypeIcon kind={presentation.icon} /></span>
-                      <span className={styles.queueCopy}><span className={styles.queueTitle}><strong>{item.title}</strong><time dateTime={item.created_at} title={formatExactKst(item.created_at)}>{formatRelativeTime(item.created_at)}</time></span><span className={styles.queueBody}>{item.body}</span><span className={styles.queueMeta}><b>{severityLabels[item.severity]}</b><span>{item.resource_label}</span><strong>{notificationStateCopy(item)}</strong><em>{item.read ? "읽음" : "읽지 않음"}</em></span><span className={styles.srState}>{item.read ? "읽음" : "읽지 않음"}</span></span>
+                      {!general && <span className={`${styles.typeIcon} ${styles[`severity${item.severity}`]}`}><NotificationTypeIcon kind={presentation.icon} /></span>}
+                      <span className={styles.queueCopy}><span className={styles.queueTitle}><strong>{item.title}</strong><time dateTime={item.created_at} title={formatExactKst(item.created_at)}>{formatRelativeTime(item.created_at)}</time></span><span className={styles.queueBody}>{item.body}</span><span className={styles.queueMeta}>{general ? <em>{item.read ? "읽음" : "읽지 않음"}</em> : <><b>{severityLabels[item.severity]}</b><span>{item.resource_label}</span><strong>{notificationStateCopy(item)}</strong><em>{item.read ? "읽음" : "읽지 않음"}</em></>}</span><span className={styles.srState}>{item.read ? "읽음" : "읽지 않음"}</span></span>
                     </button></li>;
                   })}</ul>}
             </div>
