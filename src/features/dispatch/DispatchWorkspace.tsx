@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/AuthContext";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { createIdempotencyKey } from "@/lib/apiClient";
+import { formatRiskGrade } from "@/features/control-dashboard/dashboardDomain";
 import { createDispatchAdapter } from "./dispatchAdapterFactory";
 import { canRespondToDispatch, dispatchStatusCopy, formatDispatchKst, validateRejectionReason } from "./dispatchDomain";
 import type { DispatchDetail, DispatchItem } from "./dispatchTypes";
@@ -94,13 +95,13 @@ export function DispatchWorkspace() {
           {loading ? <p className="dispatch-state" role="status">출동 목록을 불러오는 중입니다.</p>
             : error ? <div className="dispatch-state" role="alert"><p>{error}</p><button onClick={() => void loadList()}>다시 시도</button></div>
             : items.length === 0 ? <p className="dispatch-state">{activeOnly ? "현재 배정된 출동 요청이 없습니다." : "출동 이력이 없습니다."}</p>
-            : <div className="dispatch-list" role="listbox" aria-label="내 출동 목록">{items.map((item) => <button key={item.publicId} role="option" aria-selected={item.publicId === selectedId} className={item.publicId === selectedId ? "is-selected" : ""} onClick={() => setSelectedId(item.publicId)}><span><b>{dispatchStatusCopy[item.status]}</b><time>{formatDispatchKst(item.requestedAt)} KST</time></span><strong>{item.incident.incidentNo}</strong><em>{item.incident.objectCategory} · {item.incident.riskGrade}</em><small>{item.incident.cctvName} · {item.incident.roadName} · {item.incident.roadSectionName}</small></button>)}</div>}
+            : <div className="dispatch-list" role="listbox" aria-label="내 출동 목록">{items.map((item) => <button key={item.publicId} role="option" aria-selected={item.publicId === selectedId} className={item.publicId === selectedId ? "is-selected" : ""} onClick={() => setSelectedId(item.publicId)}><span><b>{dispatchStatusCopy[item.status]}</b><time>{formatDispatchKst(item.requestedAt)} KST</time></span><strong>{item.incident.incidentNo}</strong><em>{item.incident.objectCategory} · {formatRiskGrade(item.incident.riskGrade)}</em><small>{item.incident.cctvName} · {item.incident.roadName} · {item.incident.roadSectionName}</small></button>)}</div>}
         </div>
         <aside className="dispatch-detail">
           {detailLoading ? <p className="dispatch-state" role="status">출동 상세를 불러오는 중입니다.</p>
             : !detail ? <p className="dispatch-state">확인할 출동을 선택해 주세요.</p>
             : <><header><div><span>DISPATCH DETAIL</span><h2>{detail.incident.incidentNo}</h2></div><b>{dispatchStatusCopy[detail.status]}</b></header>
-              <dl><div><dt>사건 유형</dt><dd>{detail.incident.objectCategory} · {detail.incident.riskGrade}</dd></div><div><dt>CCTV</dt><dd>{detail.incident.cctvName}</dd></div><div><dt>위치</dt><dd>{detail.incident.roadName}<br />{detail.incident.roadSectionName}</dd></div><div><dt>요청 시각</dt><dd>{formatDispatchKst(detail.requestedAt)} KST</dd></div><div><dt>요청 관제자</dt><dd>{detail.assignedBy.name}</dd></div></dl>
+              <dl><div><dt>사건 유형</dt><dd>{detail.incident.objectCategory} · {formatRiskGrade(detail.incident.riskGrade)}</dd></div><div><dt>CCTV</dt><dd>{detail.incident.cctvName}</dd></div><div><dt>위치</dt><dd>{detail.incident.roadName}<br />{detail.incident.roadSectionName}</dd></div><div><dt>요청 시각</dt><dd>{formatDispatchKst(detail.requestedAt)} KST</dd></div><div><dt>요청 관제자</dt><dd>{detail.assignedBy.name}</dd></div></dl>
               {detail.requestMessage && <section><span>관제 요청</span><p>{detail.requestMessage}</p></section>}
               {detail.rejectionReason && <section><span>거절 사유</span><p>{detail.rejectionReason}</p></section>}
               {notice && <p className="dispatch-notice" role="status">{notice}</p>}
