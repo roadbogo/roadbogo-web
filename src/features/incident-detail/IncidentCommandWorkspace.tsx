@@ -10,8 +10,11 @@ import { directionLabel, objectCategoryLabel } from "@/features/control-dashboar
 import { ApiError, createIdempotencyKey } from "@/lib/apiClient";
 import { availableMemoTypes, canCompareEvidence, dedupeEvidences, isIncidentActionSupported, reasonLabel, resolveIncidentWorkspaceMode, resolveMemoAvailability, resolvePrimaryIncidentAction, sortIncidentHistories } from "./incidentDetailDomain";
 import { getDetectionVisualVariant } from "@/features/detection/detectionVisualVariant";
+import { useContainedBbox } from "@/features/detection/containedBbox";
 import { createIncidentDetailAdapter } from "./incidentDetailAdapterFactory";
 import { getIncidentRefreshChanges, resolveEvidenceSelection } from "./incidentRefresh";
+import { getCompactProgressStates, progressStateLabel } from "./incidentProgress";
+import { getEvidenceOverlayBbox } from "./incidentEvidencePresentation";
 import type { DispatchResponderOption, IncidentCommandAction, IncidentDecisionPayload, IncidentDetailRecord, IncidentEvidence, IncidentMemo, IncidentMemoType } from "./incidentDetailTypes";
 import "@/components/landing/landing.css";
 import "./incidentDetail.css";
@@ -45,13 +48,16 @@ function EvidenceFigure({ evidence, annotated, compact = false }: { evidence: In
   const src = annotated ? evidence.annotated_image_url ?? evidence.original_image_url : evidence.original_image_url;
   const objectName = evidence.class_name ?? "분류 정보 없음";
   const visualVariant = getDetectionVisualVariant({objectCategory:evidence.object_category,classCode:evidence.class_code});
+  const overlayBbox = getEvidenceOverlayBbox(evidence, annotated ? "annotated" : "original");
+  const mediaIdentity = `${evidence.detection_public_id}:${annotated ? "annotated" : "original"}:${src ?? "no-image"}`;
+  const { containerRef, onImageLoad, projectedBbox } = useContainedBbox(overlayBbox, mediaIdentity);
   return (
     <figure className={`console-evidence${compact ? " is-compact" : ""}`}>
       {src ? (
-        <div className="console-evidence__image">
-          <Image src={src} alt={`${objectName} 사건 탐지 근거`} fill loading="eager" sizes="(max-width: 1024px) 100vw, 70vw" />
-          {annotated && !evidence.annotated_image_url && evidence.bbox && (
-            <span className="incident-bbox" data-visual-variant={visualVariant} style={{ left: `${evidence.bbox.x * 100}%`, top: `${evidence.bbox.y * 100}%`, width: `${evidence.bbox.width * 100}%`, height: `${evidence.bbox.height * 100}%` }}>
+        <div ref={containerRef} className="console-evidence__image">
+          <Image key={mediaIdentity} src={src} alt={`${objectName} 사건 탐지 근거`} fill loading="eager" sizes="(max-width: 1024px) 100vw, 70vw" onLoad={event => onImageLoad(event.currentTarget)} />
+          {projectedBbox && (
+            <span className="incident-bbox" data-visual-variant={visualVariant} style={{ left: `${projectedBbox.x * 100}%`, top: `${projectedBbox.y * 100}%`, width: `${projectedBbox.width * 100}%`, height: `${projectedBbox.height * 100}%` }}>
               <b>{objectName}</b>
             </span>
           )}
@@ -64,15 +70,18 @@ function EvidenceFigure({ evidence, annotated, compact = false }: { evidence: In
 function EvidenceCompareViewer({ evidence }: { evidence: IncidentEvidence }) {
   const [position, setPosition] = useState(50);
   const src = evidence.original_image_url;
+  const mediaIdentity = `${evidence.detection_public_id}:compare:${src ?? "no-image"}`;
+  const comparableBbox = canCompareEvidence(evidence) && src ? getEvidenceOverlayBbox(evidence, "compare") : null;
+  const { containerRef, onImageLoad, projectedBbox } = useContainedBbox(comparableBbox, mediaIdentity);
   if (!canCompareEvidence(evidence) || !src || !evidence.bbox) return <p className="compare-unavailable">동일한 원본 프레임과 탐지 좌표가 없어 비교할 수 없습니다.</p>;
   const objectName = evidence.class_name ?? "탐지 객체";
   const visualVariant = getDetectionVisualVariant({objectCategory:evidence.object_category,classCode:evidence.class_code});
   return <figure className="compare-viewer">
-    <div className="compare-canvas">
-      <Image src={src} alt={`${objectName} 원본 프레임`} fill loading="eager" sizes="(max-width: 1024px) 100vw, 70vw" />
+    <div ref={containerRef} className="compare-canvas">
+      <Image key={`${mediaIdentity}:before`} src={src} alt={`${objectName} 원본 프레임`} fill loading="eager" sizes="(max-width: 1024px) 100vw, 70vw" onLoad={event => onImageLoad(event.currentTarget)} />
       <div className="compare-after" style={{ clipPath: `inset(0 0 0 ${position}%)` }} aria-hidden="true">
         <Image src={src} alt="" fill loading="eager" sizes="(max-width: 1024px) 100vw, 70vw" />
-        <span className="incident-bbox is-primary" data-visual-variant={visualVariant} style={{ left: `${evidence.bbox.x * 100}%`, top: `${evidence.bbox.y * 100}%`, width: `${evidence.bbox.width * 100}%`, height: `${evidence.bbox.height * 100}%` }}><b>현재 사건 근거 · {objectName}</b></span>
+        {projectedBbox && <span className="incident-bbox is-primary" data-visual-variant={visualVariant} style={{ left: `${projectedBbox.x * 100}%`, top: `${projectedBbox.y * 100}%`, width: `${projectedBbox.width * 100}%`, height: `${projectedBbox.height * 100}%` }}><b>현재 사건 근거 · {objectName}</b></span>}
       </div>
       <span className="compare-label is-before">원본</span><span className="compare-label is-after">AI 결과</span><i className="compare-divider" style={{ left: `${position}%` }} aria-hidden="true" />
       <input type="range" min="0" max="100" value={position} onChange={event => setPosition(Number(event.target.value))} aria-label="원본과 AI 결과 비교 위치" />
@@ -104,9 +113,8 @@ function RiskCandidateSummary({ evidence }: { evidence: IncidentEvidence }) {
 }
 
 function CompactProgress({ status }: { status: IncidentDetailRecord["incident"]["status"] }) {
-  const current = status === "NEW" ? 0 : status === "ACKNOWLEDGED" ? 1 : ["CLAIMED", "UNDER_REVIEW"].includes(status) ? 2 : ["DISPATCH_REQUESTED", "DISPATCHED"].includes(status) ? 3 : ["ON_SCENE", "ACTION_IN_PROGRESS", "ACTION_COMPLETED"].includes(status) ? 4 : 5;
-  const skipped = status === "FALSE_POSITIVE" ? new Set([3, 4]) : new Set<number>();
-  return <div className="compact-progress" aria-label="사건 처리 진행 단계">{flow.map((label, index) => { const state = skipped.has(index) ? "is-skipped" : index < current ? "is-done" : index === current ? "is-current" : "is-pending"; return <span key={label} className={state}><i aria-hidden="true">{skipped.has(index) ? "–" : index < current ? "✓" : index === current ? "●" : "○"}</i>{label}</span>; })}</div>;
+  const states = getCompactProgressStates(status);
+  return <div className="compact-progress" aria-label="사건 처리 진행 단계">{flow.map((label, index) => { const state = states[index]; return <span key={label} className={`is-${state}`} aria-label={`${label}: ${progressStateLabel[state]}`}><i aria-hidden="true">{state === "skipped" ? "−" : state === "done" ? "✓" : state === "current" ? "●" : "○"}</i>{label}</span>; })}</div>;
 }
 
 const memoTypeLabel:Record<IncidentMemoType,string>={GENERAL:"일반",REVIEW:"검토",DISPATCH:"출동",CLOSURE:"종료"};
