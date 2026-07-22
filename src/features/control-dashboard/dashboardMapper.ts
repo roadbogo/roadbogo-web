@@ -28,12 +28,12 @@ export function mapDashboardIncident(dto:IncidentListItemDto):DashboardIncident 
 }
 
 export function mergeDashboardIncidentSelection(current:DashboardIncident,detail:DashboardIncident):DashboardIncident{
- const useDetailEvidence=detail.representative_image_url!==null&&detail.representative_image_url!==undefined;
  return{
+  ...current,
   ...detail,
-  representative_image_url:useDetailEvidence?detail.representative_image_url:current.representative_image_url??null,
-  representative_image_kind:useDetailEvidence?detail.representative_image_kind:current.representative_image_kind,
-  detection_bbox:useDetailEvidence?detail.detection_bbox:current.detection_bbox??null,
+  representative_image_url:detail.representative_image_url??null,
+  representative_image_kind:detail.representative_image_kind??null,
+  detection_bbox:detail.detection_bbox??null,
  };
 }
 
