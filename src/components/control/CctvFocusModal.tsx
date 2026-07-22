@@ -23,7 +23,7 @@ export function CctvFocusModal({open,cctv,relatedIncidents,selectedIncident,sele
  const mediaKey=cctv&&mediaUrl?getFocusMediaKey(cctv.public_id,evidence?.public_id,mediaUrl):"no-media";
  const {containerRef:mediaRef,onImageLoad,projectedBbox:displayedDetectionBox}=useContainedBbox(getRepresentativeOverlayBbox(evidence),mediaKey);
  useEffect(()=>{if(!open)return;const previousOverflow=document.body.style.overflow;document.body.style.overflow="hidden";closeRef.current?.focus();const key=(event:KeyboardEvent)=>{if(event.key==="Escape"){event.preventDefault();onClose();return}if(event.key!=="Tab")return;const focusable=dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])');if(!focusable?.length)return;const first=focusable[0],last=focusable[focusable.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}};document.addEventListener("keydown",key);return()=>{document.body.style.overflow=previousOverflow;document.removeEventListener("keydown",key);returnFocus?.focus()}},[onClose,open,returnFocus]);
- useEffect(()=>{setMediaFailed(false)},[cctv?.public_id,mediaUrl]);
+ useEffect(()=>{setMediaFailed(false)},[mediaKey]);
  if(!open||!cctv)return null;
  const mediaState=mediaFailed?"error":mediaUrl?"ready":cctv.video_state==="LOADING"?"loading":"empty";
  const quickCctvs=getFocusCctvOptions(cctvs,cctv.public_id);

@@ -8,7 +8,7 @@ import { SelectedIncidentPanel } from "@/components/control/SelectedIncidentPane
 import { createDashboardAdapter } from "./dashboardAdapterFactory";
 import { beginDispatchLookup, completeDispatchLookup, createDashboardInitialState, failDispatchLookup, selectIncidentAfterDashboardLoad, type DashboardDispatchLookup } from "./dashboardInitialState";
 import {
-  activeStatuses, countKpi, filterByKpi, formatCompactKst, formatKst,
+  activeStatuses, countKpi, dashboardConnectionCopy, filterByKpi, formatCompactKst, formatKst,
   filterDashboardRail, highRiskAlertKey, incidentStatusLabel, prioritizeIncidents, relativeTime, resolveDispatchPresentation,
   resolvePrimaryActionAvailability, resolveUrgentIncidentSelection, riskLabel, selectHighRiskAlert, selectIncidentForCctv, type DashboardRailFilter, type KpiFilter,
 } from "./dashboardDomain";
@@ -32,6 +32,7 @@ const railFilters:{key:DashboardRailFilter;label:string}[]=[
   {key:"unassigned",label:"미배정"},{key:"closing",label:"종료 대기"},
 ];
 const MaximizeIcon=()=> <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6M21 3l-7 7M9 21H3v-6M3 21l7-7"/></svg>;
+export function getCctvSelectionLabel(cctv:DashboardCctv,incident:DashboardIncident|undefined,selected:boolean){return`${cctv.cctv_name}, ${operationalStatusLabel[cctv.operational_status]}, ${cctv.road.road_name} ${cctv.road_section.section_name} ${directionLabel[cctv.direction_code]}, ${incident?`사건 ${incident.incident_no}`:"연결 사건 없음"}, ${selected?"현재 선택됨":"선택 안 됨"}`}
 
 function Video({cctv,incident}:{cctv:DashboardCctv;incident?:DashboardIncident}){
   const state=cctv.video_state;
@@ -42,6 +43,18 @@ function Video({cctv,incident}:{cctv:DashboardCctv;incident?:DashboardIncident})
     {state!=="LOADING"&&state!=="UNAVAILABLE"&&<><span className="command-cctv__road"/>{incident&&<span className="command-detection" data-visual-variant={visualVariant}><b>{incident.class_name??objectCategoryLabel[incident.object_category]}</b><small>AI {incident.representative_confidence===null?"신뢰도 없음":`${Math.round(incident.representative_confidence*100)}%`}</small></span>}</>}
     {cctv.fallback_used&&<em>마지막 정상 데이터 사용 중</em>}
   </div>;
+}
+
+export function CctvCard({item,linked,selected,cardRef,onSelect,onOpenFocus}:{item:DashboardCctv;linked?:DashboardIncident;selected:boolean;cardRef?:(node:HTMLElement|null)=>void;onSelect:()=>void;onOpenFocus:(source:HTMLButtonElement)=>void}){
+ return <article ref={cardRef} className={`command-cctv ${selected?"is-selected":""}`}>
+  <button type="button" className="command-cctv__select" aria-pressed={selected} aria-label={getCctvSelectionLabel(item,linked,selected)} onClick={onSelect}>
+   <div className="command-cctv__top"><div><strong>{item.cctv_name}</strong><span className={`device-${item.operational_status.toLowerCase()}`}>{operationalStatusLabel[item.operational_status]}</span>{selected&&<em>선택 관제 중</em>}</div><span>{item.source_type} · {item.stream_type??"영상 정보 확인"}</span></div>
+   <div className="command-cctv__viewport"><Video cctv={item} incident={linked}/></div>
+   <footer><div><strong>{item.road.road_name}</strong><span>{item.road_section.section_name} · {directionLabel[item.direction_code]}</span></div></footer>
+   {linked?<div className="command-cctv__incident"><span>{linked.incident_no}</span><b>{incidentStatusLabel[linked.status]}</b></div>:<div className="command-cctv__incident is-empty"><span>연결 사건 없음</span></div>}
+  </button>
+  <div className="command-focus-control" data-tooltip={item.has_stream?"집중 관제":"영상 없음"}><button className="command-cctv__focus" type="button" disabled={!item.has_stream} aria-label={`${item.cctv_name} 집중 관제`} onClick={event=>onOpenFocus(event.currentTarget)}><MaximizeIcon/></button></div>
+ </article>
 }
 
 export function ControlDashboard(){
@@ -171,20 +184,15 @@ export function ControlDashboard(){
     <section className="command-summary command-summary--workflow">
       <header className="command-heading"><div><span>CONTROL COMMAND</span><h1>관제 대시보드</h1><p>위험 후보를 확인하고 사건 판단부터 현장 대응까지 한 화면에서 이어서 처리합니다</p></div></header>
       <div className="command-kpis" aria-label="주요 사건 현황">{kpis.map(item=><button key={item.key} type="button" className={kpiFilter===item.key?"is-active":""} aria-pressed={kpiFilter===item.key} onClick={()=>setKpiFilter(value=>value===item.key?null:item.key)}><span>{item.label}</span><strong>{countKpi(activeIncidents,item.key)}</strong><i/></button>)}</div>
-      <div className="command-system-bar" aria-label="CCTV 시스템 상태"><strong>CCTV 전체 {data.cctvs.length}</strong><span>정상 {normal}</span><span>지연 {delayed}</span><span>장애 {fault}</span><span>데이터 유형 {data.source==="mock"?"시연 데이터":"운영 데이터"}</span><time>최근 갱신 {formatKst(data.fetched_at)} KST</time><em>{loading?"재연결 중":"실시간 연결 끊김 · 조회 데이터 사용 중"}</em></div>
+      <div className="command-system-bar" aria-label="CCTV 시스템 상태"><strong>CCTV 전체 {data.cctvs.length}</strong><span>정상 {normal}</span><span>지연 {delayed}</span><span>장애 {fault}</span><span>데이터 유형 {data.source==="mock"?"시연 데이터":"운영 데이터"}</span><time>최근 갱신 {formatKst(data.fetched_at)} KST</time><em className={data.source==="mock"?"is-mock":""}>{dashboardConnectionCopy(data.source,loading)}</em></div>
       {highRiskAlert&&<div className="command-alert command-alert--incident" role="status"><div><strong>{riskLabel[highRiskAlert.current_risk_grade]} 위험 · {highRiskAlert.class_name??objectCategoryLabel[highRiskAlert.object_category]}</strong><span>{alertCctv?.cctv_name??"CCTV 정보 없음"} · {alertCctv?`${alertCctv.road.road_name} ${alertCctv.road_section.section_name} ${directionLabel[alertCctv.direction_code]}`:"위치 정보 없음"} · {relativeTime(highRiskAlert.created_at)}</span></div><button type="button" onClick={openUrgentIncident}>긴급 사건 보기</button><button type="button" aria-label={`${highRiskAlert.incident_no} 알림 닫기`} onClick={()=>setDismissedAlerts(current=>new Set(current).add(highRiskAlertKey(highRiskAlert)))}>알림 닫기</button></div>}
       {selectionFeedback&&<p className={selectionFeedback.error?"command-selection-feedback is-error":"sr-only"} role="status">{selectionFeedback.message}</p>}
     </section>
 
     <div className="command-workspace command-workspace--workflow">
       <section className="command-wall command-wall--workflow"><header><div><span>CCTV MONITORING</span><h2>CCTV 감시</h2></div><p>선택한 CCTV와 연결 사건을 함께 확인합니다.</p></header>
-        <div className="command-mobile-cctv-tabs" aria-label="CCTV 선택">{data.cctvs.map(item=><button key={item.public_id} className={selectedCctv===item.public_id?"is-active":""} onClick={()=>chooseCctv(item)}>{item.cctv_name}</button>)}</div>
-        {data.cctvs.length?<div className="command-cctv-grid command-cctv-grid--workflow">{data.cctvs.map(item=>{const linked=prioritizeIncidents(activeIncidents.filter(candidate=>candidate.cctv_public_id===item.public_id))[0];const selected=item.public_id===selectedCctv;return <article ref={node=>{if(node)cctvRefs.current.set(item.public_id,node);else cctvRefs.current.delete(item.public_id)}} key={item.public_id} className={`command-cctv ${selected?"is-selected":""}`} aria-current={selected?"true":undefined} onClick={()=>chooseCctv(item)} onDoubleClick={event=>{if(item.has_stream){setFocusSource(event.currentTarget);setFocusCctv(item.public_id)}}} tabIndex={0} onKeyDown={event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();chooseCctv(item)}}}>
-          <div className="command-cctv__top"><div><strong>{item.cctv_name}</strong><span className={`device-${item.operational_status.toLowerCase()}`}>{operationalStatusLabel[item.operational_status]}</span>{selected&&<em>선택 관제 중</em>}</div><span>{item.source_type} · {item.stream_type??"영상 정보 확인"}</span></div>
-          <div className="command-cctv__viewport"><Video cctv={item} incident={linked}/><div className="command-focus-control" data-tooltip={item.has_stream?"집중 관제":"영상 없음"}><button className="command-cctv__focus" type="button" disabled={!item.has_stream} aria-label={`${item.cctv_name} 집중 관제`} onClick={event=>{event.stopPropagation();chooseCctv(item);setFocusSource(event.currentTarget);setFocusCctv(item.public_id)}}><MaximizeIcon/></button></div></div>
-          <footer><div><strong>{item.road.road_name}</strong><span>{item.road_section.section_name} · {directionLabel[item.direction_code]}</span></div></footer>
-          {linked?<div className="command-cctv__incident"><span>{linked.incident_no}</span><b>{incidentStatusLabel[linked.status]}</b></div>:<div className="command-cctv__incident is-empty"><span>연결 사건 없음</span></div>}
-        </article>})}</div>:<div className="command-cctv-empty" role="status"><strong>표시할 CCTV가 없습니다.</strong><p>등록된 CCTV가 생기면 이 영역에 관제 카드가 표시됩니다.</p></div>}
+        <div className="command-mobile-cctv-tabs" aria-label="CCTV 선택">{data.cctvs.map(item=><button type="button" key={item.public_id} className={selectedCctv===item.public_id?"is-active":""} aria-pressed={selectedCctv===item.public_id} onClick={()=>chooseCctv(item)}>{item.cctv_name}</button>)}</div>
+        {data.cctvs.length?<div className="command-cctv-grid command-cctv-grid--workflow">{data.cctvs.map(item=>{const linked=prioritizeIncidents(activeIncidents.filter(candidate=>candidate.cctv_public_id===item.public_id))[0];const selected=item.public_id===selectedCctv;return <CctvCard key={item.public_id} item={item} linked={linked} selected={selected} cardRef={node=>{if(node)cctvRefs.current.set(item.public_id,node);else cctvRefs.current.delete(item.public_id)}} onSelect={()=>chooseCctv(item)} onOpenFocus={source=>{chooseCctv(item);setFocusSource(source);setFocusCctv(item.public_id)}}/>})}</div>:<div className="command-cctv-empty" role="status"><strong>표시할 CCTV가 없습니다.</strong><p>등록된 CCTV가 생기면 이 영역에 관제 카드가 표시됩니다.</p></div>}
       </section>
 
       <aside className={`command-rail command-rail--workflow ${mobileBrief?"show-brief":""}`}>

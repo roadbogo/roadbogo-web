@@ -1,7 +1,7 @@
 import type { DashboardAdapter, DashboardCctv, DashboardDispatch, DashboardIncident, DashboardSnapshot } from "./dashboardTypes";
 import { mockCctvPublicIds, mockDispatchPublicIds, mockIncidentPublicIds } from "@/features/mocks/mockResourceIds";
 import { mapMockDashboardSnapshot, type MockDashboardSnapshotDto } from "./dashboardMapper";
-import { applyMockIncidentRuntime } from "./mockIncidentRuntimeState";
+import { applyMockDispatchRuntime, applyMockIncidentRuntime } from "./mockIncidentRuntimeState";
 
 const mockDto = {
   cctvs: [
@@ -57,7 +57,7 @@ const mockDto = {
 
 export function createMockDashboardSnapshot(): DashboardSnapshot {
   const snapshot=mapMockDashboardSnapshot(mockDto);
-  return {...snapshot,incidents:snapshot.incidents.map(applyMockIncidentRuntime)};
+  return {...snapshot,incidents:snapshot.incidents.map(applyMockIncidentRuntime),dispatches:applyMockDispatchRuntime(snapshot.dispatches)};
 }
 
 export class MockDashboardAdapter implements DashboardAdapter {

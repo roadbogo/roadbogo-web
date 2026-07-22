@@ -13,6 +13,7 @@
 .command-system-bar span:nth-of-type(3){color:#8b3c42;font-weight:750}
 .command-system-bar time{margin-left:auto}
 .command-system-bar em{padding-left:12px;border-left:1px solid #ced9d6;color:#8a5c33;font-style:normal;font-weight:700}
+.command-system-bar em.is-mock{color:#257f83}
 .command-alert--incident{display:grid;grid-template-columns:minmax(0,1fr) auto auto;min-height:38px;margin:0 -18px;padding:3px 12px 3px 18px;border-width:1px 0 0;border-radius:0 0 15px 15px}
 .command-alert--incident>div{display:flex;min-width:0;align-items:center;gap:12px}
 .command-alert--incident>div span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -25,7 +26,9 @@
 .command-wall--workflow>header{min-height:42px;margin-bottom:8px}
 .command-wall--workflow>header p{max-width:310px;text-align:right}
 .command-cctv-grid--workflow{min-height:0;height:100%;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:10px;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
-.command-cctv-grid--workflow .command-cctv{min-height:270px;display:grid;grid-template-rows:auto minmax(120px,1fr) auto auto}
+.command-cctv-grid--workflow .command-cctv{min-height:270px;position:relative}
+.command-cctv__select{display:grid;width:100%;height:100%;min-width:0;grid-template-rows:auto minmax(120px,1fr) auto auto;padding:0;border:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.command-cctv__select:focus-visible{outline:3px solid rgba(60,111,232,.42);outline-offset:-3px}
 .command-cctv-grid--workflow .command-cctv__top{min-height:38px;padding:5px 9px}
 .command-cctv-grid--workflow .command-cctv__top strong{font-size:13px}
 .command-cctv-grid--workflow .command-cctv__top div span{font-size:11px}
@@ -40,6 +43,7 @@
 .command-cctv-grid--workflow .command-cctv footer span{font-size:11px}
 .command-cctv-grid--workflow .command-cctv__incident{min-height:32px;padding:6px 9px;font-size:11px}
 .command-cctv.is-selected{border-color:#3c6fe8;background:#f7f9fe;box-shadow:inset 4px 0 0 #3c6fe8,0 0 0 2px rgba(60,111,232,.12)}
+.command-cctv .command-focus-control{position:absolute;z-index:3;top:48px;right:10px}
 .command-focus-control{position:absolute;z-index:5;top:8px;right:8px}
 .command-focus-control:after{content:attr(data-tooltip);position:absolute;right:0;bottom:calc(100% + 7px);width:max-content;max-width:130px;padding:5px 7px;border-radius:6px;background:#142a37;color:#fff;font-size:11px;font-weight:700;line-height:1.2;opacity:0;pointer-events:none;transform:translateY(3px);transition:.15s}
 .command-focus-control:hover:after,.command-focus-control:focus-within:after{opacity:1;transform:none}

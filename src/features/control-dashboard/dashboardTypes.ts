@@ -52,6 +52,7 @@ export interface DashboardDispatch {
   public_id: string;
   incident_public_id: string;
   status: DispatchStatus;
+  responder_public_id?: string | null;
   responder_label: string;
   requested_at: string;
   updated_at: string;

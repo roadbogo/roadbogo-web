@@ -1,6 +1,6 @@
 import { createMockDashboardSnapshot } from "@/features/control-dashboard/mockDashboardAdapter";
 import type { DashboardIncident, IncidentStatus } from "@/features/control-dashboard/dashboardTypes";
-import { updateMockIncidentRuntime } from "@/features/control-dashboard/mockIncidentRuntimeState";
+import { resetMockIncidentRuntime, updateMockDispatchRuntime, updateMockIncidentRuntime } from "@/features/control-dashboard/mockIncidentRuntimeState";
 import { availableMemoTypes } from "./incidentDetailDomain";
 import type { DispatchResponderOption, IncidentActionRequest, IncidentActionResult, IncidentDecisionPayload, IncidentDetailAdapter, IncidentDetailRecord, IncidentDispatchAssignmentRequest, IncidentEvidence, IncidentHistory, IncidentMemoRequest } from "./incidentDetailTypes";
 const snapshot=createMockDashboardSnapshot();
@@ -29,10 +29,19 @@ for(const incident of snapshot.incidents){
  records.set(incident.public_id,{incident,cctv,evidences:evidences(incident),dispatch,histories:histories(incident),field_action:completed?{action_type:"낙하물 제거",detail:"주행 차로의 낙하물을 제거하고 도로 상태를 확인했습니다.",before_image_url:image,after_image_url:"/images/incidents/highway-traffic-realistic.png",completed_at:incident.updated_at}:null,decision:decided?{result:incident.status==="FALSE_POSITIVE"?"오탐":"실제 위험",reason:"반복 탐지와 지속시간을 확인했습니다.",decided_by:incident.assigned_controller?.display_name??"관제 담당자",decided_at:incident.updated_at}:null,controller_note:"현장 접근 시 2차 사고에 주의 바랍니다.",memos:[{public_id:`memo-${incident.public_id}`,incident_public_id:incident.public_id,memo_type:"GENERAL",content:"현장 접근 시 2차 사고에 주의 바랍니다.",created_by:{public_id:incident.assigned_controller?.public_id??"mock:system",user_name:incident.assigned_controller?.display_name??"관제센터"},created_at:incident.updated_at}],request_message:dispatch?"안전 확보 후 현장 상태를 확인해 주세요.":null});
 }
 records.set(base.public_id,records.get(base.public_id)!);
+const initialRecords=new Map([...records].map(([publicId,record])=>[publicId,structuredClone(record)]));
 const transition:Record<string,IncidentStatus>={acknowledge:"ACKNOWLEDGED",claim:"CLAIMED",release:"ACKNOWLEDGED",review:"UNDER_REVIEW",assign:"DISPATCH_REQUESTED",close:"CLOSED"};
 const decisionTransition:Record<IncidentDecisionPayload["decision_type"],IncidentStatus>={REAL_RISK:"DISPATCH_REQUESTED",FALSE_POSITIVE:"FALSE_POSITIVE",NEEDS_REVIEW:"UNDER_REVIEW",NO_DISPATCH:"CLOSED"};
 const responders:DispatchResponderOption[]=[{public_id:"mock-responder-1",display_name:"이천 도로대응 1팀",organization_name:"이천 도로관리소",available:true},{public_id:"mock-responder-2",display_name:"이천 도로대응 2팀",organization_name:"이천 도로관리소",available:true},{public_id:"mock-responder-3",display_name:"광주 현장지원팀",organization_name:"광주 도로관리소",available:false}];
 export function createMockIncidentDetailRecord(public_id:string){const value=records.get(public_id);return value?structuredClone(value):null}
+export function resetMockIncidentDetailRuntime(){
+  records.clear();
+  for(const [publicId,record] of initialRecords)records.set(publicId,structuredClone(record));
+}
+export function resetAllMockOperationsRuntime(){
+  resetMockIncidentRuntime();
+  resetMockIncidentDetailRuntime();
+}
 export class MockIncidentDetailAdapter implements IncidentDetailAdapter{
   readonly mode="mock" as const;
   readonly supportsRelease=true;
@@ -59,7 +68,23 @@ export class MockIncidentDetailAdapter implements IncidentDetailAdapter{
     return{ok:true,status,version_no:updated.incident.version_no,record:structuredClone(updated)};
   }
   async listResponders(){return structuredClone(responders)}
-  async assignDispatch(request:IncidentDispatchAssignmentRequest){return this.act({incident_public_id:request.incident_public_id,expected_version_no:request.expected_version_no,action:"assign",idempotency_key:request.idempotency_key,payload:{responder_public_id:request.responder_public_id,request_message:request.request_message}})}
+  async assignDispatch(request:IncidentDispatchAssignmentRequest):Promise<IncidentActionResult>{
+    const current=records.get(request.incident_public_id);
+    if(!current)throw new Error("NOT_FOUND");
+    if(request.expected_version_no!==current.incident.version_no)return{ok:false,code:"INCIDENT_VERSION_CONFLICT",latest:structuredClone(current)};
+    if(current.dispatch && !["REJECTED","CANCELLED"].includes(current.dispatch.status))return{ok:false,code:"DISPATCH_ALREADY_ASSIGNED",latest:structuredClone(current)};
+    const responder=responders.find(item=>item.public_id===request.responder_public_id);
+    if(!responder)return{ok:false,code:"DISPATCH_RESPONDER_NOT_FOUND",latest:structuredClone(current)};
+    if(!responder.available)return{ok:false,code:"DISPATCH_RESPONDER_UNAVAILABLE",latest:structuredClone(current)};
+    const now=new Date().toISOString();
+    const dispatch={public_id:`mock-dispatch-${request.incident_public_id}-${Date.now()}`,incident_public_id:request.incident_public_id,status:"REQUESTED" as const,responder_public_id:responder.public_id,responder_label:responder.display_name,requested_at:now,updated_at:now};
+    const incident={...current.incident,status:"DISPATCH_REQUESTED" as const,version_no:current.incident.version_no+1,updated_at:now};
+    const updated={...current,incident,dispatch,request_message:request.request_message?.trim()||null};
+    records.set(request.incident_public_id,updated);
+    updateMockIncidentRuntime(request.incident_public_id,{status:incident.status,version_no:incident.version_no,updated_at:now});
+    updateMockDispatchRuntime(dispatch);
+    return{ok:true,status:incident.status,version_no:incident.version_no,record:structuredClone(updated)};
+  }
   async createMemo(request:IncidentMemoRequest){
     const current=records.get(request.incident_public_id);
     if(!current)throw new Error("INCIDENT_NOT_FOUND");

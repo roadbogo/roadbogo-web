@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createMockDashboardSnapshot } from "@/features/control-dashboard/mockDashboardAdapter";
-import { MockIncidentDetailAdapter } from "./mockIncidentDetailAdapter";
+import { MockIncidentDetailAdapter, resetAllMockOperationsRuntime } from "./mockIncidentDetailAdapter";
+
+beforeEach(resetAllMockOperationsRuntime);
+afterEach(resetAllMockOperationsRuntime);
 
 describe("MockIncidentDetailAdapter commands",()=>{
   it("returns every existing dashboard incident by public id without substituting another record",async()=>{
@@ -59,6 +62,53 @@ describe("MockIncidentDetailAdapter commands",()=>{
     const adapter=new MockIncidentDetailAdapter();
     expect(adapter.supportsDispatchAssignment).toBe(true);
     expect((await adapter.listResponders()).some(item=>item.available)).toBe(true);
+  });
+
+  it("shares a mock dispatch assignment with detail reloads and the dashboard snapshot",async()=>{
+    const adapter=new MockIncidentDetailAdapter();
+    const candidate=createMockDashboardSnapshot().incidents.find(item=>item.status==="UNDER_REVIEW" && !createMockDashboardSnapshot().dispatches.some(dispatch=>dispatch.incident_public_id===item.public_id))!;
+    const current=await adapter.get(candidate.public_id);
+    const responder=(await adapter.listResponders()).find(item=>item.available)!;
+    const result=await adapter.assignDispatch({incident_public_id:candidate.public_id,expected_version_no:current!.incident.version_no,idempotency_key:"mock-shared-dispatch",responder_public_id:responder.public_id,request_message:"  현장 확인 요청  "});
+    expect(result).toMatchObject({ok:true,status:"DISPATCH_REQUESTED",record:{dispatch:{status:"REQUESTED",responder_public_id:responder.public_id,responder_label:responder.display_name},request_message:"현장 확인 요청"}});
+    expect((await adapter.get(candidate.public_id))?.dispatch).toMatchObject({responder_public_id:responder.public_id,status:"REQUESTED"});
+    expect(createMockDashboardSnapshot().dispatches.find(dispatch=>dispatch.incident_public_id===candidate.public_id)).toMatchObject({responder_public_id:responder.public_id,responder_label:responder.display_name,status:"REQUESTED"});
+    const duplicate=await adapter.assignDispatch({incident_public_id:candidate.public_id,expected_version_no:result.ok?result.version_no:-1,idempotency_key:"mock-duplicate-dispatch",responder_public_id:responder.public_id,request_message:"중복 요청"});
+    expect(duplicate).toMatchObject({ok:false,code:"DISPATCH_ALREADY_ASSIGNED"});
+  });
+
+  it("restores incident and dispatch fixtures after an explicit runtime reset",async()=>{
+    const adapter=new MockIncidentDetailAdapter();
+    const initialSnapshot=createMockDashboardSnapshot();
+    const candidate=initialSnapshot.incidents.find(item=>item.status==="UNDER_REVIEW" && !initialSnapshot.dispatches.some(dispatch=>dispatch.incident_public_id===item.public_id))!;
+    const initialRecord=await adapter.get(candidate.public_id);
+    const responder=(await adapter.listResponders()).find(item=>item.available)!;
+    await adapter.createMemo({incident_public_id:candidate.public_id,memo_type:"REVIEW",content:"초기화할 메모",actor_public_id:initialRecord!.incident.assigned_controller!.public_id,actor_name:initialRecord!.incident.assigned_controller!.display_name});
+    expect((await adapter.get(candidate.public_id))!.memos).toHaveLength(initialRecord!.memos.length+1);
+    const assigned=await adapter.assignDispatch({incident_public_id:candidate.public_id,expected_version_no:initialRecord!.incident.version_no,idempotency_key:"mock-reset-dispatch",responder_public_id:responder.public_id,request_message:"  초기화 확인  "});
+    expect(assigned).toMatchObject({ok:true,status:"DISPATCH_REQUESTED"});
+    expect(createMockDashboardSnapshot().dispatches.some(dispatch=>dispatch.incident_public_id===candidate.public_id)).toBe(true);
+
+    resetAllMockOperationsRuntime();
+
+    expect(await adapter.get(candidate.public_id)).toEqual(initialRecord);
+    expect(createMockDashboardSnapshot().incidents.find(item=>item.public_id===candidate.public_id)).toEqual(candidate);
+    expect(createMockDashboardSnapshot().dispatches.some(dispatch=>dispatch.incident_public_id===candidate.public_id)).toBe(false);
+  });
+
+  it("starts repeated mutations of the same incident from the original record",async()=>{
+    const adapter=new MockIncidentDetailAdapter();
+    const publicId=createMockDashboardSnapshot().incidents.find(item=>item.status==="NEW")!.public_id;
+    const initial=await adapter.get(publicId);
+    const changed=await adapter.act({incident_public_id:publicId,expected_version_no:initial!.incident.version_no,action:"acknowledge",idempotency_key:"mock-reset-first"});
+    expect(changed).toMatchObject({ok:true,status:"ACKNOWLEDGED"});
+
+    resetAllMockOperationsRuntime();
+
+    const restored=await adapter.get(publicId);
+    expect(restored).toEqual(initial);
+    const repeated=await adapter.act({incident_public_id:publicId,expected_version_no:restored!.incident.version_no,action:"acknowledge",idempotency_key:"mock-reset-second"});
+    expect(repeated).toMatchObject({ok:true,status:"ACKNOWLEDGED",version_no:initial!.incident.version_no+1});
   });
 
   it("keeps stopped-vehicle evidence on a vehicle scene instead of the fallen-object image",async()=>{

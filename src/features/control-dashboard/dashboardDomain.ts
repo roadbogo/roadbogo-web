@@ -8,6 +8,7 @@ const kpiStatuses: Record<Exclude<KpiFilter, null>, IncidentStatus[]> = {
   closing: ["ACTION_COMPLETED"],
 };
 export const activeStatuses: IncidentStatus[] = ["NEW","ACKNOWLEDGED","CLAIMED","UNDER_REVIEW","DISPATCH_REQUESTED","DISPATCHED","ON_SCENE","ACTION_IN_PROGRESS","ACTION_COMPLETED"];
+export function dashboardConnectionCopy(source:"mock"|"api",loading:boolean){return source==="mock"?(loading?"시연 데이터 갱신 중":"시연 모드 · 화면 조작 결과 반영"):(loading?"재연결 중":"실시간 연결 끊김 · 조회 데이터 사용 중")}
 export const incidentStatusLabel: Record<IncidentStatus, string> = {
   NEW:"미확인", ACKNOWLEDGED:"확인됨", CLAIMED:"선점됨", UNDER_REVIEW:"검토 중",
   DISPATCH_REQUESTED:"출동 배정 단계", DISPATCHED:"출동 중", ON_SCENE:"현장 도착",
@@ -36,8 +37,8 @@ export function canUsePrimaryAction(incident: DashboardIncident, user: { publicI
 export function resolvePrimaryActionAvailability(incident:DashboardIncident,user:{publicId:string;apiPermissions:string[]}):{allowed:boolean;reason:string|null}{
   if (["CLOSED","FALSE_POSITIVE"].includes(incident.status)) return{allowed:false,reason:null};
   const required = permissionForStatus[incident.status];
-  if (required && !user.apiPermissions.includes(required)) return{allowed:false,reason:incident.status==="UNDER_REVIEW"?"현재 계정에는 사건 판정 권한이 없습니다.":`현재 계정에는 ${required} 권한이 없습니다.`};
-  if (incident.assigned_controller && incident.assigned_controller.public_id !== user.publicId && ["CLAIMED","UNDER_REVIEW"].includes(incident.status)) return{allowed:false,reason:incident.status==="UNDER_REVIEW"?"담당 관제자만 판정을 진행할 수 있습니다.":"담당 관제자만 이 업무를 진행할 수 있습니다."};
+  if (required && !user.apiPermissions.includes(required)) return{allowed:false,reason:incident.status==="UNDER_REVIEW"?"현재 계정에는 사건 판정 권한이 없습니다.":incident.status==="DISPATCH_REQUESTED"?"현재 계정에는 출동 배정 권한이 없습니다.":`현재 계정에는 ${required} 권한이 없습니다.`};
+  if (incident.assigned_controller && incident.assigned_controller.public_id !== user.publicId && ["CLAIMED","UNDER_REVIEW","DISPATCH_REQUESTED"].includes(incident.status)) return{allowed:false,reason:incident.status==="UNDER_REVIEW"?"담당 관제자만 판정을 진행할 수 있습니다.":incident.status==="DISPATCH_REQUESTED"?"담당 관제자만 출동 배정을 진행할 수 있습니다.":"담당 관제자만 이 업무를 진행할 수 있습니다."};
   if(!Number.isInteger(incident.version_no)||incident.version_no<0)return{allowed:false,reason:"사건 버전 정보가 올바르지 않습니다. 사건 상세에서 최신 상태를 확인해 주세요."};
   return{allowed:true,reason:null};
 }
