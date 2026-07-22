@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { DetectionOverlay } from "./DetectionOverlay";
+import { DetectionOverlay, resolveDetectionLabelPlacement } from "./DetectionOverlay";
+
+describe("detection label placement", () => {
+  it("flips toward the left when a start-anchored label would cross the right edge", () => {
+    expect(resolveDetectionLabelPlacement({ left:230,right:28,top:80,bottom:120 },23,89,26,false)).toBe("above-end");
+  });
+  it("moves below or inside when there is no room above", () => {
+    expect(resolveDetectionLabelPlacement({ left:20,right:100,top:4,bottom:40 },30,70,26,false)).toBe("below-start");
+    expect(resolveDetectionLabelPlacement({ left:20,right:100,top:4,bottom:4 },30,70,26,false)).toBe("inside-start");
+  });
+  it("keeps the label above when only subpixel rounding reaches the top edge", () => {
+    expect(resolveDetectionLabelPlacement({ left:80,right:120,top:27.8,bottom:90 },40,82,28,false)).toBe("above-start");
+  });
+});
 
 describe("detection confidence label",()=>{
   it("does not turn missing confidence into zero percent",()=>{
@@ -13,6 +26,7 @@ describe("detection confidence label",()=>{
     expect(renderToStaticMarkup(<DetectionOverlay variant="tracking" label="차량" confidence={87}/>)).toContain("87%");
   });
 });
+
 describe("detection visual variants",()=>{
   it.each(["hazard","traffic","default"] as const)("renders the %s palette identifier",visualVariant=>{
     const html=renderToStaticMarkup(<DetectionOverlay variant="tracking" visualVariant={visualVariant} label="객체" confidence={87}/>);

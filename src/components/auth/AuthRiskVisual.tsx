@@ -10,6 +10,7 @@ import { AuthVisualInfoCard } from "./AuthVisualInfoCard";
 import { AUTH_RISK_DISPLAY_CONFIDENCE, AUTH_RISK_IMAGE_SIZE, authRiskSlides } from "./authRiskSlides";
 import { useAuthRiskCarousel } from "./useAuthRiskCarousel";
 import type { LoginIntent } from "@/types/auth";
+import { getDetectionVisualVariant } from "@/features/detection/detectionVisualVariant";
 
 type Props = { variant: "login" | "signup"; loginIntent?: LoginIntent };
 
@@ -57,7 +58,7 @@ export function AuthRiskVisual({ variant, loginIntent = "general" }: Props) {
       <div key={`scan-${slide.id}-${animationKey}`} className={styles.scanLine} aria-hidden="true" />
       <Link className={styles.brand} href="/" aria-label="도로보GO 메인으로 이동"><Image src="/brand/roadbogo-logo-final.png" alt="도로보GO" width={170} height={48} priority /></Link>
       {stage.width > 0 && <div key={`detection-${slide.id}-${animationKey}`} className={styles.detectionStage} style={stage} aria-hidden="true">
-        <DetectionOverlay objectType={slide.type} variant="hazard" label={slide.label} confidence={AUTH_RISK_DISPLAY_CONFIDENCE[slide.type]} bbox={slide.bbox} className={styles.riskDetection} />
+        <DetectionOverlay objectType={slide.type} variant="hazard" visualVariant={getDetectionVisualVariant({objectCategory:slide.type,classCode:slide.type})} label={slide.label} confidence={AUTH_RISK_DISPLAY_CONFIDENCE[slide.type]} bbox={slide.bbox} className={styles.riskDetection} />
       </div>}
       <div key={`copy-${slide.id}-${animationKey}`} className={styles.visualCopy}><p>{variant === "signup" ? "AI RISK DETECTION" : operations ? "REAL-TIME OPERATIONS" : "ROAD FLOW INTELLIGENCE"}</p><h1 id={`${variant}-brand-title`}>{title.map(line=><span key={line}>{line}</span>)}</h1>{variant === "login" && !operations && <span>{slide.description.map(line=><span key={line}>{line}</span>)}</span>}</div>
       {variant === "login" && !operations && <AuthVisualInfoCard description={`${slide.name} 위험 탐지 · ${slide.roadName} ${slide.cctvName}`} />}

@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FocusEvent } from "react";
 import { DetectionOverlay } from "./DetectionOverlay";
+import { getDetectionVisualVariant } from "@/features/detection/detectionVisualVariant";
 
 const steps = [
  {number:"01",title:"위험 후보 식별",shortDescription:"CCTV 기반 위험 객체 식별",question:"무엇이 포착됐는가",description:"CCTV 영상에서 도로 위 위험 후보를 식별하고 객체 유형과 신뢰도를 확인합니다.",tags:["탐지 객체","AI 신뢰도","탐지 시각"],kind:"detection",input:"CCTV 실시간 영상·탐지 위치",process:"위험 객체 식별·유형 분류·신뢰도 산출",result:"이륜차 후보 식별 · 신뢰도 92%",duration:4500},
@@ -20,7 +21,8 @@ const ChevronIcon=({direction}:{direction:"left"|"right"})=><svg viewBox="0 0 24
 const CheckIcon=()=> <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>;
 type DetectionOverlayData = {
  id:string;
- type:"tracking"|"hazard";
+ objectCategory:string;
+ classCode:string;
  label:string;
  confidence:number;
  box:{left:number;top:number;width:number;height:number};
@@ -28,8 +30,8 @@ type DetectionOverlayData = {
  labelPosition:"top-left"|"top-right";
 };
 const detectionOverlays:DetectionOverlayData[]=[
- {id:"vehicle",type:"tracking",label:"차량",confidence:96,box:{left:46.5,top:40.6,width:10.2,height:10},sourceBox:{x:815,y:382,width:165,height:94},labelPosition:"top-left"},
- {id:"motorcycle",type:"hazard",label:"이륜차",confidence:92,box:{left:71.8,top:37.7,width:5.6,height:12.5},sourceBox:{x:1155,y:355,width:82,height:118},labelPosition:"top-left"},
+ {id:"vehicle",objectCategory:"VEHICLE",classCode:"VEHICLE",label:"차량",confidence:96,box:{left:46.5,top:40.6,width:10.2,height:10},sourceBox:{x:815,y:382,width:165,height:94},labelPosition:"top-left"},
+ {id:"motorcycle",objectCategory:"VEHICLE",classCode:"MOTORCYCLE",label:"이륜차",confidence:92,box:{left:71.8,top:37.7,width:5.6,height:12.5},sourceBox:{x:1155,y:355,width:82,height:118},labelPosition:"top-left"},
 ];
 
 const detectionImageSize={width:1674,height:941};
@@ -90,7 +92,7 @@ function DetectionCamera({animationKey}:{animationKey:number}){
   return ()=>observer.disconnect();
  },[]);
 
- return <div className="flow-preview flow-preview--camera"><div className="flow-camera__top"><span><i/> CAM 07 · LIVE</span><small>AI VISION ACTIVE</small></div><div ref={sceneRef} className="flow-camera__scene" style={{backgroundPosition}}><div className="flow-camera__overlays">{detectionOverlays.map(overlay=><DetectionOverlay key={`${animationKey}-${overlay.id}`} variant={overlay.type} label={overlay.label} confidence={overlay.confidence} labelPosition={overlay.labelPosition==="top-right"?"end":"start"} className={`response-detection response-detection--label-${overlay.labelPosition}`} style={overlayPositions[overlay.id]??{left:`${overlay.box.left}%`,top:`${overlay.box.top}%`,width:`${overlay.box.width}%`,height:`${overlay.box.height}%`}}/>)}</div><b>서해안고속도로 · 서울 방향</b></div></div>;
+ return <div className="flow-preview flow-preview--camera"><div className="flow-camera__top"><span><i/> CAM 07 · LIVE</span><small>AI VISION ACTIVE</small></div><div ref={sceneRef} className="flow-camera__scene" style={{backgroundPosition}}><div className="flow-camera__overlays">{detectionOverlays.map(overlay=><DetectionOverlay key={`${animationKey}-${overlay.id}`} variant="tracking" visualVariant={getDetectionVisualVariant({objectCategory:overlay.objectCategory,classCode:overlay.classCode})} label={overlay.label} confidence={overlay.confidence} labelPosition={overlay.labelPosition==="top-right"?"end":"start"} className={`response-detection response-detection--label-${overlay.labelPosition}`} style={overlayPositions[overlay.id]??{left:`${overlay.box.left}%`,top:`${overlay.box.top}%`,width:`${overlay.box.width}%`,height:`${overlay.box.height}%`}}/>)}</div><b>서해안고속도로 · 서울 방향</b></div></div>;
 }
 function DetailIcon({type}:{type:"input"|"process"|"result"}){
  if(type==="input")return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="m17 10 4-2v8l-4-2z"/></svg>;
@@ -102,7 +104,7 @@ function RoadbogoLocationMarker(){
 }
 function ProductPreview({kind,animationKey}:{kind:(typeof steps)[number]["kind"];animationKey:number}){
  if(kind==="detection")return <DetectionCamera animationKey={animationKey}/>;
- if(kind==="incident")return <div className="flow-preview flow-preview--incident"><div className="flow-ui-head"><span>사건 INC-2026-0715</span><b>자동 생성 완료</b></div><strong>INC-2026-0715</strong><div className="flow-data-grid"><span>위험 점수<b>92 · 높음</b></span><span>객체 유형<b>이륜차</b></span><span>탐지 위치<b>서해안선 23.4km</b></span><span>근거 영상<b>CAM 07 연결</b></span></div></div>;
+ if(kind==="incident")return <div className="flow-preview flow-preview--incident"><div className="flow-ui-head"><span>사건 INC-2026-0715</span><b>자동 생성 완료</b></div><strong>INC-2026-0715</strong><div className="flow-data-grid"><span>위험 점수<b>92 · 주의</b></span><span>객체 유형<b>이륜차</b></span><span>탐지 위치<b>서해안선 23.4km</b></span><span>근거 영상<b>CAM 07 연결</b></span></div></div>;
  if(kind==="control")return <div className="flow-preview flow-preview--control"><div className="flow-ui-head"><span>사건 INC-2026-0715</span><b>관제 판정</b></div><div className="flow-score"><span>AI 신뢰도<strong>92%</strong></span><i><b/></i></div><div className="flow-review-row"><span>객체 추적 안정</span><span>차로 진입 위험</span></div><div className="flow-judgement-summary"><span>판단 근거<strong>차로 진입 위험 확인</strong></span><span>최종 판정<strong>실제 위험 · 대응 필요</strong></span></div></div>;
  if(kind==="dispatch")return <div className="flow-preview flow-preview--dispatch"><div className="flow-map"><RoadbogoLocationMarker/><span>사건 위치</span><b>강북권 관제 구역</b></div><div className="flow-team"><span>배정 대상<strong>강북 현장대응 2팀</strong><small>담당 구역 · 강북권</small><small>업무 상태 · 출동 가능</small></span><button type="button">출동 연결</button></div></div>;
  return <div className="flow-preview flow-preview--field"><div className="field-operation-panel"><header><div><span>현장 조치</span><strong>INC-2026-0715</strong></div><b>조치 완료</b></header><ol><li className="is-done"><span>현장 도착</span><strong>완료</strong></li><li className="is-done"><span>조치 진행</span><strong>완료</strong></li><li className="is-done"><span>처리 완료</span><strong>완료</strong></li></ol><dl><div><dt>조치 유형</dt><dd>낙하물 제거</dd></div><div><dt>완료 시각</dt><dd>08:28:02</dd></div><div><dt>관제 동기화</dt><dd><i/>실시간 반영 완료</dd></div></dl></div></div>;
