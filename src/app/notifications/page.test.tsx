@@ -1,20 +1,27 @@
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest";
+import React from "react";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { AuthenticatedUser } from "@/components/auth/AuthContext";
 import type { NotificationViewModel } from "@/features/notifications/notificationTypes";
-import NotificationsPage from "./page";
 
-const mocks = vi.hoisted(() => ({ items: [] as NotificationViewModel[], role: "GENERAL_USER", replace: vi.fn(), push: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  roles: ["GENERAL_USER"] as AuthenticatedUser["roles"],
+  items: [] as NotificationViewModel[],
+  push: vi.fn(),
+  replace: vi.fn(),
+  markRead: vi.fn(async () => true),
+}));
 const searchParams = new URLSearchParams();
 
-vi.mock("next/link", () => ({ default: ({ children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => <a {...props}>{children}</a> }));
+vi.mock("next/link", () => ({ default: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => <a href={href} {...props}>{children}</a> }));
 vi.mock("next/image", () => ({ default: () => null }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push, replace: mocks.replace }), useSearchParams: () => searchParams }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => searchParams, useRouter: () => ({ push: mocks.push, replace: mocks.replace }) }));
 vi.mock("@/components/landing/LandingHeader", () => ({ LandingHeader: () => <header data-testid="landing-header" /> }));
 vi.mock("@/components/auth/AuthContext", () => ({
-  useAuth: () => ({ user: { publicId: "user-1", name: "사용자", role: mocks.role, roles: [mocks.role], email: "user@example.com", apiPermissions: [], uiRoles: [], uiPermissions: [] } }),
+  useAuth: () => ({ user: { publicId: "user-1", name: "사용자", role: mocks.roles[0] ?? "GENERAL_USER", roles: mocks.roles, email: "user@example.com", apiPermissions: [], uiRoles: [], uiPermissions: [] } }),
 }));
 vi.mock("@/features/notifications/NotificationContext", () => ({
   useNotifications: () => ({
@@ -23,28 +30,30 @@ vi.mock("@/features/notifications/NotificationContext", () => ({
     actionCount: mocks.items.filter(item => item.action_required).length,
     loading: false,
     error: "",
-    refresh: vi.fn(),
-    markRead: vi.fn(async () => true),
-    markAllRead: vi.fn(async () => true),
-    targetFor: vi.fn(() => "/control/incidents/incident-1"),
     realtimeStatus: "unavailable",
+    refresh: vi.fn(),
+    markRead: mocks.markRead,
+    markAllRead: vi.fn(async () => true),
+    targetFor: vi.fn(() => null),
   }),
 }));
 
-const item = (publicId: string, title: string, read: boolean): NotificationViewModel => ({
+import NotificationsPage from "./page";
+
+const item = (publicId: string, title: string, read: boolean, createdAt = "2026-07-22T01:00:00Z"): NotificationViewModel => ({
   public_id: publicId,
   notification_type: "INCIDENT_STATUS_CHANGED",
   severity: "INFO",
   title,
   body: "서비스 알림 본문",
-  resource: { resource_type: "INCIDENT", resource_public_id: "incident-1", resource_label: "INC-1" },
+  resource: { resource_type: "INCIDENT", resource_public_id: "11111111-1111-4111-8111-111111111108", resource_label: "INC-1" },
   resource_label: "INC-1",
-  target_path: "/control/incidents/incident-1",
+  target_path: "/control/incidents/11111111-1111-4111-8111-111111111108",
   delivery_status: "DELIVERED",
   read,
-  delivered_at: "2026-07-22T01:00:00Z",
+  delivered_at: createdAt,
   read_at: read ? "2026-07-22T02:00:00Z" : null,
-  created_at: "2026-07-22T01:00:00Z",
+  created_at: createdAt,
   action_required: true,
   action_label: "사건 상세 보기",
   reason: "UPDATE_ONLY",
@@ -53,67 +62,70 @@ const item = (publicId: string, title: string, read: boolean): NotificationViewM
 });
 
 beforeEach(() => {
+  mocks.roles = ["GENERAL_USER"];
   mocks.items = [item("read", "읽은 계정 안내", true), item("unread", "읽지 않은 계정 안내", false)];
-  mocks.role = "GENERAL_USER";
-  mocks.replace.mockClear();
   mocks.push.mockClear();
-  searchParams.delete("tab");
+  mocks.replace.mockClear();
+  mocks.markRead.mockClear();
+  searchParams.forEach((_, key) => searchParams.delete(key));
 });
-
 afterEach(cleanup);
 
-describe("notifications page audience presentation", () => {
-  it("shows only account-service content and read metadata to general users", () => {
+describe("notifications page audience layout", () => {
+  it("renders general notifications as a single-column account inbox", () => {
     render(<NotificationsPage />);
-    const tabs = screen.getByRole("tablist", { name: "알림 보기" });
-    const queue = document.getElementById("notification-queue")!;
 
+    expect(screen.getByRole("heading", { name: "알림", level: 1 })).toBeInTheDocument();
+    expect(screen.getByText("계정과 서비스 관련 안내를 확인할 수 있습니다")).toBeInTheDocument();
+    const tabs = screen.getByRole("tablist", { name: "알림 보기" });
     expect(within(tabs).getByRole("tab", { name: /전체 알림/ })).toBeInTheDocument();
     expect(within(tabs).getByRole("tab", { name: /읽지 않음/ })).toBeInTheDocument();
-    expect(within(tabs).queryByRole("tab", { name: /처리 필요/ })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("중요도")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("유형")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("정렬")).not.toBeInTheDocument();
-    expect(within(queue).getByText("읽은 계정 안내")).toBeInTheDocument();
-    expect(within(queue).getByText("읽지 않은 계정 안내")).toBeInTheDocument();
-    expect(within(queue).getAllByText("서비스 알림 본문")).toHaveLength(2);
-    expect(queue.querySelector("time[datetime='2026-07-22T01:00:00Z']")).toBeInTheDocument();
-    expect(queue.querySelectorAll("em")).toHaveLength(2);
-    expect(within(queue).queryByText("INC-1")).not.toBeInTheDocument();
-    expect(within(queue).queryByText("일반")).not.toBeInTheDocument();
-    expect(within(queue).queryByText(/조치 필요|상태 업데이트|처리됨/)).not.toBeInTheDocument();
-
-    const detail = screen.getByText("알림 상세").closest("aside")!;
-    expect(within(detail).getByRole("heading", { name: "읽은 계정 안내" })).toBeInTheDocument();
-    expect(within(detail).getByText("서비스 알림 본문")).toBeInTheDocument();
-    expect(within(detail).getByText("읽음")).toBeInTheDocument();
-    expect(detail.querySelector("time[datetime='2026-07-22T01:00:00Z']")).toBeInTheDocument();
-    expect(within(detail).queryByText("사건 상태 변경")).not.toBeInTheDocument();
-    expect(within(detail).queryByText("일반")).not.toBeInTheDocument();
-    expect(within(detail).queryByText("상태 업데이트")).not.toBeInTheDocument();
-    expect(within(detail).queryByText("사건 정보")).not.toBeInTheDocument();
-    expect(within(detail).queryByText("AI 탐지 근거")).not.toBeInTheDocument();
-    expect(within(detail).queryByRole("button", { name: "사건 열기" })).not.toBeInTheDocument();
+    expect(screen.getByText("읽은 계정 안내")).toBeInTheDocument();
+    expect(screen.getByText("읽지 않은 계정 안내")).toBeInTheDocument();
+    expect(screen.getAllByText("서비스 알림 본문")).toHaveLength(2);
+    expect(document.querySelector("time[datetime='2026-07-22T01:00:00Z']")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "읽음 · 읽은 계정 안내" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "읽지 않음 · 읽지 않은 계정 안내" })).toBeInTheDocument();
+    expect(screen.queryByText("처리할 업무")).not.toBeInTheDocument();
+    expect(screen.queryByText("업무 상세")).not.toBeInTheDocument();
+    expect(screen.queryByText("INC-1")).not.toBeInTheDocument();
+    expect(screen.queryByText("AI 탐지 근거")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("알림 정렬")).not.toBeInTheDocument();
 
     fireEvent.click(within(tabs).getByRole("tab", { name: /읽지 않음/ }));
-    expect(within(queue).queryByText("읽은 계정 안내")).not.toBeInTheDocument();
-    expect(within(queue).getByText("읽지 않은 계정 안내")).toBeInTheDocument();
+    expect(screen.queryByText("읽은 계정 안내")).not.toBeInTheDocument();
+    expect(screen.getByText("읽지 않은 계정 안내")).toBeInTheDocument();
   });
 
-  it("keeps operations metadata, evidence, filters, and actions for controllers", () => {
-    mocks.role = "CONTROLLER";
+  it("marks a general notification read before applying an allowed target", async () => {
+    render(<NotificationsPage />);
+    fireEvent.click(screen.getByText("읽지 않은 계정 안내"));
+    expect(mocks.markRead).toHaveBeenCalledWith("unread");
+  });
+
+  it("keeps operations detail, evidence, filters and all sorting options for controllers", () => {
+    mocks.roles = ["CONTROLLER"];
     mocks.items = [item("operation", "운영 사건 알림", false)];
     render(<NotificationsPage />);
 
+    expect(screen.getByRole("heading", { name: "업무 알림", level: 1 })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /처리 필요/ })).toBeInTheDocument();
     expect(screen.getByLabelText("중요도")).toBeInTheDocument();
     expect(screen.getByLabelText("유형")).toBeInTheDocument();
+    const sort = screen.getByLabelText("알림 정렬");
+    expect(within(sort).getByRole("option", { name: "최신순" })).toBeInTheDocument();
+    expect(within(sort).getByRole("option", { name: "긴급도순" })).toBeInTheDocument();
+    expect(within(sort).getByRole("option", { name: "미열람순" })).toBeInTheDocument();
     expect(screen.getAllByText("INC-1").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("일반").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("상태 업데이트").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: "사건 상태 변경" })).toBeInTheDocument();
-    expect(screen.getByText("사건 정보")).toBeInTheDocument();
     expect(screen.getByText("AI 탐지 근거")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "사건 열기" })).toBeInTheDocument();
+  });
+
+  it("keeps a GENERAL_USER and CONTROLLER multi-role account on operations UI", () => {
+    mocks.roles = ["GENERAL_USER", "CONTROLLER"];
+    render(<NotificationsPage />);
+    expect(screen.getByText("처리할 업무")).toBeInTheDocument();
+    expect(screen.getByLabelText("알림 정렬")).toBeInTheDocument();
   });
 });

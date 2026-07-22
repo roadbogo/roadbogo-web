@@ -2,8 +2,10 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/AuthContext";
+import { resolveDashboardDataMode } from "@/features/control-dashboard/dashboardAdapterFactory";
 import { deriveNotificationActionState, resolveNotificationTarget } from "./notificationDomain";
 import { getMockNotificationEvidence, getMockResourceState, mockNotificationAdapter } from "./mockNotificationAdapter";
+import { notificationApiAdapter } from "./notificationApiAdapter";
 import type { NotificationRecord, NotificationTargetPath, NotificationViewModel, RealtimeStatus } from "./notificationTypes";
 
 type NotificationValue = {
@@ -21,6 +23,8 @@ type NotificationValue = {
 };
 
 const NotificationContext = createContext<NotificationValue | null>(null);
+const notificationMode = resolveDashboardDataMode(process.env.NODE_ENV, process.env.NEXT_PUBLIC_USE_MOCK);
+const notificationAdapter = notificationMode === "mock" ? mockNotificationAdapter : notificationApiAdapter;
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const { user, ready } = useAuth();
@@ -35,7 +39,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     setLoading(true);
     setError("");
     try {
-      const page = await mockNotificationAdapter.list(user);
+      const page = await notificationAdapter.list(user);
       setRecords(page.items);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "알림을 불러오지 못했습니다");
@@ -54,13 +58,13 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const items = useMemo<NotificationViewModel[]>(() => {
     if (!user) return [];
     return records.map(notification => {
-      const action = deriveNotificationActionState(notification, getMockResourceState(notification.resource.resource_public_id, user), user);
+      const action = deriveNotificationActionState(notification, notificationMode === "mock" ? getMockResourceState(notification.resource.resource_public_id, user) : null, user);
       return {
         ...notification,
         ...action,
         target_path: resolveNotificationTarget(notification, user),
         resource_label: notification.resource.resource_label,
-        evidence: getMockNotificationEvidence(notification.resource.resource_public_id),
+        evidence: notificationMode === "mock" ? getMockNotificationEvidence(notification.resource.resource_public_id) : null,
       };
     });
   }, [records, user]);
@@ -72,7 +76,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     pendingReads.current.add(publicId);
     setRecords(current => current.map(item => item.public_id === publicId ? { ...item, read: true, read_at: new Date().toISOString() } : item));
     try {
-      await mockNotificationAdapter.markRead(user, publicId);
+      await notificationAdapter.markRead(user, publicId);
       return true;
     } catch {
       setRecords(current => current.map(item => item.public_id === publicId ? existing : item));
@@ -89,7 +93,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     const readAt = new Date().toISOString();
     setRecords(current => current.map(item => ({ ...item, read: true, read_at: item.read_at ?? readAt })));
     try {
-      await mockNotificationAdapter.markAllRead(user);
+      await notificationAdapter.markAllRead(user);
       setToast("모든 알림을 읽음 처리했습니다");
       return true;
     } catch {

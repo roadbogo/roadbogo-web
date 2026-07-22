@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { DetectionOverlay, type NormalizedBBox } from "./DetectionOverlay";
+import { getDetectionVisualVariant } from "@/features/detection/detectionVisualVariant";
 import {
   demoStagePresentation,
   demoWorkflow,
@@ -12,9 +13,9 @@ import {
 } from "./demoStagePresentation";
 
 const incidentData = [
-  { id: "fallen-object", label: "낙하물", detectionLabel: "낙하물 감지", score: 92, confidence: [89, 91, 92], image: "/images/incidents/fallen-object-realistic.png", incident: "RB-260714-0821", position: "debris", lane: "2차로 · 137.4K", objectStatus: "차로 내 정지" },
-  { id: "wild-animal", label: "야생동물", detectionLabel: "야생동물 감지", score: 88, confidence: [85, 87, 88], image: "/images/incidents/wild-animal-realistic.png", incident: "RB-260714-0824", position: "wildlife", lane: "1차로 · 137.4K", objectStatus: "도로 진입" },
-  { id: "motorcycle", label: "이륜차", detectionLabel: "이륜차 감지", score: 91, confidence: [88, 90, 91], image: "/images/incidents/motorcycle-realistic.png", incident: "RB-260714-0827", position: "motorcycle", lane: "137.4K 부근", objectStatus: "주행 중" },
+  { id: "fallen-object", objectCategory: "DEBRIS", classCode: "FALLEN_OBJECT", label: "낙하물", detectionLabel: "낙하물 감지", score: 92, confidence: [89, 91, 92], image: "/images/incidents/fallen-object-realistic.png", incident: "RB-260714-0821", position: "debris", lane: "2차로 · 137.4K", objectStatus: "차로 내 정지" },
+  { id: "wild-animal", objectCategory: "WILDLIFE", classCode: "WILDLIFE", label: "야생동물", detectionLabel: "야생동물 감지", score: 88, confidence: [85, 87, 88], image: "/images/incidents/wild-animal-realistic.png", incident: "RB-260714-0824", position: "wildlife", lane: "1차로 · 137.4K", objectStatus: "도로 진입" },
+  { id: "motorcycle", objectCategory: "VEHICLE", classCode: "MOTORCYCLE", label: "이륜차", detectionLabel: "이륜차 감지", score: 91, confidence: [88, 90, 91], image: "/images/incidents/motorcycle-realistic.png", incident: "RB-260714-0827", position: "motorcycle", lane: "137.4K 부근", objectStatus: "주행 중" },
 ] as const;
 
 const INITIAL_TIME = 8 * 60 * 60 + 21 * 60 + 4;
@@ -197,7 +198,7 @@ export function LandingCarousel() {
     <div className="incident-body"><div className="cctv-frame camera-console"><div className="cctv-meta"><div className="cctv-meta__source"><span className="cctv-meta__status" aria-hidden="true"/><strong>CAM 07</strong><i>·</i><span>중부고속도로 137.4K</span><em title="서비스 흐름을 보여주기 위한 시연 영상입니다." aria-label="서비스 흐름을 보여주기 위한 시연 영상입니다.">시연 모드</em></div><time>2026.07.14 · {formatTime(currentTime)}</time></div>
       <section className="camera-visual-stage" aria-label={`CAM 07 ${scenario.label} AI 탐지 화면`}>
         <div className="camera-ambient" aria-hidden="true" />
-        <div ref={roadSceneRef} className="road-scene camera-frame-plane"><span className="road-line road-line--one" /><span className="road-line road-line--two" /><DetectionOverlay key={`hazard-${transitionKey}`} objectType={scenario.id} variant="hazard" label={scenario.label} confidence={scenario.score} className={`hazard-detection hazard-detection--${scenario.position}`}><Image src={scenario.image} alt={scenario.label} width={92} height={72} /></DetectionOverlay>{vehicleDetections.map(detection=><DetectionOverlay key={`${transitionKey}-${detection.id}`} objectType="vehicle" variant="tracking" label={detection.label} confidence={detection.confidence} labelPosition={detection.id==="vehicle-03"?"end":"start"} className={`vehicle-detection vehicle-detection--${detection.id}`} style={vehiclePositions[detection.id]}/>)}
+        <div ref={roadSceneRef} className="road-scene camera-frame-plane"><span className="road-line road-line--one" /><span className="road-line road-line--two" /><DetectionOverlay key={`hazard-${transitionKey}`} objectType={scenario.id} variant="hazard" visualVariant={getDetectionVisualVariant({objectCategory:scenario.objectCategory,classCode:scenario.classCode})} label={scenario.label} confidence={scenario.score} className={`hazard-detection hazard-detection--${scenario.position}`}><Image src={scenario.image} alt={scenario.label} width={92} height={72} /></DetectionOverlay>{vehicleDetections.map(detection=><DetectionOverlay key={`${transitionKey}-${detection.id}`} objectType="vehicle" variant="tracking" visualVariant={getDetectionVisualVariant({objectCategory:"VEHICLE",classCode:"VEHICLE"})} label={detection.label} confidence={detection.confidence} labelPosition={detection.id==="vehicle-03"?"end":"start"} className={`vehicle-detection vehicle-detection--${detection.id}`} style={vehiclePositions[detection.id]}/>)}
           <span className="camera-label">AI TRACKING · Objects 12 · Risk 01</span>
         </div>
       </section>
@@ -208,7 +209,7 @@ export function LandingCarousel() {
         <div><span>위험 후보</span><strong className="is-risk">1</strong></div>
       </section>
     </div><article className="incident-card response-panel scenario-fade" key={`card-${scenario.id}`}>
-      <section className="response-summary" aria-labelledby={`incident-${scenario.id}`}><div className="response-kicker"><span>AI 위험 후보</span><small>{scenario.incident}</small></div><h2 id={`incident-${scenario.id}`}>{scenario.detectionLabel}</h2><div className="response-chips"><span className="response-chip response-chip--danger">위험도 높음</span><span className="response-chip response-chip--score">AI {confidence}%</span><span className="response-chip">{formatTime(currentTime)}</span></div></section>
+      <section className="response-summary" aria-labelledby={`incident-${scenario.id}`}><div className="response-kicker"><span>AI 위험 후보</span><small>{scenario.incident}</small></div><h2 id={`incident-${scenario.id}`}>{scenario.detectionLabel}</h2><div className="response-chips"><span className="response-chip response-chip--danger">위험도 주의</span><span className="response-chip response-chip--score">AI {confidence}%</span><span className="response-chip">{formatTime(currentTime)}</span></div></section>
       <section className="response-field" aria-label="현장 정보"><h3>현장 정보</h3><ul><li><span>위치</span><strong>중부고속도로</strong></li><li><span>카메라</span><strong>CAM 07</strong></li><li><span>구간</span><strong>{scenario.lane}</strong></li><li><span>객체 상태</span><strong>{scenario.objectStatus}</strong></li></ul></section>
       <section className="response-status" aria-label="현재 업무"><div className="response-status__head"><span>현재 업무</span></div><div className="response-status__body" aria-live="polite" aria-atomic="true"><p className="response-status__current"><i aria-hidden="true"/><strong>{presentation.currentTitle}</strong></p><p className="response-status__description">{presentation.description}</p></div><div className="response-status__next"><span>다음 단계</span><strong>{presentation.nextLabel}</strong></div></section>
     </article></div>

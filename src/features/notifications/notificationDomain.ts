@@ -12,7 +12,7 @@ export const notificationPresentation: Record<NotificationType, NotificationPres
   ACTION_COMPLETED: { label: "현장 조치 완료", icon: "complete", category: "ACTION_REQUIRED", tone: "success" },
 };
 
-export const severityLabels: Record<NotificationSeverity, string> = { INFO: "일반", WARNING: "주의", HIGH: "높음", CRITICAL: "긴급" };
+export const severityLabels: Record<NotificationSeverity, string> = { INFO: "일반", WARNING: "주의", HIGH: "주의", CRITICAL: "긴급" };
 
 const controlUser = (user: AuthenticatedUser) =>
   user.roles.some(role => ["SYSTEM_ADMIN", "CONTROL_MANAGER", "CONTROLLER"].includes(role))
@@ -120,6 +120,7 @@ export function notificationNavigationLabel(item: Pick<NotificationViewModel, "r
 }
 
 export type NotificationQueueGroup = "priority" | "action" | "update";
+export type NotificationSort = "newest" | "severity" | "unread";
 
 export function notificationQueueGroup(item: NotificationViewModel): NotificationQueueGroup {
   if (item.action_required && !item.read && ["CRITICAL", "HIGH"].includes(item.severity)) return "priority";
@@ -149,15 +150,18 @@ export function compareNotificationPriority(a: NotificationViewModel, b: Notific
   return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
 }
 
-export function sortNotificationQueue(
-  items: NotificationViewModel[],
-  view: "action" | "all" | "unread",
-  sort: "newest" | "oldest",
-) {
+function compareNewest(a: NotificationViewModel, b: NotificationViewModel) {
+  const aTime = new Date(a.created_at).getTime();
+  const bTime = new Date(b.created_at).getTime();
+  const timeDifference = (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime);
+  return timeDifference || a.public_id.localeCompare(b.public_id);
+}
+
+export function sortNotificationQueue(items: NotificationViewModel[], sort: NotificationSort) {
   return [...items].sort((a, b) => {
-    const grouped = compareNotificationPriority(a, b);
-    if (view === "action" || notificationQueueGroup(a) !== notificationQueueGroup(b)) return grouped;
-    const delta = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    return sort === "newest" ? delta : -delta;
+    if (sort === "newest") return compareNewest(a, b);
+    if (sort === "unread") return Number(a.read) - Number(b.read) || compareNewest(a, b);
+    return severityRank[a.severity] - severityRank[b.severity]
+      || compareNewest(a, b);
   });
 }

@@ -25,6 +25,16 @@
   --detection-label:#552126;
   --detection-dot:#f06a70;
 }
+.traffic,.tracking{
+  --detection-line:#26999e;
+  --detection-label:#176f73;
+  --detection-dot:#72d1d0;
+}
+.default{
+  --detection-line:#3c6fe8;
+  --detection-label:#2451b8;
+  --detection-dot:#78a0ff;
+}
 .animated{
   opacity:0;
   animation:overlay-lock .46s cubic-bezier(.2,.8,.2,1) .34s 1 forwards;
@@ -63,11 +73,15 @@
   box-shadow:0 2px 7px rgba(25,51,69,.16);
   opacity:1;
 }
-.labelEnd{
+.above-end{
   right:-1.5px;
   left:auto;
   border-radius:7px 7px 0 7px;
 }
+.below-start,.below-end{top:calc(100% - 1px);bottom:auto;border-radius:0 7px 7px 7px}
+.below-end{right:-1.5px;left:auto;border-radius:7px 0 7px 7px}
+.inside-start,.inside-end{top:1.5px;bottom:auto;left:1.5px;border-radius:5px}
+.inside-end{right:1.5px;left:auto}
 .animated .label{opacity:0;transform:translateY(3px);animation:label-reveal .36s ease-out .58s 1 forwards}
 .dot{
   width:7px;

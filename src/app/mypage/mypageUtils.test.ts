@@ -1,13 +1,31 @@
 import { describe, expect, it } from "vitest";
 import {
   buildProfileUpdate,
+  canWithdrawAccount,
+  formatPhoneForDisplay,
   getAccountShortcuts,
   getNextAccountTab,
   getPermissionGroups,
   getRoleDisplay,
   isOperationalAccount,
+  normalizePhoneForComparison,
+  phoneCursorPosition,
+  validatePhone,
   validateProfile,
 } from "./mypageUtils";
+
+describe("account withdrawal eligibility", () => {
+  it("allows only a single GENERAL_USER role", () => {
+    expect(canWithdrawAccount(["GENERAL_USER"])).toBe(true);
+    expect(canWithdrawAccount(["SYSTEM_ADMIN"])).toBe(false);
+    expect(canWithdrawAccount(["CONTROL_MANAGER"])).toBe(false);
+    expect(canWithdrawAccount(["CONTROLLER"])).toBe(false);
+    expect(canWithdrawAccount(["RESPONDER"])).toBe(false);
+    expect(canWithdrawAccount(["GENERAL_USER", "CONTROLLER"])).toBe(false);
+    expect(canWithdrawAccount([])).toBe(false);
+    expect(canWithdrawAccount(undefined)).toBe(false);
+  });
+});
 
 function incidentProcessing(permissions: string[], generalUser = false) {
   return getPermissionGroups(permissions, generalUser).find(group => group.label === "사건 처리");
@@ -161,7 +179,7 @@ describe("profile validation", () => {
 
   it("returns only a phone error for an invalid phone", () => {
     expect(validateProfile("정상 이름", "010.ABCD")).toEqual({
-      phone: "전화번호는 숫자, 공백, 하이픈, 괄호와 + 기호를 사용해 입력해 주세요.",
+      phone: "전화번호 형식을 확인해 주세요",
     });
   });
 
@@ -173,7 +191,7 @@ describe("profile validation", () => {
   it("returns errors for both invalid fields", () => {
     expect(validateProfile(" A ", "invalid")).toEqual({
       name: "사용자명은 2자 이상 100자 이하로 입력해 주세요.",
-      phone: "전화번호는 숫자, 공백, 하이픈, 괄호와 + 기호를 사용해 입력해 주세요.",
+      phone: "전화번호 형식을 확인해 주세요",
     });
   });
 });
@@ -190,5 +208,53 @@ describe("buildProfileUpdate", () => {
     expect(validateProfile("기존 이름", " ", "010-1234-5678")).toEqual({
       phone: "전화번호 삭제는 ‘등록된 전화번호 삭제’를 이용해 주세요.",
     });
+  });
+
+  it("does not treat display separators as a phone change", () => {
+    expect(buildProfileUpdate({ name: "기존 이름", phone: "01012345678" }, "기존 이름", "010-1234-5678")).toEqual({});
+    expect(buildProfileUpdate({ name: "기존 이름", phone: "+821012345678" }, "기존 이름", "+82 10-1234-5678")).toEqual({});
+  });
+
+  it("sends only the formatted phone when the number changed", () => {
+    expect(buildProfileUpdate({ name: "기존 이름", phone: "01011112222" }, "기존 이름", "01033334444")).toEqual({ phone: "010-3333-4444" });
+  });
+});
+
+describe("phone presentation", () => {
+  it.each([
+    [null, ""],
+    [undefined, ""],
+    ["", ""],
+    ["0", "0"],
+    ["01", "01"],
+    ["010", "010"],
+    ["0101", "010-1"],
+    ["0101234", "010-1234"],
+    ["01012345678", "010-1234-5678"],
+    ["010-1234-5678", "010-1234-5678"],
+    ["+82", "+82"],
+    ["+8210", "+82 10"],
+    ["+821012345678", "+82 10-1234-5678"],
+    ["+82 10 1234 5678", "+82 10-1234-5678"],
+    ["+82 10-1234-5678", "+82 10-1234-5678"],
+    ["abc010-12한글34🙂5678", "010-1234-5678"],
+  ])("formats %j as %j", (input, expected) => expect(formatPhoneForDisplay(input)).toBe(expected));
+
+  it("normalizes only separators for comparison", () => {
+    expect(normalizePhoneForComparison("010-1234-5678")).toBe("01012345678");
+    expect(normalizePhoneForComparison("+82 10-1234-5678")).toBe("+821012345678");
+  });
+
+  it("accepts only complete domestic and +82 mobile numbers", () => {
+    expect(validatePhone("010-1234-5678")).toBe(true);
+    expect(validatePhone("+82 10-1234-5678")).toBe(true);
+    expect(validatePhone("")).toBe(true);
+    expect(validatePhone("010-1234")).toBe(false);
+    expect(validatePhone("+82 10-1234")).toBe(false);
+    expect(validatePhone("02-1234-5678")).toBe(false);
+  });
+
+  it("maps a middle-edit cursor by significant phone characters", () => {
+    expect(phoneCursorPosition("01012394-5678", 6, "010-1239-4567")).toBe(7);
   });
 });

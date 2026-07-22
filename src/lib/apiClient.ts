@@ -146,6 +146,12 @@ function isUnauthorized(error: unknown): error is ApiError {
   return error instanceof ApiError && error.httpStatus === 401;
 }
 
+const refreshableAccessTokenErrors = new Set(["AUTH_ACCESS_TOKEN_EXPIRED", "AUTH_ACCESS_TOKEN_INVALID"]);
+
+function shouldRefreshAuthentication<T>(response: Response, envelope: ApiEnvelope<T>) {
+  return response.status === 401 && !envelope.success && refreshableAccessTokenErrors.has(envelope.error.code);
+}
+
 export function isAbortError(error: unknown) {
   return (
     typeof DOMException !== "undefined"
@@ -199,7 +205,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   }, auth);
   const envelope = await parseEnvelope<T>(response);
 
-  if (response.status === 401 && retryAuth && path !== "/auth/login" && path !== "/auth/refresh") {
+  if (shouldRefreshAuthentication(response, envelope) && retryAuth && path !== "/auth/login" && path !== "/auth/refresh") {
     if (sessionChanged(requestEpoch)) throw createAuthAbortError();
     try {
       if (!getAccessToken() || getAccessToken() === requestAccessToken) await refreshAccessToken(requestEpoch);

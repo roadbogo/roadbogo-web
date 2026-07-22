@@ -101,7 +101,7 @@ function IncidentRecord({ stage, syncStatus }: { stage: string; syncStatus: stri
   const coreFields = [
     ["사건 번호", "RB-260714-0821"],
     ["객체 유형", "낙하물"],
-    ["위험도", "높음", "danger"],
+    ["위험도", "주의", "danger"],
     ["위치", "중부고속도로 137.4K"],
     ["현재 단계", stage, "progress"],
     ["동기화 상태", syncStatus, "live"],

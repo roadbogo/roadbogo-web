@@ -4,6 +4,14 @@ import type { SystemHealthResponse } from "@/types/systemHealth";
 const API_BASE_URL = (process.env.API_BASE_URL ?? "http://localhost:8000").replace(/\/$/, "");
 const TIMEOUT_MS = 4000;
 
+export function isHealthyResponse(body: unknown) {
+  if (!body || typeof body !== "object") return false;
+  const response = body as { status?: unknown; success?: unknown; data?: unknown };
+  if (response.status === "ok" || response.status === "UP") return true;
+  if (response.success !== true || !response.data || typeof response.data !== "object") return false;
+  return (response.data as { status?: unknown }).status === "UP";
+}
+
 async function isHealthy(path: string) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -11,7 +19,7 @@ async function isHealthy(path: string) {
     const response = await fetch(`${API_BASE_URL}${path}`, { cache: "no-store", signal: controller.signal });
     if (!response.ok) return false;
     const body: unknown = await response.json();
-    return Boolean(body && typeof body === "object" && "status" in body && body.status === "ok");
+    return isHealthyResponse(body);
   } catch {
     return false;
   } finally {

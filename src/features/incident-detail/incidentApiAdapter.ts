@@ -1,5 +1,5 @@
 import { ApiError, apiRequest } from "@/lib/apiClient";
-import type { IncidentActionRequest, IncidentActionResult, IncidentDetailAdapter, IncidentDetailRecord, IncidentDecisionPayload, IncidentDispatchAssignmentRequest } from "./incidentDetailTypes";
+import type { IncidentActionRequest, IncidentActionResult, IncidentDetailAdapter, IncidentDetailRecord, IncidentDecisionPayload, IncidentDispatchAssignmentRequest, IncidentMemo, IncidentMemoRequest } from "./incidentDetailTypes";
 import type { IncidentCommandResponseDto, IncidentDetailDto, IncidentDispatchResponseDto, IncidentEvidenceListDto, IncidentHistoryListDto, ResponderListDto } from "./incidentApiTypes";
 import { mapDispatchResponder, mapIncidentDetailRecord } from "./incidentMapper";
 
@@ -11,6 +11,8 @@ export class ApiIncidentDetailAdapter implements IncidentDetailAdapter{
  readonly mode="api" as const;
  readonly supportsRelease=false;
  readonly supportsDispatchAssignment=true;
+ readonly supportsMemoRead=false;
+ readonly supportsMemoWrite=false;
 
  async get(publicId:string):Promise<IncidentDetailRecord|null>{
   if(!incidentPublicIdPattern.test(publicId))throw new Error("INVALID_INCIDENT_PUBLIC_ID");
@@ -79,7 +81,12 @@ export class ApiIncidentDetailAdapter implements IncidentDetailAdapter{
    const latest=await this.get(request.incident_public_id);
    if(!latest)throw error;
    return{ok:false,code:error.code as typeof dispatchErrorCodes[number],latest};
-  }
+ }
+ }
+
+ async createMemo(request:IncidentMemoRequest):Promise<IncidentMemo>{
+  void request;
+  throw new Error("UNSUPPORTED_INCIDENT_MEMO");
  }
 }
 

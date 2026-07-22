@@ -1,7 +1,7 @@
 import type { DashboardAdapter, DashboardCctv, DashboardDispatch, DashboardIncident, DashboardSnapshot } from "./dashboardTypes";
 import { mockCctvPublicIds, mockDispatchPublicIds, mockIncidentPublicIds } from "@/features/mocks/mockResourceIds";
 import { mapMockDashboardSnapshot, type MockDashboardSnapshotDto } from "./dashboardMapper";
-import { applyMockIncidentRuntime } from "./mockIncidentRuntimeState";
+import { applyMockDispatchRuntime, applyMockIncidentRuntime } from "./mockIncidentRuntimeState";
 
 const mockDto = {
   cctvs: [
@@ -36,7 +36,11 @@ const mockDto = {
     representative_confidence,
     duration_ms,
     detection_count,
+    representative_image_url:"/images/incidents/response-ai-detection-v2.png",
+    representative_image_kind:"ORIGINAL",
+    detection_bbox:class_code==="STOPPED_VEHICLE"?{x:.49,y:.4,width:.1,height:.12}:class_code==="WRONG_WAY"?{x:.69,y:.37,width:.07,height:.13}:class_code==="PEDESTRIAN"?{x:.68,y:.39,width:.05,height:.13}:class_code==="TIRE"||class_code==="BOX"?{x:.52,y:.55,width:.08,height:.1}:null,
     assigned_controller,
+    claimed_at:assigned_controller?new Date(Date.parse(created_at)+30*60*1000).toISOString():null,
     version_no,
     created_at,
     updated_at: "2026-07-19T05:26:00.000Z",
@@ -53,7 +57,7 @@ const mockDto = {
 
 export function createMockDashboardSnapshot(): DashboardSnapshot {
   const snapshot=mapMockDashboardSnapshot(mockDto);
-  return {...snapshot,incidents:snapshot.incidents.map(applyMockIncidentRuntime)};
+  return {...snapshot,incidents:snapshot.incidents.map(applyMockIncidentRuntime),dispatches:applyMockDispatchRuntime(snapshot.dispatches)};
 }
 
 export class MockDashboardAdapter implements DashboardAdapter {

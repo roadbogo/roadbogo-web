@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AuthenticatedUser } from "@/components/auth/AuthContext";
-import { canReceiveNotification, compareNotificationPriority, deriveNotificationActionState, formatUnreadCount, hasNewUnreadNotification, notificationNavigationLabel, notificationPresentation, notificationQueueGroup, notificationStateCopy, notificationTaskCopy, resolveNotificationTarget, safeNotificationTarget, sortNotificationQueue } from "./notificationDomain";
+import { canReceiveNotification, compareNotificationPriority, deriveNotificationActionState, formatUnreadCount, hasNewUnreadNotification, notificationNavigationLabel, notificationPresentation, notificationQueueGroup, notificationStateCopy, notificationTaskCopy, resolveNotificationTarget, safeNotificationTarget, severityLabels, sortNotificationQueue } from "./notificationDomain";
 import type { LinkedResourceState, NotificationRecord, NotificationViewModel } from "./notificationTypes";
 import { mockDispatchPublicIds, mockIncidentPublicIds } from "@/features/mocks/mockResourceIds";
 
@@ -16,6 +16,7 @@ const notification = (type: NotificationRecord["notification_type"], resourceTyp
 });
 
 describe("notification bell state",()=>{
+  it("uses the unified label for HIGH without changing the severity code",()=>{expect(severityLabels.HIGH).toBe("주의");expect(notification("INCIDENT_CREATED").severity).toBe("HIGH")});
   it("detects only newly visible unread notification IDs",()=>{expect(hasNewUnreadNotification(["visible-1"],new Set())).toBe(true);expect(hasNewUnreadNotification(["visible-1"],new Set(["visible-1"]))).toBe(false);expect(hasNewUnreadNotification([],new Set(["visible-1"]))).toBe(false)});
 });
 
@@ -129,27 +130,49 @@ describe("deriveNotificationActionState", () => {
     expect(notificationQueueGroup({ ...base, action_required: false, read: false, severity: "INFO" })).toBe("update");
   });
 
-  it("keeps action work priority fixed while applying time sort inside other groups", () => {
-    const view = (publicId: string, createdAt: string, actionRequired = true): NotificationViewModel => ({
+  it("sorts visible notifications by newest, severity, or unread state", () => {
+    const view = (publicId: string, createdAt: string, severity: NotificationViewModel["severity"], read: boolean): NotificationViewModel => ({
       ...notification("INCIDENT_CREATED"),
       public_id: publicId,
       created_at: createdAt,
       delivered_at: createdAt,
-      action_required: actionRequired,
-      action_label: actionRequired ? "사건 확인" : null,
+      severity,
+      read,
+      action_required: true,
+      action_label: "사건 확인",
       target_path: "/control/incidents/INC-20260719-0012",
-      reason: actionRequired ? "INCIDENT_UNACKNOWLEDGED" : "UPDATE_ONLY",
-      state_label: actionRequired ? "조치 필요" : "상태 업데이트",
+      reason: "INCIDENT_UNACKNOWLEDGED",
+      state_label: "조치 필요",
       resource_label: "INC-20260719-0012",
     });
     const items = [
-      view("older-action", "2026-07-19T00:00:00Z"),
-      view("newer-action", "2026-07-19T01:00:00Z"),
+      view("warning-unread", "2026-07-19T02:00:00Z", "WARNING", false),
+      view("critical-read", "2026-07-19T03:00:00Z", "CRITICAL", true),
+      view("critical-unread-old", "2026-07-19T00:00:00Z", "CRITICAL", false),
+      view("critical-unread-new", "2026-07-19T01:00:00Z", "CRITICAL", false),
     ];
+    const originalOrder = items.map(item => item.public_id);
 
-    expect(sortNotificationQueue(items, "action", "newest").map(item => item.public_id))
-      .toEqual(sortNotificationQueue(items, "action", "oldest").map(item => item.public_id));
-    expect(sortNotificationQueue(items, "all", "newest").map(item => item.public_id)).toEqual(["newer-action", "older-action"]);
-    expect(sortNotificationQueue(items, "all", "oldest").map(item => item.public_id)).toEqual(["older-action", "newer-action"]);
+    expect(sortNotificationQueue(items, "newest").map(item => item.public_id))
+      .toEqual(["critical-read", "warning-unread", "critical-unread-new", "critical-unread-old"]);
+    expect(sortNotificationQueue(items, "severity").map(item => item.public_id))
+      .toEqual(["critical-read", "critical-unread-new", "critical-unread-old", "warning-unread"]);
+    expect(sortNotificationQueue(items, "unread").map(item => item.public_id))
+      .toEqual(["warning-unread", "critical-unread-new", "critical-unread-old", "critical-read"]);
+    expect(items.map(item => item.public_id)).toEqual(originalOrder);
+  });
+
+  it("uses the public ID as a stable tie breaker for equal timestamps", () => {
+    const base = {
+      ...notification("INCIDENT_CREATED"),
+      action_required: false,
+      action_label: null,
+      target_path: null,
+      reason: "UPDATE_ONLY",
+      state_label: "상태 업데이트" as const,
+      resource_label: "INC-1",
+    };
+    const items = [{ ...base, public_id: "b" }, { ...base, public_id: "a" }];
+    expect(sortNotificationQueue(items, "newest").map(item => item.public_id)).toEqual(["a", "b"]);
   });
 });
