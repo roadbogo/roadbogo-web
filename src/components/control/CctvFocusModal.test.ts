@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getFocusCctvOptions, getFocusDetectionBox } from "./CctvFocusModal";
+import { getFocusCctvOptions, getFocusDetectionBox, projectBboxIntoContainedImage } from "./CctvFocusModal";
 import { createMockDashboardSnapshot } from "@/features/control-dashboard/mockDashboardAdapter";
 
 describe("focus monitoring detection boxes", () => {
@@ -23,5 +23,9 @@ describe("focus monitoring detection boxes", () => {
     expect(alternatives).toHaveLength(5);
     expect(alternatives).not.toContainEqual(expect.objectContaining({public_id:cctvs[2].public_id}));
     expect(getFocusCctvOptions(cctvs.slice(0,3),cctvs[0].public_id)).toHaveLength(2);
+  });
+  it("projects normalized boxes into contain letterboxing without guessing offsets",()=>{
+    expect(projectBboxIntoContainedImage({x:.25,y:.25,width:.5,height:.5},4/3)).toEqual({x:.3125,y:.25,width:.375,height:.5});
+    expect(projectBboxIntoContainedImage({x:.25,y:.25,width:.5,height:.5},21/9)).toEqual({x:.25,y:.30952380952380953,width:.5,height:.38095238095238093});
   });
 });

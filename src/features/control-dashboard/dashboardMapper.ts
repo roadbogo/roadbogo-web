@@ -27,6 +27,14 @@ export function mapDashboardIncident(dto:IncidentListItemDto):DashboardIncident 
   };
 }
 
+export function mergeDashboardIncidentSelection(current:DashboardIncident,detail:DashboardIncident):DashboardIncident{
+ return{
+  ...detail,
+  representative_image_url:detail.representative_image_url??current.representative_image_url??null,
+  detection_bbox:detail.detection_bbox??current.detection_bbox??null,
+ };
+}
+
 export function mapDashboardSnapshot(input:{summary:IncidentSummaryDto;incidents:IncidentListItemDto[];cctvs:CctvListItemDto[];fallbackUsed:boolean;fetchedAt:string}):DashboardSnapshot {
   return {summary:input.summary,cctvs:input.cctvs.map(item=>({...mapDashboardCctv(item),fallback_used:input.fallbackUsed})),incidents:input.incidents.map(mapDashboardIncident),dispatches:[],fallback_used:input.fallbackUsed,fetched_at:input.fetchedAt,source:"api"};
 }

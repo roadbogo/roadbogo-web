@@ -12,7 +12,7 @@ import {
   filterDashboardRail, highRiskAlertKey, incidentStatusLabel, prioritizeIncidents, relativeTime, resolveDispatchPresentation,
   resolvePrimaryActionAvailability, resolveUrgentIncidentSelection, riskLabel, selectHighRiskAlert, selectIncidentForCctv, type DashboardRailFilter, type KpiFilter,
 } from "./dashboardDomain";
-import { directionLabel, objectCategoryLabel, operationalStatusLabel } from "./dashboardMapper";
+import { directionLabel, mergeDashboardIncidentSelection, objectCategoryLabel, operationalStatusLabel } from "./dashboardMapper";
 import type { DashboardCctv, DashboardIncident, DashboardSnapshot, DispatchLookupStatus } from "./dashboardTypes";
 import { getDetectionVisualVariant } from "@/features/detection/detectionVisualVariant";
 import "@/components/landing/landing.css";
@@ -90,7 +90,7 @@ export function ControlDashboard(){
     void adapter.loadIncidentSelection(publicId).then(selection=>{
       if(sequence!==dispatchLookupSequence.current)return;
       if(!selection){setDispatchLookup(current=>failDispatchLookup(current,publicId));return}
-      setData(current=>current?{...current,incidents:current.incidents.map(item=>item.public_id===publicId?selection.incident:item)}:current);
+      setData(current=>current?{...current,incidents:current.incidents.map(item=>item.public_id===publicId?mergeDashboardIncidentSelection(item,selection.incident):item)}:current);
       setDispatchLookup(current=>completeDispatchLookup(current,publicId,selection.dispatch));
     }).catch(()=>{if(sequence===dispatchLookupSequence.current)setDispatchLookup(current=>failDispatchLookup(current,publicId))});
   },[incident?.public_id]);
@@ -122,12 +122,15 @@ export function ControlDashboard(){
   useEffect(()=>{if(!selectionFeedback)return;const timer=setTimeout(()=>setSelectionFeedback(null),2500);return()=>clearTimeout(timer)},[selectionFeedback]);
   useEffect(()=>()=>{if(highlightTimer.current)clearTimeout(highlightTimer.current)},[]);
 
-  const reveal=(incidentId:string|null,cctvId:string|null)=>requestAnimationFrame(()=>{
+  const reveal=useCallback((incidentId:string|null,cctvId:string|null)=>requestAnimationFrame(()=>{
     if(cctvId)cctvRefs.current.get(cctvId)?.scrollIntoView({block:"nearest",inline:"nearest",behavior:"smooth"});
     if(incidentId)incidentRefs.current.get(incidentId)?.scrollIntoView({block:"nearest",behavior:"smooth"});
-  });
-  const chooseIncident=(item:DashboardIncident)=>{setSelectedIncident(item.public_id);setStandaloneCctv(null);setMobileBrief(true);reveal(item.public_id,item.cctv_public_id)};
-  const chooseCctv=(item:DashboardCctv)=>{const candidate=selectIncidentForCctv(activeIncidents,item.public_id);setSelectedIncident(candidate?.public_id??null);setStandaloneCctv(candidate?null:item.public_id);setMobileBrief(false);reveal(candidate?.public_id??null,item.public_id)};
+  }),[]);
+  const chooseIncident=useCallback((item:DashboardIncident)=>{setSelectedIncident(item.public_id);setStandaloneCctv(null);setMobileBrief(true);reveal(item.public_id,item.cctv_public_id)},[reveal]);
+  const chooseCctv=useCallback((item:DashboardCctv)=>{const candidate=selectIncidentForCctv(activeIncidents,item.public_id);setSelectedIncident(candidate?.public_id??null);setStandaloneCctv(candidate?null:item.public_id);setMobileBrief(false);reveal(candidate?.public_id??null,item.public_id)},[activeIncidents,reveal]);
+  const closeFocusModal=useCallback(()=>setFocusCctv(null),[]);
+  const selectFocusCctv=useCallback((publicId:string)=>{const next=data?.cctvs.find(item=>item.public_id===publicId);if(next){setFocusCctv(publicId);chooseCctv(next)}},[chooseCctv,data?.cctvs]);
+  const selectFocusIncident=useCallback((publicId:string)=>{const next=data?.incidents.find(item=>item.public_id===publicId);if(next)chooseIncident(next)},[chooseIncident,data?.incidents]);
   const permissions=user?.apiPermissions??[];
   const baseActionAvailability=incident&&user
     ?resolvePrimaryActionAvailability(incident,{publicId:user.publicId??"",apiPermissions:permissions})
@@ -195,5 +198,5 @@ export function ControlDashboard(){
         </section>
       </aside>
     </div>
-  </main><CctvFocusModal open={Boolean(focusCctv)} cctv={data.cctvs.find(item=>item.public_id===focusCctv)??null} cctvs={data.cctvs} incidents={activeIncidents} relatedIncidents={prioritizeIncidents(activeIncidents.filter(item=>item.cctv_public_id===focusCctv))} selectedIncident={incident} selectedDispatch={dispatch} dispatchLookupStatus={dispatchLookupStatus} canAct={Boolean(canAct)} blockedReason={actionAvailability.reason} returnFocus={focusSource} onClose={()=>setFocusCctv(null)} onSelectCctv={publicId=>{const next=data.cctvs.find(item=>item.public_id===publicId);if(next){setFocusCctv(publicId);chooseCctv(next)}}} onSelectIncident={publicId=>{const next=data.incidents.find(item=>item.public_id===publicId);if(next)chooseIncident(next)}}/></div>;
+  </main><CctvFocusModal open={Boolean(focusCctv)} cctv={data.cctvs.find(item=>item.public_id===focusCctv)??null} cctvs={data.cctvs} incidents={activeIncidents} relatedIncidents={prioritizeIncidents(activeIncidents.filter(item=>item.cctv_public_id===focusCctv))} selectedIncident={incident} selectedDispatch={dispatch} dispatchLookupStatus={dispatchLookupStatus} canAct={Boolean(canAct)} blockedReason={actionAvailability.reason} returnFocus={focusSource} onClose={closeFocusModal} onSelectCctv={selectFocusCctv} onSelectIncident={selectFocusIncident}/></div>;
 }
