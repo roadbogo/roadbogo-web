@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getFocusCctvOptions, getFocusDetectionBox, projectBboxIntoContainedImage } from "./CctvFocusModal";
+import { getFocusCctvOptions, getFocusDetectionBox, getFocusMediaKey, projectBboxIntoContainedImage } from "./CctvFocusModal";
 import { createMockDashboardSnapshot } from "@/features/control-dashboard/mockDashboardAdapter";
 
 describe("focus monitoring detection boxes", () => {
@@ -27,5 +27,12 @@ describe("focus monitoring detection boxes", () => {
   it("projects normalized boxes into contain letterboxing without guessing offsets",()=>{
     expect(projectBboxIntoContainedImage({x:.25,y:.25,width:.5,height:.5},4/3)).toEqual({x:.3125,y:.25,width:.375,height:.5});
     expect(projectBboxIntoContainedImage({x:.25,y:.25,width:.5,height:.5},21/9)).toEqual({x:.25,y:.30952380952380953,width:.5,height:.38095238095238093});
+  });
+  it("remounts shared media URLs when the selected CCTV or incident changes",()=>{
+    const url="/images/incidents/response-ai-detection-v2.png";
+    const first=getFocusMediaKey("cctv-1","incident-1",url);
+    expect(getFocusMediaKey("cctv-2","incident-1",url)).not.toBe(first);
+    expect(getFocusMediaKey("cctv-1","incident-2",url)).not.toBe(first);
+    expect(getFocusMediaKey("cctv-1","incident-1",url)).toBe(first);
   });
 });
