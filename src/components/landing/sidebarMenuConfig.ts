@@ -40,7 +40,7 @@ const publicMenus: SidebarMenuItem[] = [
   },
   {
     id: "platform",
-    label: "통합 사건 운영 체계",
+    label: "운영 체계 안내",
     description: "탐지부터 현장 조치까지",
     href: "/#platform-operations",
     targetSection: "platform-operations",

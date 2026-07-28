@@ -32,7 +32,7 @@ const RailIcon = ({ type }: { type: SidebarIconName }) => {
 };
 const sections = [
   { key: "home", id: "home", label: "서비스 소개", icon: "home" },
-  { key: "platform", id: "platform-operations", label: "통합 사건 운영 체계", icon: "flow" },
+  { key: "platform", id: "platform-operations", label: "운영 체계 안내", icon: "flow" },
 ] as const;
 
 export function LandingHeader({ showSections = true }: { showSections?: boolean } = {}) {
