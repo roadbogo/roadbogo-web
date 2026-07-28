@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   push: vi.fn(),
   replace: vi.fn(),
   markRead: vi.fn(async () => true),
+  markAllRead: vi.fn(async () => true),
 }));
 const searchParams = new URLSearchParams();
 
@@ -34,7 +35,7 @@ vi.mock("@/features/notifications/NotificationContext", () => ({
     realtimeStatus: "unavailable",
     refresh: vi.fn(),
     markRead: mocks.markRead,
-    markAllRead: vi.fn(async () => true),
+    markAllRead: mocks.markAllRead,
     targetFor: vi.fn(() => null),
   }),
 }));
@@ -69,6 +70,7 @@ beforeEach(() => {
   mocks.push.mockClear();
   mocks.replace.mockClear();
   mocks.markRead.mockClear();
+  mocks.markAllRead.mockClear();
   searchParams.forEach((_, key) => searchParams.delete(key));
 });
 afterEach(cleanup);
@@ -202,6 +204,39 @@ describe("notifications page audience layout", () => {
     expect(screen.queryByRole("button",{name:/새 알림 1건이 도착했습니다/})).not.toBeInTheDocument();
   });
 
+  it("removes an item from an older unread snapshot after it is read",async()=>{
+    mocks.roles=["CONTROLLER"];
+    mocks.primaryRole="CONTROLLER";
+    mocks.items=Array.from({length:6},(_,index)=>item(`unread-${index}`,`새 업무 ${index+1}`,false,new Date(Date.UTC(2026,6,22,7-index)).toISOString()));
+    const {rerender}=render(<NotificationsPage/>);
+    fireEvent.click(screen.getByRole("tab",{name:/새 알림 6/}));
+    fireEvent.click(screen.getByRole("button",{name:"이전 알림"}));
+    fireEvent.click(screen.getByText("새 업무 6"));
+    expect(mocks.markRead).toHaveBeenCalledWith("unread-5");
+
+    mocks.items=mocks.items.map(entry=>entry.public_id==="unread-5"?{...entry,read:true,read_at:"2026-07-22T09:00:00.000Z"}:entry);
+    rerender(<NotificationsPage/>);
+    await waitFor(()=>expect(screen.queryByText("새 업무 6")).not.toBeInTheDocument());
+    expect(screen.getByRole("tab",{name:/새 알림 5/})).toBeInTheDocument();
+    expect(screen.getAllByRole("listitem")).toHaveLength(5);
+  });
+
+  it("clears an older unread snapshot after all alerts are marked read",async()=>{
+    mocks.roles=["CONTROLLER"];
+    mocks.primaryRole="CONTROLLER";
+    mocks.items=Array.from({length:6},(_,index)=>item(`all-read-${index}`,`미열람 업무 ${index+1}`,false,new Date(Date.UTC(2026,6,22,7-index)).toISOString()));
+    const {rerender}=render(<NotificationsPage/>);
+    fireEvent.click(screen.getByRole("tab",{name:/새 알림 6/}));
+    fireEvent.click(screen.getByRole("button",{name:"이전 알림"}));
+    fireEvent.click(screen.getByRole("button",{name:"모든 업무 알림 읽음 처리"}));
+    expect(mocks.markAllRead).toHaveBeenCalledTimes(1);
+
+    mocks.items=mocks.items.map(entry=>({...entry,read:true,read_at:"2026-07-22T09:00:00.000Z"}));
+    rerender(<NotificationsPage/>);
+    await waitFor(()=>expect(screen.getByText("읽지 않은 알림이 없습니다")).toBeInTheDocument());
+    expect(screen.queryByText(/미열람 업무/)).not.toBeInTheDocument();
+  });
+
   it("counts only new alerts matching the active filters",async()=>{
     mocks.roles=["CONTROLLER"];
     mocks.primaryRole="CONTROLLER";
@@ -309,6 +344,29 @@ describe("notifications page audience layout", () => {
     fireEvent.click(notice);
     expect(screen.getByText("조치할 신규 알림")).toBeInTheDocument();
     expect(screen.queryByText("처리된 신규 알림")).not.toBeInTheDocument();
+  });
+
+  it("removes a processed item from an older manager queue snapshot",async()=>{
+    mocks.roles=["CONTROL_MANAGER"];
+    mocks.primaryRole="CONTROL_MANAGER";
+    mocks.items=Array.from({length:6},(_,index)=>({
+      ...item(`queue-state-${index}`,`대기 업무 ${index+1}`,false,new Date(Date.UTC(2026,6,22,7-index)).toISOString()),
+      notification_type:"INCIDENT_CREATED" as const,
+      reason:"INCIDENT_UNACKNOWLEDGED" as const,
+    }));
+    const {rerender}=render(<NotificationsPage/>);
+    fireEvent.click(screen.getByRole("button",{name:"이전 알림"}));
+    expect(screen.getByText("대기 업무 6")).toBeInTheDocument();
+
+    mocks.items=mocks.items.map(entry=>entry.public_id==="queue-state-5"?{
+      ...entry,
+      action_required:false,
+      reason:"INCIDENT_PROCESSED",
+    }:entry);
+    rerender(<NotificationsPage/>);
+    await waitFor(()=>expect(screen.queryByText("대기 업무 6")).not.toBeInTheDocument());
+    expect(screen.getByRole("tab",{name:/관리 대기열 5/})).toBeInTheDocument();
+    expect(screen.getAllByRole("listitem")).toHaveLength(5);
   });
 
   it("keeps tab=unread compatible as the manager center inbox filter",()=>{

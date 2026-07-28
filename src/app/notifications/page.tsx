@@ -203,9 +203,12 @@ function OperationsNotificationInbox() {
   const managerGroups=useMemo(()=>manager?(["immediate","action","complete"] as ManagerQueueGroup[]).map(group=>({group,items:filtered.filter(item=>managerQueueGroup(item)===group)})).filter(entry=>entry.items.length):[],[filtered,manager]);
   const historicalListIds=useMemo(()=>{
     if(page===0||!frozenListIds)return null;
-    const currentIds=new Set(items.map(item=>item.public_id));
-    return frozenListIds.filter(id=>currentIds.has(id));
-  },[frozenListIds,items,page]);
+    const byId=new Map(items.map(item=>[item.public_id,item]));
+    return frozenListIds.filter(id=>{
+      const item=byId.get(id);
+      return Boolean(item&&matchesCurrentFilters(item));
+    });
+  },[frozenListIds,items,matchesCurrentFilters,page]);
   const listTotal=historicalListIds?.length??filtered.length;
   const pageItems = useMemo(() => {
     if (!historicalListIds) return filtered.slice(0, NOTIFICATION_PAGE_SIZE);

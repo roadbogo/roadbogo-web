@@ -138,7 +138,7 @@ export function IncidentManagementPage() {
   }, []);
   useEffect(() => { void load(query); }, [load, query]);
   useEffect(() => {
-    const sync = () => { const next = queryFromSearchParams(new URLSearchParams(window.location.search)); tabPages.current[next.tab]=next.page; setQuery(next); setSelected(new Set()); setManagement(false); };
+    const sync = () => { const next = queryFromSearchParams(new URLSearchParams(window.location.search)); tabPages.current[next.tab]=next.page; setQuery(next); setSelected(new Set()); setManagement(false); setArchiveSuccess(null); };
     window.addEventListener("popstate", sync); return () => window.removeEventListener("popstate", sync);
   }, []);
   useEffect(() => {
@@ -183,6 +183,7 @@ export function IncidentManagementPage() {
     window.requestAnimationFrame(()=>tableRef.current?.scrollIntoView({block:"start"}));
   };
   const exitManagement = () => { setManagement(false); setSelected(new Set()); setArchiveSuccess(null); };
+  const enterManagement = () => { setArchiveSuccess(null); setSelected(new Set()); setManagement(true); };
   const toggleOne = (id: string) => setSelected(current => {
     const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next;
   });
@@ -290,7 +291,7 @@ export function IncidentManagementPage() {
       }
       setDialog(null); setReason("");
       const nextPage = items.length === count && query.page > 1 ? query.page - 1 : query.page;
-      const next = { ...query, page: nextPage }; tabPages.current[query.tab]=nextPage; historyMode.current="replace"; setQuery(next); await load(next);
+      const next = { ...query, page: nextPage }; tabPages.current[query.tab]=nextPage; historyMode.current="replace"; setQuery(next);
     } catch (caught) { setError(caught instanceof Error ? caught.message : "요청을 처리하지 못했습니다."); }
     finally { setSubmitting(false); }
   };
@@ -305,7 +306,7 @@ export function IncidentManagementPage() {
     </section>
     <section className="incident-management-list">
       <header className="incident-list-toolbar"><div><h2>{query.tab === "archived" ? "보관함" : "사건 목록"}</h2><span>총 {result?.totalElements ?? 0}건 · {sortLabel}</span>{query.tab === "archived" && <p>운영 목록에서 정리된 종료 사건입니다. 사건 기록은 삭제되지 않았으며 다시 복원할 수 있습니다.</p>}</div>
-        <button type="button" className="management-toggle" onClick={() => management ? exitManagement() : setManagement(true)}>
+        <button type="button" className="management-toggle" onClick={() => management ? exitManagement() : enterManagement()}>
           <Icon name={management ? "close" : "list"}/>{management ? "관리 종료" : "목록 관리"}
         </button>
       </header>
