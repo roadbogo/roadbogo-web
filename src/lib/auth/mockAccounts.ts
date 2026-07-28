@@ -2,7 +2,7 @@ import type { LoginResult, MockAccount } from "@/types/auth";
 
 export const mockAccounts:MockAccount[] = [
   { email:"admin@roadbogo.kr", password:"1234", userName:"시스템 관리자", roles:["SYSTEM_ADMIN"] },
-  { email:"manager@roadbogo.kr", password:"1234", userName:"관제센터 책임자", roles:["CONTROL_MANAGER"] },
+  { email:"manager@roadbogo.kr", password:"ManagerRoad2026", userName:"관제센터 책임자", roles:["CONTROL_MANAGER"] },
   { email:"controller@roadbogo.kr", password:"1234", userName:"관제 담당자", roles:["CONTROLLER"] },
   { email:"responder@roadbogo.kr", password:"1234", userName:"출동 담당자", roles:["RESPONDER"] },
   { email:"user@roadbogo.kr", password:"1234", userName:"일반 사용자", roles:["GENERAL_USER"] },
