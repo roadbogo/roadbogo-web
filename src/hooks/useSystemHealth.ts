@@ -36,10 +36,7 @@ export function useSystemHealth() {
   useEffect(() => {
     mounted.current = true;
     void refresh();
-    const interval = window.setInterval(() => { if (document.visibilityState === "visible") void refresh(); }, 60_000);
-    const onVisibility = () => { if (document.visibilityState === "visible") void refresh(); };
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => { mounted.current = false; controller.current?.abort(); window.clearInterval(interval); document.removeEventListener("visibilitychange", onVisibility); };
+    return () => { mounted.current = false; controller.current?.abort(); };
   }, [refresh]);
 
   return { ...health, isLoading, refresh };

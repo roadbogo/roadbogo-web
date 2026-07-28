@@ -14,7 +14,7 @@ const evidence = (id: string, representative = false): IncidentEvidence => ({
   confidence: id === "evidence-1" ? 0.84 : 0.87,
   is_representative: representative,
   bbox: { x: 0.5, y: 0.65, width: 0.057, height: 0.075 },
-  original_image_url: "/images/incidents/cctv-highway-base.webp",
+  original_image_url: "/images/incidents/cam04-box-highway-v2.png",
   annotated_image_url: null,
   risk: {
     risk_score: 64.8,

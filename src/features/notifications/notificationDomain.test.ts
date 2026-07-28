@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AuthenticatedUser } from "@/components/auth/AuthContext";
-import { canReceiveNotification, compareNotificationPriority, deriveNotificationActionState, formatUnreadCount, hasNewUnreadNotification, notificationNavigationLabel, notificationPresentation, notificationQueueGroup, notificationStateCopy, notificationTaskCopy, resolveNotificationTarget, safeNotificationTarget, severityLabels, sortNotificationQueue } from "./notificationDomain";
+import { canReceiveNotification, compareNotificationPriority, deriveNotificationActionState, formatUnreadCount, hasNewUnreadNotification, managerGuidance, managerQueueGroup, managerTaskCopy, notificationNavigationLabel, notificationPresentation, notificationQueueGroup, notificationStateCopy, notificationTaskCopy, resolveNotificationTarget, safeNotificationTarget, severityLabels, sortNotificationQueue } from "./notificationDomain";
 import type { LinkedResourceState, NotificationRecord, NotificationViewModel } from "./notificationTypes";
 import { mockDispatchPublicIds, mockIncidentPublicIds } from "@/features/mocks/mockResourceIds";
 
@@ -18,6 +18,33 @@ const notification = (type: NotificationRecord["notification_type"], resourceTyp
 describe("notification bell state",()=>{
   it("uses the unified label for HIGH without changing the severity code",()=>{expect(severityLabels.HIGH).toBe("주의");expect(notification("INCIDENT_CREATED").severity).toBe("HIGH")});
   it("detects only newly visible unread notification IDs",()=>{expect(hasNewUnreadNotification(["visible-1"],new Set())).toBe(true);expect(hasNewUnreadNotification(["visible-1"],new Set(["visible-1"]))).toBe(false);expect(hasNewUnreadNotification([],new Set(["visible-1"]))).toBe(false)});
+});
+
+describe("manager notification queue",()=>{
+  const view=(type:NotificationRecord["notification_type"],reason:NotificationViewModel["reason"],actionRequired=true)=>({
+    ...notification(type),
+    resource_label:"INC-1",action_required:actionRequired,action_label:"사건 상세 보기",reason,state_label:"상태 업데이트",evidence:null,
+  } as NotificationViewModel);
+  it("maps only currently actionable reasons to one management group",()=>{
+    expect(managerQueueGroup(view("INCIDENT_CREATED","INCIDENT_UNACKNOWLEDGED"))).toBe("immediate");
+    expect(managerQueueGroup(view("DISPATCH_REJECTED","DISPATCH_REASSIGNMENT_REQUIRED"))).toBe("action");
+    expect(managerQueueGroup(view("ACTION_COMPLETED","ACTION_REVIEW_REQUIRED"))).toBe("complete");
+    expect(managerQueueGroup(view("INCIDENT_CREATED","INCIDENT_PROCESSED",false))).toBeNull();
+    expect(managerQueueGroup(view("DISPATCH_CANCELLED","UPDATE_ONLY",false))).toBeNull();
+    expect(managerQueueGroup(view("ACTION_COMPLETED","INCIDENT_PROCESSED",false))).toBeNull();
+  });
+  it("provides manager guidance without inventing an action endpoint",()=>{
+    expect(managerGuidance.DISPATCH_REJECTED).toEqual({title:"재배정 확인",body:expect.stringContaining("후속 출동 담당자")});
+    expect(managerGuidance.ACTION_COMPLETED.title).toBe("종료 확인");
+  });
+  it("uses manager task guidance only for actionable reasons",()=>{
+    expect(managerTaskCopy(view("INCIDENT_CREATED","INCIDENT_UNACKNOWLEDGED"))).toContain("실제 위험 여부");
+    expect(managerTaskCopy(view("DISPATCH_REJECTED","DISPATCH_REASSIGNMENT_REQUIRED"))).toContain("다른 출동 담당자");
+    expect(managerTaskCopy(view("ACTION_COMPLETED","ACTION_REVIEW_REQUIRED"))).toContain("사건 종료 여부");
+    expect(managerTaskCopy(view("INCIDENT_CREATED","INCIDENT_PROCESSED",false))).toBeNull();
+    expect(managerTaskCopy(view("DISPATCH_CANCELLED","DISPATCH_PROCESSED",false))).toBeNull();
+    expect(managerTaskCopy(view("INCIDENT_STATUS_CHANGED","UPDATE_ONLY",false))).toBeNull();
+  });
 });
 
 describe("deriveNotificationActionState", () => {

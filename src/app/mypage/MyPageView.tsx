@@ -335,9 +335,9 @@ export function MyPageView({ user, initialEditing = false, onSave, isLoggingOut 
       </section> : activeTab === "profile" ? <section id="mypage-panel-profile" role="tabpanel" aria-labelledby="mypage-tab-profile" className={styles.tabPanel}>
         <div className={styles.panelHeading}><div><h2>기본 정보</h2><span>로그인과 서비스 이용에 사용하는 개인 정보입니다.</span></div></div>
         <dl className={styles.settingsList}>
-          <div><dt><span><MailIcon /></span><b>이메일</b><small>로그인에 사용하는 이메일이며 변경할 수 없습니다.</small></dt><dd>{user.email}</dd></div>
-          <div><dt><span><UserAvatar /></span><b>사용자명</b></dt><dd>{user.name}<button type="button" onClick={() => startEditing("name")}>수정</button></dd></div>
-          <div><dt><span><PhoneIcon /></span><b>전화번호</b></dt><dd>{formatPhoneForDisplay(user.phone) || "등록된 전화번호가 없습니다"}<button type="button" onClick={() => startEditing("phone")}>{user.phone ? "수정" : "등록"}</button></dd></div>
+          <div><dt><span><MailIcon /></span><b>이메일</b></dt><dd className={styles.settingValue}><span>{user.email}</span><small>로그인에 사용하는 이메일이며 변경할 수 없습니다.</small></dd><dd className={styles.settingAction} aria-hidden="true" /></div>
+          <div><dt><span><UserAvatar /></span><b>사용자명</b></dt><dd className={styles.settingValue}>{user.name}</dd><dd className={styles.settingAction}><button type="button" onClick={() => startEditing("name")}>수정</button></dd></div>
+          <div><dt><span><PhoneIcon /></span><b>전화번호</b></dt><dd className={styles.settingValue}>{formatPhoneForDisplay(user.phone) || "등록된 전화번호가 없습니다"}</dd><dd className={styles.settingAction}><button type="button" onClick={() => startEditing("phone")}>{user.phone ? "수정" : "등록"}</button></dd></div>
         </dl>
       </section> : <section id="mypage-panel-security" role="tabpanel" aria-labelledby="mypage-tab-security" className={styles.tabPanel}>
         <div className={styles.panelHeading}><div><h2>보안·활동</h2><span>실제 계정 활동과 현재 브라우저의 보안 작업입니다.</span></div></div>
