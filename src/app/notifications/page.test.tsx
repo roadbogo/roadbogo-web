@@ -241,6 +241,38 @@ describe("notifications page audience layout", () => {
     expect(screen.getByText("2026. 7. 22. 오후 6:00")).toBeInTheDocument();
   });
 
+  it("keeps detail open when reading the last item clamps an older unread page",async()=>{
+    mocks.roles=["CONTROLLER"];
+    mocks.primaryRole="CONTROLLER";
+    mocks.items=Array.from({length:6},(_,index)=>item(`clamp-${index}`,`페이지 업무 ${index+1}`,false,new Date(Date.UTC(2026,6,22,7-index)).toISOString()));
+    const {rerender}=render(<NotificationsPage/>);
+    fireEvent.click(screen.getByRole("tab",{name:/새 알림 6/}));
+    fireEvent.click(screen.getByRole("button",{name:"이전 알림"}));
+    fireEvent.click(screen.getByText("페이지 업무 6"));
+    expect(screen.getByRole("heading",{name:"사건 상태 변경"})).toBeInTheDocument();
+    expect(screen.getAllByText("서비스 알림 본문")).toHaveLength(2);
+    expect(mocks.markRead).toHaveBeenCalledTimes(1);
+    expect(mocks.markRead).toHaveBeenCalledWith("clamp-5");
+    const replaceCallsBeforeClamp=mocks.replace.mock.calls.length;
+    expect(mocks.replace).toHaveBeenLastCalledWith("/notifications?selected=clamp-5",{scroll:false});
+
+    mocks.items=mocks.items.map(entry=>entry.public_id==="clamp-5"?{...entry,read:true,read_at:"2026-07-22T09:00:00.000Z"}:entry);
+    rerender(<NotificationsPage/>);
+    await waitFor(()=>expect(screen.getAllByRole("listitem")).toHaveLength(5));
+    expect(screen.queryByText("페이지 업무 6")).not.toBeInTheDocument();
+    expect(new Set(screen.getAllByRole("listitem").map(row=>row.textContent)).size).toBe(5);
+    expect(screen.getByRole("heading",{name:"사건 상태 변경"})).toBeInTheDocument();
+    expect(document.getElementById("notification-detail-body")).toHaveTextContent("서비스 알림 본문");
+    expect(screen.getByRole("button",{name:"업무 상세 닫기"})).toBeInTheDocument();
+    expect(screen.getByRole("button",{name:"알림 상세 닫기"})).toBeInTheDocument();
+    expect(mocks.replace).toHaveBeenCalledTimes(replaceCallsBeforeClamp);
+    expect(mocks.markRead).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button",{name:"업무 상세 닫기"}));
+    expect(screen.getByText("알림을 선택해 주세요")).toBeInTheDocument();
+    expect(mocks.replace).toHaveBeenLastCalledWith("/notifications",{scroll:false});
+  });
+
   it("keeps detail selected when markRead does not update the item",async()=>{
     mocks.roles=["CONTROLLER"];
     mocks.primaryRole="CONTROLLER";

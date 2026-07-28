@@ -279,8 +279,6 @@ function OperationsNotificationInbox() {
     setPage(0);
     setFrozenListIds(null);
     setPendingNewCount(0);
-    setSelectedId(null);
-    setMobileDetailOpen(false);
     if (queueListRef.current) queueListRef.current.scrollTop = 0;
   }, [listTotal, page]);
   const onTabKey = (event: React.KeyboardEvent<HTMLButtonElement>) => {
