@@ -8,10 +8,10 @@ import { useAuth } from "@/components/auth/AuthContext";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { useSystemHealth } from "@/hooks/useSystemHealth";
 import { SystemHealthPanel } from "./SystemHealthPanel";
-import { getAuthenticatedSidebarMenus, getLandingSidebarMenus, type SidebarIconName, type SidebarMenuItem } from "./sidebarMenuConfig";
+import { getActiveSidebarMenuId, getAuthenticatedSidebarMenus, getLandingSidebarMenus, type SidebarIconName, type SidebarMenuItem } from "./sidebarMenuConfig";
 import type { UserRole } from "@/types/auth";
 import { NotificationPopover } from "@/features/notifications/NotificationPopover";
-import { isPathActive } from "@/lib/auth/controlAccess";
+import "./landing.css";
 import "./sidebarUnified.css";
 
 const MenuIcon = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>;
@@ -23,6 +23,7 @@ const RailIcon = ({ type }: { type: SidebarIconName }) => {
     login: <><path d="M10 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5"/><path d="m14 8 4 4-4 4M18 12H8"/></>,
     profile: <><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></>,
     monitor: <><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 22h8M12 18v4M8 9l2.5 2.5L16 7"/></>,
+    incidents: <><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></>,
     bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></>,
     dispatch: <><path d="M3 6h11v11H3zM14 10h4l3 4v3h-7z"/><circle cx="7" cy="19" r="2"/><circle cx="18" cy="19" r="2"/></>,
     admin: <><circle cx="12" cy="12" r="3"/><path d="M19 15.5 21 17l-4 4-1.5-2a8 8 0 0 1-3.5 1L11 22H7v-2a8 8 0 0 1-2.5-1L3 20l-3-3 2-1.5A8 8 0 0 1 1 12L0 11V7h2a8 8 0 0 1 1-2.5L2 3l3-3 1.5 2A8 8 0 0 1 10 1l1-1h4v2a8 8 0 0 1 2.5 1L19 2l3 3-2 1.5a8 8 0 0 1 1 3.5l1 1v4h-2a8 8 0 0 1-1 2.5Z"/></>,
@@ -92,14 +93,14 @@ export function LandingHeader({ showSections = true }: { showSections?: boolean 
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
   const isPublicHome = pathname === "/";
-  const showWorkSidebar = Boolean(user && pathname !== "/mypage");
+  const showWorkSidebar = Boolean(user);
   const showPublicSidebar = isPublicHome || showWorkSidebar;
   const showPublicDrawer = showPublicSidebar && compactNavigation;
   const role = (["SYSTEM_ADMIN","CONTROL_MANAGER","CONTROLLER","RESPONDER","GENERAL_USER"] as UserRole[]).includes(user?.role as UserRole) ? user?.role as UserRole : "GENERAL_USER";
   const sidebarMenus = useMemo(() => {
-    const menus = user ? getAuthenticatedSidebarMenus(user) : getLandingSidebarMenus(role, false);
-    return menus.map(item => isPathActive(pathname, item.href) && item.href !== "/" ? { ...item, href: pathname } : item);
-  }, [pathname, role, user]);
+    return user ? getAuthenticatedSidebarMenus(user) : getLandingSidebarMenus(role, false);
+  }, [role, user]);
+  const activeMenuId=useMemo(()=>getActiveSidebarMenuId(sidebarMenus,pathname),[pathname,sidebarMenus]);
   const groupedMenus = useMemo(() => sidebarMenus.reduce<Record<string, SidebarMenuItem[]>>((groups, item) => { const section = item.section ?? "메뉴"; (groups[section] ??= []).push(item); return groups; }, {}), [sidebarMenus]);
   const healthLabel = health.isLoading ? "상태 확인 중" : health.status === "healthy" ? "서버 정상" : health.status === "degraded" ? "일부 기능 점검" : "서버 연결 확인";
   const healthDetail = health.isLoading ? "서비스 상태 확인 중" : health.status === "healthy" ? "모든 서비스 정상" : health.status === "degraded" ? "일부 서비스 점검 중" : "서비스 연결 확인 필요";
@@ -120,7 +121,7 @@ export function LandingHeader({ showSections = true }: { showSections?: boolean 
       <div className="landing-sidebar__frame">
         <div className="landing-sidebar__header"><button ref={sidebarToggleRef} type="button" className="landing-sidebar__toggle" aria-label={compactNavigation?(sidebarOpen?"메뉴 닫기":"메뉴 열기"):(sidebarOpen?"메뉴 접기":"메뉴 펼치기")} aria-expanded={sidebarOpen} aria-controls="landing-sidebar-nav" onClick={() => compactNavigation && sidebarOpen ? close(true) : setSidebarOpen((value) => !value)}><MenuIcon /><span>운영 메뉴</span></button></div>
         <nav id="landing-sidebar-nav" className="landing-sidebar__navigation" aria-label="페이지 바로가기">
-          {Object.entries(groupedMenus).map(([section, items])=><div className="landing-sidebar__group" key={section}><p>{section}</p>{items.map((item)=>{const isActive=item.targetSection?activeSection===item.id:pathname===item.href;const hasChildren=Boolean(item.children?.length);const expanded=openGroups.has(item.id);const activate=()=>{if(hasChildren){setOpenGroups(current=>{const next=new Set(current);if(next.has(item.id))next.delete(item.id);else next.add(item.id);return next});return}if(item.targetSection){scrollTo(item.targetSection,item.id)}else if(item.href){close();if(item.isExternal)window.open(item.href,"_blank","noopener,noreferrer");else router.push(item.href)}};return <div className="landing-sidebar__menu" key={item.id}><button type="button" className={isActive?"is-active":""} aria-current={isActive?"page":undefined} aria-expanded={hasChildren?expanded:undefined} onClick={activate} onMouseEnter={(event)=>{if(!compactNavigation&&!sidebarOpen){const rect=event.currentTarget.getBoundingClientRect();setTooltip({label:item.label,top:rect.top+rect.height/2})}}} onMouseLeave={()=>setTooltip(null)} onFocus={(event)=>{if(!compactNavigation&&!sidebarOpen){const rect=event.currentTarget.getBoundingClientRect();setTooltip({label:item.label,top:rect.top+rect.height/2})}}} onBlur={()=>setTooltip(null)}><span className="landing-sidebar__icon"><RailIcon type={item.icon}/></span><span className="landing-sidebar__menu-text"><strong>{item.label}</strong>{item.description&&<small>{item.description}</small>}</span>{item.badge!=null&&<b>{item.badge}</b>}{hasChildren&&<i className={expanded?"is-expanded":""}>⌄</i>}</button>{hasChildren&&expanded&&<div className="landing-sidebar__children">{item.children?.map(child=><button type="button" key={child.id} onClick={()=>child.href&&router.push(child.href)}><span className="landing-sidebar__menu-text"><strong>{child.label}</strong>{child.description&&<small>{child.description}</small>}</span></button>)}</div>}</div>})}</div>)}
+          {Object.entries(groupedMenus).map(([section, items])=><div className="landing-sidebar__group" key={section}><p>{section}</p>{items.map((item)=>{const isActive=item.targetSection?activeSection===item.id:activeMenuId===item.id;const hasChildren=Boolean(item.children?.length);const expanded=openGroups.has(item.id);const activate=()=>{if(hasChildren){setOpenGroups(current=>{const next=new Set(current);if(next.has(item.id))next.delete(item.id);else next.add(item.id);return next});return}if(item.targetSection){scrollTo(item.targetSection,item.id)}else if(item.href){close();if(item.isExternal)window.open(item.href,"_blank","noopener,noreferrer");else router.push(item.href)}};return <div className="landing-sidebar__menu" key={item.id}><button type="button" className={isActive?"is-active":""} aria-current={isActive?"page":undefined} aria-expanded={hasChildren?expanded:undefined} onClick={activate} onMouseEnter={(event)=>{if(!compactNavigation&&!sidebarOpen){const rect=event.currentTarget.getBoundingClientRect();setTooltip({label:item.label,top:rect.top+rect.height/2})}}} onMouseLeave={()=>setTooltip(null)} onFocus={(event)=>{if(!compactNavigation&&!sidebarOpen){const rect=event.currentTarget.getBoundingClientRect();setTooltip({label:item.label,top:rect.top+rect.height/2})}}} onBlur={()=>setTooltip(null)}><span className="landing-sidebar__icon"><RailIcon type={item.icon}/></span><span className="landing-sidebar__menu-text"><strong>{item.label}</strong>{item.description&&<small>{item.description}</small>}</span>{item.badge!=null&&<b>{item.badge}</b>}{hasChildren&&<i className={expanded?"is-expanded":""}>⌄</i>}</button>{hasChildren&&expanded&&<div className="landing-sidebar__children">{item.children?.map(child=><button type="button" key={child.id} onClick={()=>child.href&&router.push(child.href)}><span className="landing-sidebar__menu-text"><strong>{child.label}</strong>{child.description&&<small>{child.description}</small>}</span></button>)}</div>}</div>})}</div>)}
         </nav>
         <div className="landing-sidebar__footer"><button type="button" className={`landing-sidebar__status landing-sidebar__health is-${health.isLoading?"loading":health.status}`} onClick={()=>setHealthPanelOpen(true)} aria-label={`서버 상태 ${healthLabel}`} onMouseEnter={(event)=>{if(!compactNavigation&&!sidebarOpen){const rect=event.currentTarget.getBoundingClientRect();setTooltip({label:`서버 상태 · ${healthLabel}`,top:rect.top+rect.height/2})}}} onMouseLeave={()=>setTooltip(null)} onFocus={(event)=>{if(!compactNavigation&&!sidebarOpen){const rect=event.currentTarget.getBoundingClientRect();setTooltip({label:`서버 상태 · ${healthLabel}`,top:rect.top+rect.height/2})}}} onBlur={()=>setTooltip(null)}><span className="landing-sidebar__health-icon"><ServerIcon/><i/></span>{sidebarOpen&&<><div className="landing-sidebar__health-copy" role="status" aria-live="polite"><strong>서버 상태</strong><span>{healthDetail}</span></div><span className="landing-sidebar__health-badge">{healthBadge}</span></>}</button></div>
       </div>

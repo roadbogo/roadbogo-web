@@ -2,7 +2,7 @@ import type { UserRole } from "@/types/auth";
 import type { AppPermission, AppRole } from "@/components/navigation/navigationConfig";
 import { canAccessControl } from "@/lib/auth/controlAccess";
 
-export type SidebarIconName = "home" | "flow" | "login" | "profile" | "monitor" | "bell" | "dispatch" | "admin";
+export type SidebarIconName = "home" | "flow" | "login" | "profile" | "monitor" | "incidents" | "bell" | "dispatch" | "admin";
 
 export type SidebarMenuItem = {
   id: string;
@@ -16,6 +16,7 @@ export type SidebarMenuItem = {
   isExternal?: boolean;
   badge?: string | number;
   targetSection?: "home" | "platform-operations";
+  activePaths?: string[];
 };
 
 export const allSidebarRoles: UserRole[] = [
@@ -71,13 +72,25 @@ type NavigationUser = {
 };
 
 export function getAuthenticatedSidebarMenus(user: NavigationUser): SidebarMenuItem[] {
-  const menus: SidebarMenuItem[] = [
-    { id:"home",label:"홈",description:"도로보GO 메인",href:"/",icon:"home",roles:allSidebarRoles,section:"업무" },
-  ];
-  if (canAccessControl(user)) menus.push({ id:"control",label:"실시간 관제",description:"CCTV와 우선 대응 사건",href:"/control",icon:"monitor",roles:allSidebarRoles,section:"업무" });
-  if (user.uiPermissions.includes("dispatch:assigned") || user.uiPermissions.includes("dispatch:manage")) menus.push({ id:"dispatch",label:user.uiPermissions.includes("dispatch:assigned")?"내 출동 요청":"출동 관리",description:"출동 업무 확인",href:"/dispatch",icon:"dispatch",roles:allSidebarRoles,section:"업무" });
-  if (user.uiPermissions.includes("alerts:view")) menus.push({ id:"notifications",label:"업무 알림",description:"사건과 출동 알림",href:"/notifications",icon:"bell",roles:allSidebarRoles,section:"업무" });
-  if (user.uiPermissions.includes("users:manage") || user.uiPermissions.includes("roles:manage")) menus.push({ id:"admin",label:"시스템 관리",description:"사용자와 역할 관리",href:"/admin",icon:"admin",roles:allSidebarRoles,section:"업무" });
+  const permissions=new Set(user.apiPermissions);
+  const hasAny=(...required:string[])=>required.some(permission=>permissions.has(permission));
+  const menus: SidebarMenuItem[] = [{ id:"home",label:"홈",description:"도로보GO 메인",href:"/",activePaths:["/"],icon:"home",roles:allSidebarRoles,section:"공통" }];
+  if (canAccessControl(user)) menus.push({ id:"control",label:"실시간 관제",description:"CCTV와 우선 대응 사건",href:"/control",activePaths:["/control"],icon:"monitor",roles:allSidebarRoles,section:"운영 메뉴" });
+  if (canAccessControl(user)&&hasAny("INCIDENT.READ_ALL","INCIDENT.CLAIM","INCIDENT.DECIDE")) menus.push({ id:"incidents",label:"사건 관리",description:"사건 목록과 처리 현황",href:"/control/incidents",activePaths:["/control/incidents"],icon:"incidents",roles:allSidebarRoles,section:"운영 메뉴" });
+  if (user.roles.includes("RESPONDER")&&hasAny("DISPATCH.READ_OWN")) menus.push({ id:"dispatch",label:"내 출동 요청",description:"배정된 출동 업무 확인",href:"/dispatch",activePaths:["/dispatch"],icon:"dispatch",roles:allSidebarRoles,section:"운영 메뉴" });
+  if (user.roles.some(role=>role!=="GENERAL_USER")&&hasAny("NOTIFICATION.READ_OWN")) menus.push({ id:"notifications",label:"업무 알림",description:"사건과 출동 알림",href:"/notifications",activePaths:["/notifications"],icon:"bell",roles:allSidebarRoles,section:"운영 메뉴" });
+  if (hasAny("USER.READ_ALL","USER.WRITE","ROLE.MANAGE")) menus.push({ id:"admin",label:"시스템 관리",description:"사용자와 역할 관리",href:"/admin",activePaths:["/admin"],icon:"admin",roles:allSidebarRoles,section:"운영 메뉴" });
   menus.push({ id:"mypage",label:"내 계정",description:"계정과 권한 정보",href:"/mypage",icon:"profile",roles:allSidebarRoles,section:"계정" });
   return menus;
+}
+
+function matchesPath(pathname:string,path:string){
+  return path==="/"?pathname==="/":pathname===path||pathname.startsWith(`${path}/`);
+}
+
+export function getActiveSidebarMenuId(items:SidebarMenuItem[],pathname:string){
+  return items
+    .flatMap(item=>(item.activePaths??(item.href?[item.href]:[])).map(path=>({id:item.id,path})))
+    .filter(candidate=>matchesPath(pathname,candidate.path))
+    .sort((a,b)=>b.path.length-a.path.length)[0]?.id??null;
 }
