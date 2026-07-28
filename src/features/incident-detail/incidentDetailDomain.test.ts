@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DashboardIncident } from "@/features/control-dashboard/dashboardTypes";
-import { canCompareEvidence, dedupeEvidences, isIncidentActionSupported, reasonLabel, resolveIncidentWorkspaceMode, resolvePrimaryIncidentAction, sortIncidentHistories } from "./incidentDetailDomain";
+import { availableMemoTypes, canCompareEvidence, dedupeEvidences, isIncidentActionSupported, normalizeMemoType, reasonLabel, recommendedMemoType, resolveIncidentWorkspaceMode, resolvePrimaryIncidentAction, sortIncidentHistories, sortIncidentMemos } from "./incidentDetailDomain";
+import type { IncidentMemo } from "./incidentDetailTypes";
 
 const incident={public_id:"i",incident_no:"INC",cctv_public_id:"c",status:"CLAIMED",object_category:"DEBRIS",class_code:"TIRE",class_name:"타이어",current_risk_score:80,current_risk_grade:"HIGH",representative_confidence:.9,duration_ms:1000,detection_count:2,assigned_controller:{public_id:"me",display_name:"나"},version_no:2,created_at:"2026-01-01T00:00:00Z",updated_at:"2026-01-01T00:00:00Z"} as DashboardIncident;
 
@@ -12,4 +13,7 @@ describe("incident detail domain",()=>{
  it("keeps readable AI reason labels",()=>{expect(reasonLabel.REPEAT_DETECTION).toBe("반복 탐지 기준 통과")});
  it("deduplicates evidence public ids",()=>{expect(dedupeEvidences([{detection_public_id:"a"},{detection_public_id:"a"},{detection_public_id:"b"}])).toHaveLength(2)});
  it("sorts histories without mutating the source",()=>{const source=[{public_id:"b",event_type:"B",label:"두 번째",actor_name:null,occurred_at:"2026-01-02T00:00:00Z",detail:null},{public_id:"c",event_type:"C",label:"세 번째",actor_name:null,occurred_at:"2026-01-01T00:00:00Z",detail:null},{public_id:"a",event_type:"A",label:"첫 번째",actor_name:null,occurred_at:"2026-01-02T00:00:00Z",detail:null}];const before=[...source];expect(sortIncidentHistories(source).map(item=>item.public_id)).toEqual(["c","a","b"]);expect(source).toEqual(before)});
+ it("supports all memo types while retaining a safe general fallback",()=>{const reviewing={...incident,status:"UNDER_REVIEW"} as DashboardIncident;expect(availableMemoTypes(reviewing)).toEqual(["GENERAL","REVIEW","DISPATCH","CLOSURE"]);expect(normalizeMemoType("GENERAL")).toBe("GENERAL");expect(normalizeMemoType("UNKNOWN")).toBe("GENERAL")});
+ it("sorts memos newest-first without mutating them and keeps invalid dates last",()=>{const memo=(public_id:string,created_at:string,memo_type:IncidentMemo["memo_type"]="GENERAL"):IncidentMemo=>({public_id,incident_public_id:"i",memo_type,content:public_id,created_by:{public_id:"u",user_name:"사용자"},created_at});const source=[memo("old","2026-07-19T05:00:00Z"),memo("invalid","invalid"),memo("new","2026-07-23T05:00:00Z","DISPATCH")];const before=[...source];expect(sortIncidentMemos(source).map(item=>item.public_id)).toEqual(["new","old","invalid"]);expect(source).toEqual(before)});
+ it.each([["UNDER_REVIEW","REVIEW"],["DISPATCH_REQUESTED","DISPATCH"],["DISPATCHED","DISPATCH"],["ON_SCENE","DISPATCH"],["ACTION_IN_PROGRESS","DISPATCH"],["ACTION_COMPLETED","CLOSURE"],["CLOSED","CLOSURE"],["NEW","GENERAL"]] as const)("recommends %s memo type as %s",(status,type)=>expect(recommendedMemoType(status)).toBe(type));
 });

@@ -13,6 +13,7 @@ export class ApiIncidentDetailAdapter implements IncidentDetailAdapter{
  readonly supportsDispatchAssignment=true;
  readonly supportsMemoRead=false;
  readonly supportsMemoWrite=false;
+ readonly supportsMemoMutation=false;
 
  async get(publicId:string):Promise<IncidentDetailRecord|null>{
   if(!incidentPublicIdPattern.test(publicId))throw new Error("INVALID_INCIDENT_PUBLIC_ID");
@@ -88,6 +89,8 @@ export class ApiIncidentDetailAdapter implements IncidentDetailAdapter{
   void request;
   throw new Error("UNSUPPORTED_INCIDENT_MEMO");
  }
+ async updateMemo():Promise<IncidentMemo>{throw new Error("UNSUPPORTED_INCIDENT_MEMO_UPDATE")}
+ async deleteMemo():Promise<IncidentMemo>{throw new Error("UNSUPPORTED_INCIDENT_MEMO_DELETE")}
 }
 
 export interface IncidentRealtimeInvalidation{event_id:string;incident_public_id:string;event_type:"INCIDENT.STATUS_CHANGED"|"INCIDENT.UPDATED"|"DISPATCH.STATUS_CHANGED"}

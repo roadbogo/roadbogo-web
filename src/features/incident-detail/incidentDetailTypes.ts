@@ -7,8 +7,12 @@ export interface IncidentEvidence {
 }
 export interface IncidentHistory {public_id:string;event_type:string;label:string;actor_name:string|null;occurred_at:string;detail:string|null}
 export type IncidentMemoType="GENERAL"|"REVIEW"|"DISPATCH"|"CLOSURE";
-export interface IncidentMemo {public_id:string;incident_public_id:string;memo_type:IncidentMemoType;content:string;created_by:{public_id:string;user_name:string};created_at:string}
+export interface IncidentMemoActor{public_id:string;user_name:string}
+export interface IncidentMemoRevision{memo_type:IncidentMemoType;content:string;revised_at:string;revised_by:IncidentMemoActor}
+export interface IncidentMemo{public_id:string;incident_public_id:string;memo_type:IncidentMemoType;content:string;created_by:IncidentMemoActor;created_at:string;updated_at?:string|null;deleted_at?:string|null;deleted_by?:IncidentMemoActor|null;delete_reason?:string|null;revisions?:IncidentMemoRevision[]}
 export interface IncidentMemoRequest {incident_public_id:string;memo_type:IncidentMemoType;content:string;actor_public_id:string;actor_name:string}
+export interface IncidentMemoUpdateRequest extends IncidentMemoRequest{memo_public_id:string}
+export interface IncidentMemoDeleteRequest{incident_public_id:string;memo_public_id:string;reason:string;actor_public_id:string;actor_name:string}
 export interface FieldAction {action_type:string;detail:string;before_image_url:string|null;after_image_url:string|null;completed_at:string}
 export interface IncidentDetailRecord {
   incident:DashboardIncident;cctv:DashboardCctv;evidences:IncidentEvidence[];dispatch:DashboardDispatch|null;
@@ -41,9 +45,12 @@ export interface IncidentDetailAdapter {
   readonly supportsDispatchAssignment:boolean;
   readonly supportsMemoRead:boolean;
   readonly supportsMemoWrite:boolean;
+  readonly supportsMemoMutation:boolean;
   get(public_id:string):Promise<IncidentDetailRecord|null>;
   act(request:IncidentActionRequest):Promise<IncidentActionResult>;
   listResponders():Promise<DispatchResponderOption[]>;
   assignDispatch(request:IncidentDispatchAssignmentRequest):Promise<IncidentActionResult>;
   createMemo(request:IncidentMemoRequest):Promise<IncidentMemo>;
+  updateMemo(request:IncidentMemoUpdateRequest):Promise<IncidentMemo>;
+  deleteMemo(request:IncidentMemoDeleteRequest):Promise<IncidentMemo>;
 }
