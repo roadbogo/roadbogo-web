@@ -696,6 +696,57 @@ button:focus-visible,a:focus-visible,.incident-stage:focus-visible,.service-flow
 @media(max-width:600px){.system-health-panel__backdrop,.system-health-overlay{align-items:end;padding:12px}.system-health-panel{border-radius:18px}.system-health-panel>header{padding:20px 18px 16px}.system-health-panel__body,.system-health-panel__rows{padding-inline:18px}.system-health-panel>footer{padding:15px 18px 18px}.system-health-panel__refresh,.system-health-panel>footer button{width:100%}}
 @media(prefers-reduced-motion:reduce){.landing-public-drawer .landing-sidebar__health{transition:none}}
 
+/* Compact system health actions and item-level retry states. */
+.system-health-panel>header{align-items:flex-start}
+.system-health-panel__heading{min-width:0}
+.system-health-panel__heading>span{display:block;margin-top:7px;color:#718394;font-size:12px;font-weight:600;line-height:1.35}
+.system-health-panel__actions{display:flex;align-items:center;gap:8px;flex:none}
+.system-health-panel>header .system-health-panel__icon-button{position:relative;box-sizing:border-box;width:38px;height:38px;min-height:38px;display:grid;place-items:center;flex:0 0 38px;padding:0;border-radius:11px;cursor:pointer;transition:background-color .16s,color .16s,border-color .16s,transform .12s}
+.system-health-panel>header .system-health-panel__refresh-icon{border:1px solid transparent;background:#EDF7F5;color:#405B69;font-size:0}
+.system-health-panel>header .system-health-panel__refresh-icon:hover:not(:disabled),.system-health-panel>header .system-health-panel__refresh-icon:focus-visible{border-color:rgba(38,153,158,.16);background:#E4F3F0;color:#26999E}
+.system-health-panel>header .system-health-panel__refresh-icon:active:not(:disabled){transform:scale(.96)}
+.system-health-panel>header .system-health-panel__refresh-icon:disabled{cursor:wait;opacity:.72}
+.system-health-panel__refresh-icon svg{width:18px;height:18px;display:block;overflow:visible;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;transform-origin:50% 50%}
+.system-health-panel__refresh-icon svg.is-spinning{animation:system-health-refresh-spin .8s linear infinite}
+.system-health-panel>header .system-health-panel__close{font-size:22px}
+.system-health-panel>header .system-health-panel__icon-button:focus-visible{outline:3px solid rgba(38,153,158,.25);outline-offset:2px}
+.system-health-panel__refresh-icon::after{content:attr(data-tooltip);position:absolute;z-index:2;top:calc(100% + 7px);right:0;width:max-content;max-width:180px;padding:6px 8px;border-radius:6px;background:#193345;color:#fff;font-size:11px;font-weight:700;line-height:1.3;pointer-events:none;opacity:0;transform:translateY(-3px);transition:opacity .15s,transform .15s}
+.system-health-panel__refresh-icon:hover::after,.system-health-panel__refresh-icon:focus-visible::after{opacity:1;transform:translateY(0)}
+.system-health-panel__rows{padding-block:4px 8px}
+.system-health-panel__rows>.system-health-panel__row{min-height:0;display:grid;gap:0;padding:0;border-bottom:1px solid #E2E7E6}
+.system-health-panel__rows>.system-health-panel__row:last-child{border-bottom:0}
+.system-health-panel__row-main{min-height:60px;display:grid;grid-template-columns:minmax(112px,128px) 8px minmax(0,1fr);align-items:center;column-gap:10px}
+.system-health-panel__row-main>span{min-width:0}
+.system-health-panel__row-main>i{width:8px;height:8px;border-radius:50%;background:#8A98A3}
+.system-health-panel__row-main>strong{min-width:0;color:#193345;font-size:13px;font-weight:700;line-height:1.4;overflow-wrap:anywhere}
+.system-health-panel__row-main.is-healthy>i{background:#26947E}
+.system-health-panel__row-main.is-degraded>i{background:#D89A3D}
+.system-health-panel__row-main.is-offline>i{background:#DF595D}
+.system-health-panel__row-main.is-offline>strong{color:#B64046}
+.system-health-panel__row-main.is-loading>i{box-sizing:border-box;border:2px solid #D5DFDC;border-top-color:#26999E;background:transparent;animation:system-health-refresh-spin .8s linear infinite}
+.system-health-panel__row-error{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:0 0 13px}
+.system-health-panel__row-error small{min-width:0;color:#718394;font-size:12px;line-height:1.45;overflow-wrap:anywhere}
+.system-health-panel__row-error button{flex:none;padding:2px 0;border:0;background:transparent;color:#247C73;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
+.system-health-panel__row-error button:hover,.system-health-panel__row-error button:focus-visible{color:#26999E;text-decoration:underline;text-underline-offset:3px}
+.system-health-panel__row-error button:focus-visible{outline:2px solid rgba(38,153,158,.25);outline-offset:3px}
+@keyframes system-health-refresh-spin{to{transform:rotate(360deg)}}
+@media(max-width:600px){
+  .system-health-panel>header{gap:12px;padding:19px 18px 15px}
+  .system-health-panel__actions{gap:6px}
+  .system-health-panel__rows{padding-inline:18px}
+  .system-health-panel__row-error{align-items:flex-start;flex-direction:column;gap:5px}
+}
+@media(max-width:359px){
+  .system-health-panel>header{padding-inline:15px}
+  .system-health-panel__rows{padding-inline:15px}
+  .system-health-panel h2{font-size:19px}
+  .system-health-panel__row-main{grid-template-columns:minmax(104px,118px) 8px minmax(0,1fr);column-gap:8px}
+}
+@media(prefers-reduced-motion:reduce){
+  .system-health-panel>header .system-health-panel__icon-button{transition:none}
+  .system-health-panel__refresh-icon svg.is-spinning,.system-health-panel__row-main.is-loading>i{animation-duration:1.6s}
+}
+
 /* Keep the logo in the same sticky header context as the account actions. */
 .main-header .standalone-sidebar-brand{position:static;z-index:auto;top:auto;left:auto;justify-self:start;width:216px;height:58px}
 @media(max-width:1023px){.main-header .standalone-sidebar-brand{width:170px;height:54px;margin-left:44px}.main-header .standalone-sidebar-brand img{width:142px}}
