@@ -153,6 +153,7 @@ export function IncidentManagementPage() {
     if(!options?.pageNavigation)tabPages.current={active:1,closed:1,archived:1};
     setQuery(current => {
       const next={ ...current, ...patch, page: patch.page ?? 1, size:INCIDENT_PAGE_SIZE };
+      next.status=statusForIncidentTab(next.tab,next.status);
       tabPages.current[next.tab]=next.page;
       return next;
     });
@@ -310,7 +311,7 @@ export function IncidentManagementPage() {
       </header>
       <div className="incident-management-filters">
         <label className="incident-search"><span>사건 검색</span><input value={query.keyword} onChange={event => updateQuery({ keyword: event.target.value })} placeholder="사건 번호 또는 탐지 객체"/></label>
-        <label><span>처리 상태</span><select value={query.status} onChange={event => updateQuery({ status: event.target.value as StatusFilter })}>{statusOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+        <label><span>처리 상태</span><select value={query.status} disabled={query.tab!=="active"} title={query.tab!=="active"?"종료·보관 목록은 전체 상태로 조회합니다.":undefined} onChange={event => updateQuery({ status: event.target.value as StatusFilter })}>{statusOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
         <label><span>위험도</span><select value={query.risk} onChange={event => updateQuery({ risk: event.target.value as RiskFilter })}>{riskOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
         <div className="date-filter"><span>발생 기간</span><button ref={dateTriggerRef} type="button" aria-expanded={dateOpen} aria-haspopup="dialog" onClick={() => dateOpen ? closeDatePopover() : openDatePopover()}><Icon name="calendar"/><DateRangeLabel from={appliedDate.from} to={appliedDate.to}/></button>
           {dateOpen && <div ref={datePopoverRef} className="date-popover" role="dialog" aria-modal="true" aria-labelledby="date-popover-title" aria-describedby="date-popover-description">

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AuthenticatedUser } from "@/components/auth/AuthContext";
-import { canReceiveNotification, compareNotificationPriority, deriveNotificationActionState, formatUnreadCount, hasNewUnreadNotification, managerGuidance, managerQueueGroup, notificationNavigationLabel, notificationPresentation, notificationQueueGroup, notificationStateCopy, notificationTaskCopy, resolveNotificationTarget, safeNotificationTarget, severityLabels, sortNotificationQueue } from "./notificationDomain";
+import { canReceiveNotification, compareNotificationPriority, deriveNotificationActionState, formatUnreadCount, hasNewUnreadNotification, managerGuidance, managerQueueGroup, managerTaskCopy, notificationNavigationLabel, notificationPresentation, notificationQueueGroup, notificationStateCopy, notificationTaskCopy, resolveNotificationTarget, safeNotificationTarget, severityLabels, sortNotificationQueue } from "./notificationDomain";
 import type { LinkedResourceState, NotificationRecord, NotificationViewModel } from "./notificationTypes";
 import { mockDispatchPublicIds, mockIncidentPublicIds } from "@/features/mocks/mockResourceIds";
 
@@ -36,6 +36,14 @@ describe("manager notification queue",()=>{
   it("provides manager guidance without inventing an action endpoint",()=>{
     expect(managerGuidance.DISPATCH_REJECTED).toEqual({title:"재배정 확인",body:expect.stringContaining("후속 출동 담당자")});
     expect(managerGuidance.ACTION_COMPLETED.title).toBe("종료 확인");
+  });
+  it("uses manager task guidance only for actionable reasons",()=>{
+    expect(managerTaskCopy(view("INCIDENT_CREATED","INCIDENT_UNACKNOWLEDGED"))).toContain("실제 위험 여부");
+    expect(managerTaskCopy(view("DISPATCH_REJECTED","DISPATCH_REASSIGNMENT_REQUIRED"))).toContain("다른 출동 담당자");
+    expect(managerTaskCopy(view("ACTION_COMPLETED","ACTION_REVIEW_REQUIRED"))).toContain("사건 종료 여부");
+    expect(managerTaskCopy(view("INCIDENT_CREATED","INCIDENT_PROCESSED",false))).toBeNull();
+    expect(managerTaskCopy(view("DISPATCH_CANCELLED","DISPATCH_PROCESSED",false))).toBeNull();
+    expect(managerTaskCopy(view("INCIDENT_STATUS_CHANGED","UPDATE_ONLY",false))).toBeNull();
   });
 });
 

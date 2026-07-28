@@ -202,6 +202,32 @@ describe("notifications page audience layout", () => {
     expect(screen.queryByRole("button",{name:/새 알림 1건이 도착했습니다/})).not.toBeInTheDocument();
   });
 
+  it("counts only new alerts matching the active filters",async()=>{
+    mocks.roles=["CONTROLLER"];
+    mocks.primaryRole="CONTROLLER";
+    mocks.items=Array.from({length:6},(_,index)=>({
+      ...item(`critical-${index}`,`긴급 업무 ${index+1}`,false,new Date(Date.UTC(2026,6,22,7-index)).toISOString()),
+      severity:"CRITICAL" as const,
+    }));
+    const {rerender}=render(<NotificationsPage/>);
+    fireEvent.change(screen.getByLabelText("중요도"),{target:{value:"CRITICAL"}});
+    fireEvent.click(screen.getByRole("button",{name:"이전 알림"}));
+
+    const info={...item("new-info","필터 밖 신규 알림",false,"2026-07-22T09:00:00.000Z"),severity:"INFO" as const};
+    mocks.items=[info,...mocks.items];
+    rerender(<NotificationsPage/>);
+    await waitFor(()=>expect(screen.queryByRole("button",{name:/새 알림 \d+건이 도착했습니다/})).not.toBeInTheDocument());
+
+    const critical={...item("new-critical","필터 안 신규 알림",false,"2026-07-22T10:00:00.000Z"),severity:"CRITICAL" as const};
+    mocks.items=[critical,...mocks.items];
+    rerender(<NotificationsPage/>);
+    const notice=await screen.findByRole("button",{name:"새 알림 1건이 도착했습니다."});
+    fireEvent.click(notice);
+    expect(screen.getByText("필터 안 신규 알림")).toBeInTheDocument();
+    expect(screen.queryByText("필터 밖 신규 알림")).not.toBeInTheDocument();
+    expect(mocks.markRead).not.toHaveBeenCalled();
+  });
+
   it("renders a CONTROL_MANAGER management queue without changing the shared page", () => {
     mocks.roles=["CONTROL_MANAGER"];
     mocks.primaryRole="CONTROL_MANAGER";
@@ -221,6 +247,22 @@ describe("notifications page audience layout", () => {
     expect(screen.getByText("알림을 선택해 주세요")).toBeInTheDocument();
   });
 
+  it("shows neutral detail guidance for a processed manager notification",()=>{
+    mocks.roles=["CONTROL_MANAGER"];
+    mocks.primaryRole="CONTROL_MANAGER";
+    mocks.items=[{
+      ...item("processed-detail","처리 완료 사건",true),
+      notification_type:"INCIDENT_CREATED",
+      action_required:false,
+      reason:"INCIDENT_PROCESSED",
+    }];
+    render(<NotificationsPage/>);
+    fireEvent.click(screen.getByRole("tab",{name:/센터 알림 1/}));
+    fireEvent.click(screen.getByText("처리 완료 사건"));
+    expect(screen.getByText("최근 상태 변경 내용을 확인해 주세요.")).toBeInTheDocument();
+    expect(screen.queryByText("신규 사건의 확인 및 배정 상태를 점검해 주세요.")).not.toBeInTheDocument();
+  });
+
   it("excludes processed notifications from the manager queue and keeps counts aligned",()=>{
     mocks.roles=["CONTROL_MANAGER"];
     mocks.primaryRole="CONTROL_MANAGER";
@@ -235,6 +277,38 @@ describe("notifications page audience layout", () => {
     expect(screen.getByText("조치 필요 신규 사건")).toBeInTheDocument();
     expect(screen.queryByText("처리된 신규 사건")).not.toBeInTheDocument();
     expect(screen.queryByText("단순 출동 취소")).not.toBeInTheDocument();
+  });
+
+  it("counts only actionable new alerts in an older manager queue bundle",async()=>{
+    mocks.roles=["CONTROL_MANAGER"];
+    mocks.primaryRole="CONTROL_MANAGER";
+    mocks.items=Array.from({length:6},(_,index)=>({
+      ...item(`manager-queue-${index}`,`관리 업무 ${index+1}`,false,new Date(Date.UTC(2026,6,22,7-index)).toISOString()),
+      notification_type:"INCIDENT_CREATED" as const,
+      reason:"INCIDENT_UNACKNOWLEDGED" as const,
+    }));
+    const {rerender}=render(<NotificationsPage/>);
+    fireEvent.click(screen.getByRole("button",{name:"이전 알림"}));
+
+    mocks.items=[{
+      ...item("manager-processed","처리된 신규 알림",false,"2026-07-22T09:00:00.000Z"),
+      notification_type:"INCIDENT_CREATED",
+      action_required:false,
+      reason:"INCIDENT_PROCESSED",
+    },...mocks.items];
+    rerender(<NotificationsPage/>);
+    await waitFor(()=>expect(screen.queryByRole("button",{name:/새 알림 \d+건이 도착했습니다/})).not.toBeInTheDocument());
+
+    mocks.items=[{
+      ...item("manager-actionable","조치할 신규 알림",false,"2026-07-22T10:00:00.000Z"),
+      notification_type:"INCIDENT_CREATED",
+      reason:"INCIDENT_UNACKNOWLEDGED",
+    },...mocks.items];
+    rerender(<NotificationsPage/>);
+    const notice=await screen.findByRole("button",{name:"새 알림 1건이 도착했습니다."});
+    fireEvent.click(notice);
+    expect(screen.getByText("조치할 신규 알림")).toBeInTheDocument();
+    expect(screen.queryByText("처리된 신규 알림")).not.toBeInTheDocument();
   });
 
   it("keeps tab=unread compatible as the manager center inbox filter",()=>{

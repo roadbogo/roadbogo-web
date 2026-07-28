@@ -135,6 +135,10 @@ export function managerQueueGroup(item:Pick<NotificationViewModel,"action_requir
   return null;
 }
 
+export function managerTaskCopy(item:Pick<NotificationViewModel,"action_required"|"reason">) {
+  return managerQueueGroup(item) ? notificationTaskCopy(item) : null;
+}
+
 export const managerGuidance:Record<NotificationType,{title:string;body:string}>={
   INCIDENT_CREATED:{title:"초기 대응 확인",body:"신규 사건의 확인 및 담당 상태를 점검해 주세요."},
   INCIDENT_STATUS_CHANGED:{title:"상태 변경 확인",body:"사건 상태가 변경되었습니다. 현재 담당자와 다음 처리 단계를 확인해 주세요."},

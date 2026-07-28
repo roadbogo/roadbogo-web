@@ -17,8 +17,8 @@ import {
   sortNotificationQueue,
   notificationStateCopy,
   notificationTaskCopy,
-  managerGuidance,
   managerQueueGroup,
+  managerTaskCopy,
   managerQueuePresentation,
   severityLabels,
   type ManagerQueueGroup,
@@ -86,7 +86,7 @@ function NotificationDetail({ item, onNavigate, onClose, mobile, manager=false }
   if (!item) return <aside className={styles.detailPanel}><div className={styles.detailEmpty}><strong>알림을 선택해 주세요</strong><p>목록에서 확인할 알림을 선택하면 업무 내용을 볼 수 있습니다.</p></div></aside>;
   const presentation = notificationPresentation[item.notification_type];
   const actionLabel = notificationNavigationLabel(item);
-  const guidance=manager?managerGuidance[item.notification_type]:null;
+  const taskCopy=manager?managerTaskCopy(item)??notificationTaskCopy(item):notificationTaskCopy(item);
   const facts = [
     { label: item.resource.resource_type === "INCIDENT" ? "사건번호" : "출동번호", value: item.resource_label },
     item.evidence ? { label: "CCTV", value: item.evidence.camera } : null,
@@ -106,7 +106,7 @@ function NotificationDetail({ item, onNavigate, onClose, mobile, manager=false }
       <div className={styles.detailBodyBlock}><p id="notification-detail-body" className={`${styles.detailBody} ${bodyExpanded ? styles.detailBodyExpanded : ""}`}>{item.body}</p>
         {item.body.length > 65 && <button type="button" className={styles.detailTextToggle} aria-expanded={bodyExpanded} aria-controls="notification-detail-body" onClick={() => setBodyExpanded(value => !value)}>{bodyExpanded ? "내용 접기" : "내용 더보기"}</button>}
       </div>
-      <section className={styles.detailTask}><span>지금 할 일</span><p>{guidance?.body??notificationTaskCopy(item)}</p></section>
+      <section className={styles.detailTask}><span>지금 할 일</span><p>{taskCopy}</p></section>
       <dl className={`${styles.detailFacts} ${styles.detailFactsPrimary}`}>{facts.map(fact=><div key={fact.label}><dt>{fact.label}</dt><dd>{fact.dateTime?<time dateTime={fact.dateTime}>{fact.value}</time>:fact.value}</dd></div>)}</dl>
       <button type="button" className={styles.detailDisclosure} aria-expanded={detailsExpanded} aria-controls="notification-additional-details" onClick={() => setDetailsExpanded(value => !value)}>{detailsExpanded ? "상세 정보 접기" : "상세 정보 보기"}</button>
       <div id="notification-additional-details" className={styles.detailAdditional} hidden={!detailsExpanded}>
@@ -190,16 +190,16 @@ function OperationsNotificationInbox() {
     setSelectedId(null);
     replaceQuery({ selected: null });
   }, [replaceQuery]);
-  const filtered = useMemo(() => {
-    const byView = view === "queue" ? items.filter(item=>managerQueueGroup(item)!==null) : view === "action" ? items.filter(item => item.action_required) : view === "unread" ? items.filter(item => !item.read) : items;
-    const matching = byView
-      .filter(item => severity === "ALL" || item.severity === severity)
-      .filter(item => type === "ALL"
-        || type === "INCIDENT" && item.resource.resource_type === "INCIDENT" && item.notification_type !== "ACTION_COMPLETED"
-        || type === "DISPATCH" && item.resource.resource_type === "DISPATCH"
-        || type === "COMPLETED" && item.notification_type === "ACTION_COMPLETED");
-    return sortNotificationQueue(matching, sort);
-  }, [items, severity, sort, type, view]);
+  const matchesCurrentFilters=useCallback((item:NotificationViewModel)=>{
+    const matchesView=view==="queue"?managerQueueGroup(item)!==null:view==="action"?item.action_required:view==="unread"?!item.read:true;
+    const matchesSeverity=severity==="ALL"||item.severity===severity;
+    const matchesType=type==="ALL"
+      ||type==="INCIDENT"&&item.resource.resource_type==="INCIDENT"&&item.notification_type!=="ACTION_COMPLETED"
+      ||type==="DISPATCH"&&item.resource.resource_type==="DISPATCH"
+      ||type==="COMPLETED"&&item.notification_type==="ACTION_COMPLETED";
+    return matchesView&&matchesSeverity&&matchesType;
+  },[severity,type,view]);
+  const filtered=useMemo(()=>sortNotificationQueue(items.filter(matchesCurrentFilters),sort),[items,matchesCurrentFilters,sort]);
   const managerGroups=useMemo(()=>manager?(["immediate","action","complete"] as ManagerQueueGroup[]).map(group=>({group,items:filtered.filter(item=>managerQueueGroup(item)===group)})).filter(entry=>entry.items.length):[],[filtered,manager]);
   const historicalListIds=useMemo(()=>{
     if(page===0||!frozenListIds)return null;
@@ -221,11 +221,11 @@ function OperationsNotificationInbox() {
     const currentIds = new Set(items.map(item => item.public_id));
     const previous = previousItemIds.current;
     if (previous && page > 0) {
-      const arrived = items.filter(item => !previous.has(item.public_id)).length;
+      const arrived = items.filter(item => !previous.has(item.public_id) && matchesCurrentFilters(item)).length;
       if (arrived) setPendingNewCount(count => count + arrived);
     }
     previousItemIds.current = currentIds;
-  }, [items, page]);
+  }, [items, matchesCurrentFilters, page]);
 
   useEffect(() => {
     if (loading) return;
