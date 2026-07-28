@@ -136,4 +136,41 @@ describe("IncidentMemoComposer",()=>{
     expect(screen.getByRole("alertdialog",{name:"수정 중인 내용이 있습니다"})).toBeInTheDocument();
     expect(props.onClose).not.toHaveBeenCalled();
   });
+
+  it("blocks Ctrl+Enter and Cmd+Enter behind a correction close confirmation",()=>{
+    render(<IncidentMemoComposer {...editingProps}/>);
+    const textarea=screen.getByLabelText("메모 내용");
+    fireEvent.change(textarea,{target:{value:"단축키로 저장하면 안 되는 수정"}});
+    fireEvent.click(screen.getByRole("button",{name:"취소"}));
+    fireEvent.keyDown(document,{key:"Enter",ctrlKey:true});
+    fireEvent.keyDown(document,{key:"Enter",metaKey:true});
+    expect(props.onSubmit).not.toHaveBeenCalled();
+    expect(props.onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    expect(textarea).toHaveValue("단축키로 저장하면 안 되는 수정");
+  });
+
+  it("blocks Ctrl+Enter behind a new memo close confirmation without clearing its draft",()=>{
+    render(<IncidentMemoComposer {...props}/>);
+    const textarea=screen.getByLabelText("메모 내용");
+    fireEvent.change(textarea,{target:{value:"임시 저장할 작성 내용"}});
+    fireEvent.click(screen.getByRole("button",{name:"취소"}));
+    const storedBefore=sessionStorage.getItem(memoDraftStorageKey("incident-a"));
+    fireEvent.keyDown(document,{key:"Enter",ctrlKey:true});
+    expect(props.onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    expect(textarea).toHaveValue("임시 저장할 작성 내용");
+    expect(sessionStorage.getItem(memoDraftStorageKey("incident-a"))).toBe(storedBefore);
+  });
+
+  it("restores the existing save shortcut after closing the confirmation",()=>{
+    render(<IncidentMemoComposer {...editingProps}/>);
+    fireEvent.change(screen.getByLabelText("메모 내용"),{target:{value:"확인 후 저장할 수정"}});
+    fireEvent.click(screen.getByRole("button",{name:"취소"}));
+    fireEvent.keyDown(document,{key:"Escape"});
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    fireEvent.keyDown(document,{key:"Enter",ctrlKey:true});
+    expect(props.onSubmit).toHaveBeenCalledOnce();
+    expect(props.onSubmit).toHaveBeenCalledWith("REVIEW","확인 후 저장할 수정");
+  });
 });

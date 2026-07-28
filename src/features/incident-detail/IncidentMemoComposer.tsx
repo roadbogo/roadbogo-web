@@ -44,14 +44,25 @@ export function IncidentMemoComposer({incidentPublicId,memos,editingMemo,busy,er
   },[draft,editingMemo,storageKey]);
   useEffect(()=>{
     const onKey=(event:KeyboardEvent)=>{
-      if(event.key==="Escape"&&!busy){
-        event.preventDefault();
-        if(confirmClose){continueEditing();return}
-        requestClose();
-        return;
+      if(confirmClose){
+        if(event.key==="Escape"&&!busy){
+          event.preventDefault();
+          continueEditing();
+          return;
+        }
+        if(event.key!=="Tab"){
+          if(event.key==="Enter"&&(event.ctrlKey||event.metaKey))event.preventDefault();
+          return;
+        }
+      }else{
+        if(event.key==="Escape"&&!busy){
+          event.preventDefault();
+          requestClose();
+          return;
+        }
+        if(event.key==="Enter"&&(event.ctrlKey||event.metaKey)&&changed&&!overLimit&&!busy){event.preventDefault();onSubmit(type,content)}
+        if(inline)return;
       }
-      if(event.key==="Enter"&&(event.ctrlKey||event.metaKey)&&changed&&!overLimit&&!busy){event.preventDefault();onSubmit(type,content)}
-      if(inline)return;
       const focusScope=confirmClose?confirmRef.current:dialogRef.current;
       if(event.key!=="Tab"||!focusScope)return;
       const controls=[...focusScope.querySelectorAll<HTMLElement>('button:not([disabled]),textarea:not([disabled])')];
