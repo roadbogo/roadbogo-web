@@ -7,9 +7,10 @@ import { composeMemoContent, createEmptyMemoDraft, hasMemoDraftContent, memoComp
 import type { IncidentMemo, IncidentMemoType } from "./incidentDetailTypes";
 
 const types=Object.keys(memoTypeLabel) as IncidentMemoType[];
+const normalizedSavedContent=(type:IncidentMemoType,value:string)=>type==="GENERAL"?value:value.trim();
 
 export function IncidentMemoComposer({incidentPublicId,memos,editingMemo,busy,error,inline=false,initialType="GENERAL",onSubmit,onClose}:{incidentPublicId:string;memos:IncidentMemo[];editingMemo:IncidentMemo|null;busy:boolean;error:string;inline?:boolean;initialType?:IncidentMemoType;onSubmit:(type:IncidentMemoType,content:string)=>void;onClose:()=>void}){
-  const dialogRef=useRef<HTMLElement>(null),firstInputRef=useRef<HTMLTextAreaElement>(null);
+  const dialogRef=useRef<HTMLElement>(null),confirmRef=useRef<HTMLDivElement>(null),firstInputRef=useRef<HTMLTextAreaElement>(null);
   const storageKey=memoDraftStorageKey(incidentPublicId);
   const [draft,setDraft]=useState<IncidentMemoDraft>(()=>{
     if(editingMemo){const next=createEmptyMemoDraft();next.type=normalizeMemoType(editingMemo.memo_type);next.values[next.type][0]=editingMemo.content;return next}
@@ -24,7 +25,9 @@ export function IncidentMemoComposer({incidentPublicId,memos,editingMemo,busy,er
   const content=useMemo(()=>editingMemo?draft.values[type][0]??"":composeMemoContent(type,draft.values),[draft,editingMemo,type]);
   const overLimit=content.length>2000;
   const latestMemo=useMemo(()=>sortIncidentMemos(memos.filter(memo=>!memo.deleted_at))[0],[memos]);
-  const changed=editingMemo?normalizeMemoType(editingMemo.memo_type)!==type||editingMemo.content!==content.trim():Boolean(content.trim());
+  const changed=editingMemo
+    ? normalizeMemoType(editingMemo.memo_type)!==type||normalizedSavedContent(normalizeMemoType(editingMemo.memo_type),editingMemo.content)!==normalizedSavedContent(type,content)
+    : Boolean(content.trim());
 
   useEffect(()=>{
     const previousOverflow=document.body.style.overflow;
@@ -41,11 +44,17 @@ export function IncidentMemoComposer({incidentPublicId,memos,editingMemo,busy,er
   },[draft,editingMemo,storageKey]);
   useEffect(()=>{
     const onKey=(event:KeyboardEvent)=>{
-      if(event.key==="Escape"&&!busy){event.preventDefault();requestClose();return}
+      if(event.key==="Escape"&&!busy){
+        event.preventDefault();
+        if(confirmClose){continueEditing();return}
+        requestClose();
+        return;
+      }
       if(event.key==="Enter"&&(event.ctrlKey||event.metaKey)&&changed&&!overLimit&&!busy){event.preventDefault();onSubmit(type,content)}
       if(inline)return;
-      if(event.key!=="Tab"||!dialogRef.current)return;
-      const controls=[...dialogRef.current.querySelectorAll<HTMLElement>('button:not([disabled]),textarea:not([disabled])')];
+      const focusScope=confirmClose?confirmRef.current:dialogRef.current;
+      if(event.key!=="Tab"||!focusScope)return;
+      const controls=[...focusScope.querySelectorAll<HTMLElement>('button:not([disabled]),textarea:not([disabled])')];
       const first=controls[0],last=controls.at(-1);
       if(!first||!last)return;
       if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}
@@ -57,9 +66,12 @@ export function IncidentMemoComposer({incidentPublicId,memos,editingMemo,busy,er
 
   const requestClose=()=>{
     if(busy)return;
-    if(editingMemo){onClose();return}
     if(changed){setConfirmClose(true);return}
     onClose();
+  };
+  const continueEditing=()=>{
+    setConfirmClose(false);
+    window.requestAnimationFrame(()=>firstInputRef.current?.focus());
   };
   const discard=()=>{
     if(!editingMemo)try{sessionStorage.removeItem(storageKey)}catch{}
@@ -84,7 +96,7 @@ export function IncidentMemoComposer({incidentPublicId,memos,editingMemo,busy,er
         {!editingMemo&&<p className="memo-draft-status">작성 내용은 이 사건의 임시 메모로 자동 보관됩니다.</p>}
       </div>
       <footer><button type="button" disabled={busy} onClick={requestClose}>취소</button><button type="button" disabled={busy||!changed||overLimit} onClick={()=>onSubmit(type,content)}>{busy?editingMemo?"저장 중":"등록 중":editingMemo?"정정 저장":"메모 등록"}</button></footer>
-      {confirmClose&&<div className="memo-close-confirm" role="alertdialog" aria-modal="true" aria-labelledby="memo-close-title"><div><h3 id="memo-close-title">작성 중인 메모가 있습니다</h3><p>저장하지 않고 닫아도 작성 중인 내용은 이 사건의 임시 메모로 보관됩니다.</p><div><button type="button" autoFocus onClick={()=>setConfirmClose(false)}>계속 작성</button><button type="button" onClick={onClose}>임시 저장 후 닫기</button><button type="button" className="is-danger" onClick={discard}>작성 내용 버리기</button></div></div></div>}
+      {confirmClose&&<div ref={confirmRef} className="memo-close-confirm" role="alertdialog" aria-modal="true" aria-labelledby="memo-close-title" aria-describedby="memo-close-description"><div><h3 id="memo-close-title">{editingMemo?"수정 중인 내용이 있습니다":"작성 중인 메모가 있습니다"}</h3><p id="memo-close-description">{editingMemo?"저장하지 않고 닫으면 변경한 내용이 사라집니다.":"저장하지 않고 닫아도 작성 중인 내용은 이 사건의 임시 메모로 보관됩니다."}</p><div><button type="button" autoFocus onClick={continueEditing}>{editingMemo?"계속 수정":"계속 작성"}</button>{!editingMemo&&<button type="button" onClick={onClose}>임시 저장 후 닫기</button>}<button type="button" className="is-danger" onClick={discard}>{editingMemo?"변경 내용 버리기":"작성 내용 버리기"}</button></div></div></div>}
     </section>;
   if(inline)return contentNode;
   return createPortal(<div className="memo-dialog-backdrop" onMouseDown={event=>event.target===event.currentTarget&&requestClose()}>{contentNode}</div>,document.body);

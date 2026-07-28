@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { IncidentMemoComposer } from "./IncidentMemoComposer";
 import { memoDraftStorageKey } from "./incidentMemoDraft";
 
 const props={incidentPublicId:"incident-a",memos:[],editingMemo:null,busy:false,error:"",onSubmit:vi.fn(),onClose:vi.fn()};
+const editingMemo={public_id:"memo-a",incident_public_id:"incident-a",memo_type:"REVIEW" as const,content:"원본 메모",created_by:{public_id:"controller",user_name:"관제자"},created_at:"2026-07-28T00:00:00Z"};
+const editingProps={...props,editingMemo};
 
 describe("IncidentMemoComposer",()=>{
   beforeEach(()=>{sessionStorage.clear();props.onSubmit.mockReset();props.onClose.mockReset()});
@@ -55,5 +57,83 @@ describe("IncidentMemoComposer",()=>{
     fireEvent.click(screen.getByRole("button",{name:"작성 내용 버리기"}));
     expect(sessionStorage.getItem(memoDraftStorageKey("incident-a"))).toBeNull();
     expect(props.onClose).toHaveBeenCalledOnce();
+  });
+
+  it("warns before cancelling a changed memo correction and keeps the editor open",()=>{
+    render(<IncidentMemoComposer {...editingProps}/>);
+    fireEvent.change(screen.getByLabelText("메모 내용"),{target:{value:"변경한 메모"}});
+    fireEvent.click(screen.getByRole("button",{name:"취소"}));
+    expect(screen.getByRole("alertdialog",{name:"수정 중인 내용이 있습니다"})).toHaveTextContent("저장하지 않고 닫으면 변경한 내용이 사라집니다.");
+    expect(screen.getByRole("dialog",{name:"관제 메모 정정"})).toBeInTheDocument();
+    expect(props.onClose).not.toHaveBeenCalled();
+  });
+
+  it("applies the correction warning to the close button, Escape, and backdrop",()=>{
+    const {unmount}=render(<IncidentMemoComposer {...editingProps}/>);
+    fireEvent.change(screen.getByLabelText("메모 내용"),{target:{value:"닫기 변경"}});
+    fireEvent.click(screen.getByRole("button",{name:"관제 메모 창 닫기"}));
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    fireEvent.keyDown(document,{key:"Escape"});
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("메모 내용")).toHaveValue("닫기 변경");
+    expect(props.onClose).not.toHaveBeenCalled();
+    fireEvent.keyDown(document,{key:"Escape"});
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    unmount();
+
+    render(<IncidentMemoComposer {...editingProps}/>);
+    fireEvent.change(screen.getByLabelText("메모 내용"),{target:{value:"배경 변경"}});
+    fireEvent.mouseDown(screen.getByRole("dialog").parentElement!);
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    expect(props.onClose).not.toHaveBeenCalled();
+  });
+
+  it("continues a correction with its content and focus intact",async()=>{
+    render(<IncidentMemoComposer {...editingProps}/>);
+    const textarea=screen.getByLabelText("메모 내용");
+    fireEvent.change(textarea,{target:{value:"계속 수정할 내용"}});
+    fireEvent.click(screen.getByRole("button",{name:"취소"}));
+    expect(screen.getByRole("button",{name:"계속 수정"})).toHaveFocus();
+    fireEvent.keyDown(document,{key:"Tab",shiftKey:true});
+    expect(screen.getByRole("button",{name:"변경 내용 버리기"})).toHaveFocus();
+    fireEvent.keyDown(document,{key:"Tab"});
+    expect(screen.getByRole("button",{name:"계속 수정"})).toHaveFocus();
+    fireEvent.click(screen.getByRole("button",{name:"계속 수정"}));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(textarea).toHaveValue("계속 수정할 내용");
+    await waitFor(()=>expect(textarea).toHaveFocus());
+    expect(props.onClose).not.toHaveBeenCalled();
+  });
+
+  it("discards only the unsaved correction without submitting",()=>{
+    render(<IncidentMemoComposer {...editingProps}/>);
+    fireEvent.change(screen.getByLabelText("메모 내용"),{target:{value:"버릴 변경"}});
+    fireEvent.click(screen.getByRole("button",{name:"취소"}));
+    fireEvent.click(screen.getByRole("button",{name:"변경 내용 버리기"}));
+    expect(props.onClose).toHaveBeenCalledOnce();
+    expect(props.onSubmit).not.toHaveBeenCalled();
+    expect(editingMemo.content).toBe("원본 메모");
+  });
+
+  it("closes an unchanged correction immediately and treats trimmed structured content as unchanged",()=>{
+    const {unmount}=render(<IncidentMemoComposer {...editingProps}/>);
+    fireEvent.click(screen.getByRole("button",{name:"취소"}));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(props.onClose).toHaveBeenCalledOnce();
+    unmount();
+    props.onClose.mockReset();
+
+    render(<IncidentMemoComposer {...editingProps} editingMemo={{...editingMemo,content:"원본 메모  "}}/>);
+    fireEvent.click(screen.getByRole("button",{name:"취소"}));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(props.onClose).toHaveBeenCalledOnce();
+  });
+
+  it("treats a memo type-only correction as an unsaved change",()=>{
+    render(<IncidentMemoComposer {...editingProps}/>);
+    fireEvent.click(screen.getByRole("radio",{name:"출동 전달"}));
+    fireEvent.click(screen.getByRole("button",{name:"취소"}));
+    expect(screen.getByRole("alertdialog",{name:"수정 중인 내용이 있습니다"})).toBeInTheDocument();
+    expect(props.onClose).not.toHaveBeenCalled();
   });
 });
