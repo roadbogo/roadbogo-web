@@ -1,5 +1,33 @@
+import { dispatchStatusLabel } from "@/features/control-dashboard/dashboardDomain";
 import type { DashboardIncident, IncidentStatus } from "@/features/control-dashboard/dashboardTypes";
-import type { IncidentCommandAction, IncidentEvidence, IncidentHistory, IncidentWorkspaceMode } from "./incidentDetailTypes";
+import type { IncidentCommandAction, IncidentDetailRecord, IncidentEvidence, IncidentHistory, IncidentMemo, IncidentMemoType, IncidentWorkspaceMode } from "./incidentDetailTypes";
+
+export interface IncidentTimelineEntry {
+  id:string;occurredAt:string;title:string;detail:string|null;actor:string;type:"사건"|"메모"|"출동";
+}
+
+export function buildIncidentTimeline(record:IncidentDetailRecord):IncidentTimelineEntry[]{
+  const entries:IncidentTimelineEntry[]=[
+    ...record.histories.map(item=>({id:`history:${item.public_id}`,occurredAt:item.occurred_at,title:item.label,detail:item.detail,actor:item.actor_name??"시스템",type:"사건" as const})),
+    ...record.memos.map(item=>({id:`memo:${item.public_id}`,occurredAt:item.deleted_at??item.updated_at??item.created_at,title:item.deleted_at?"관제 메모 삭제":item.updated_at?"관제 메모 정정":"관제 메모 등록",detail:item.deleted_at?item.delete_reason??"삭제된 메모입니다":item.content,actor:item.deleted_at?item.deleted_by?.user_name??"사용자":item.created_by.user_name,type:"메모" as const})),
+  ];
+  if(record.dispatch){
+    const hasAssignmentHistory=record.histories.some(item=>/출동 (담당자 )?배정|출동 요청 생성/.test(item.label));
+    const statusLabel=dispatchStatusLabel[record.dispatch.status];
+    const hasStatusHistory=record.histories.some(item=>
+      item.occurred_at===record.dispatch?.updated_at &&
+      (item.label.includes("출동 상태")||item.label.includes(statusLabel)),
+    );
+    if(!hasAssignmentHistory){
+      const detail=[`배정 대상: ${record.dispatch.responder_label}`,record.request_message].filter(Boolean).join(" · ");
+      entries.push({id:`dispatch:${record.dispatch.public_id}:requested`,occurredAt:record.dispatch.requested_at,title:"출동 요청 생성",detail,actor:"시스템",type:"출동"});
+    }
+    if(record.dispatch.updated_at!==record.dispatch.requested_at&&!hasStatusHistory){
+      entries.push({id:`dispatch:${record.dispatch.public_id}:updated`,occurredAt:record.dispatch.updated_at,title:`출동 상태 · ${statusLabel}`,detail:null,actor:"시스템",type:"출동"});
+    }
+  }
+  return entries.filter(item=>Number.isFinite(Date.parse(item.occurredAt))).sort((a,b)=>Date.parse(b.occurredAt)-Date.parse(a.occurredAt)||a.id.localeCompare(b.id));
+}
 
 export function resolveMemoAvailability(incident:DashboardIncident,user:{public_id:string;permissions:string[]}){
   if(["FALSE_POSITIVE","CLOSED"].includes(incident.status))return{allowed:false,reason:"종료된 사건에는 새 메모를 작성할 수 없습니다"};
@@ -13,8 +41,40 @@ export function resolveMemoAvailability(incident:DashboardIncident,user:{public_
   return{allowed:true,reason:"관제 메모를 작성할 수 있습니다"};
 }
 
-export function availableMemoTypes(incident:DashboardIncident):Array<"GENERAL"|"REVIEW">{
-  return incident.status==="UNDER_REVIEW"?["GENERAL","REVIEW"]:[];
+export function canMutateIncidentMemo(
+  incident:DashboardIncident,
+  memo:IncidentMemo,
+  user:{public_id:string;permissions:string[]},
+  supportsMutation:boolean,
+){
+  return supportsMutation &&
+    incident.status==="UNDER_REVIEW" &&
+    incident.assigned_controller?.public_id===user.public_id &&
+    user.permissions.includes("INCIDENT.DECIDE") &&
+    memo.created_by.public_id===user.public_id &&
+    !memo.deleted_at;
+}
+
+export const incidentMemoTypes:IncidentMemoType[]=["GENERAL","REVIEW","DISPATCH","CLOSURE"];
+
+export function normalizeMemoType(value:unknown):IncidentMemoType{
+  return incidentMemoTypes.includes(value as IncidentMemoType)?value as IncidentMemoType:"GENERAL";
+}
+
+export function availableMemoTypes(incident:DashboardIncident):IncidentMemoType[]{
+  return incident.status==="UNDER_REVIEW"?[...incidentMemoTypes]:[];
+}
+
+export function recommendedMemoType(status:IncidentStatus):IncidentMemoType{
+  if(status==="UNDER_REVIEW")return"REVIEW";
+  if(["DISPATCH_REQUESTED","DISPATCHED","ON_SCENE","ACTION_IN_PROGRESS"].includes(status))return"DISPATCH";
+  if(["ACTION_COMPLETED","CLOSED"].includes(status))return"CLOSURE";
+  return"GENERAL";
+}
+
+export function sortIncidentMemos(memos:IncidentMemo[]):IncidentMemo[]{
+  const timestamp=(value:string)=>{const parsed=Date.parse(value);return Number.isNaN(parsed)?Number.NEGATIVE_INFINITY:parsed};
+  return [...memos].sort((a,b)=>timestamp(b.created_at)-timestamp(a.created_at)||a.public_id.localeCompare(b.public_id));
 }
 
 export function sortIncidentHistories(histories:IncidentHistory[]):IncidentHistory[]{

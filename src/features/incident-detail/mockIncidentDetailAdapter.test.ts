@@ -17,7 +17,7 @@ describe("MockIncidentDetailAdapter commands",()=>{
     await expect(adapter.get("00000000-0000-4000-8000-000000000000")).resolves.toBeNull();
   });
 
-  it("keeps the acknowledge, claim, review, and release demo flow",async()=>{
+  it("allows release only while claimed and prevents review-state rollback",async()=>{
     const adapter=new MockIncidentDetailAdapter();
     const publicId=createMockDashboardSnapshot().incidents.find(item=>item.status==="NEW")!.public_id;
     const initial=await adapter.get(publicId);
@@ -28,13 +28,16 @@ describe("MockIncidentDetailAdapter commands",()=>{
     expect(claimed).toMatchObject({ok:true,status:"CLAIMED"});
     if(!claimed.ok)throw new Error("mock claim failed");
     expect(claimed.record?.incident.claimed_at).not.toBeNull();
-    const reviewed=await adapter.act({incident_public_id:publicId,expected_version_no:claimed.ok?claimed.version_no:-1,action:"review",idempotency_key:"mock-3"});
-    expect(reviewed).toMatchObject({ok:true,status:"UNDER_REVIEW"});
     expect(adapter.supportsRelease).toBe(true);
-    const released=await adapter.act({incident_public_id:publicId,expected_version_no:reviewed.ok?reviewed.version_no:-1,action:"release",idempotency_key:"mock-4"});
+    const released=await adapter.act({incident_public_id:publicId,expected_version_no:claimed.version_no,action:"release",idempotency_key:"mock-3"});
     expect(released).toMatchObject({ok:true,status:"ACKNOWLEDGED"});
     if(!released.ok)throw new Error("mock release failed");
     expect(released.record?.incident.claimed_at).toBeNull();
+    const reclaimed=await adapter.act({incident_public_id:publicId,expected_version_no:released.version_no,action:"claim",idempotency_key:"mock-4"});
+    const reviewed=await adapter.act({incident_public_id:publicId,expected_version_no:reclaimed.ok?reclaimed.version_no:-1,action:"review",idempotency_key:"mock-5"});
+    expect(reviewed).toMatchObject({ok:true,status:"UNDER_REVIEW"});
+    const rejected=await adapter.act({incident_public_id:publicId,expected_version_no:reviewed.ok?reviewed.version_no:-1,action:"release",idempotency_key:"mock-6"});
+    expect(rejected).toMatchObject({ok:false,code:"INVALID_TRANSITION"});
   });
 
   it("keeps a realistic claimed timestamp on assigned mock incidents",async()=>{
@@ -78,7 +81,7 @@ describe("MockIncidentDetailAdapter commands",()=>{
     if(!result.ok)throw new Error("mock dispatch assignment failed");
     expect(result.record?.dispatch?.public_id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
     expect(result.record?.histories).toHaveLength(historyCount+1);
-    expect(result.record?.histories.at(-1)).toMatchObject({label:"출동 담당자 배정",detail:`${responder.display_name} · 현장 확인 요청`});
+    expect(result.record?.histories.at(-1)).toMatchObject({label:"출동 담당자 배정",detail:`배정 대상: ${responder.display_name} · 현장 확인 요청`});
     expect((await adapter.get(candidate.public_id))?.dispatch).toMatchObject({responder_public_id:responder.public_id,status:"REQUESTED"});
     expect((await adapter.get(candidate.public_id))?.histories.at(-1)).toMatchObject({label:"출동 담당자 배정"});
     expect(createMockDashboardSnapshot().dispatches.find(dispatch=>dispatch.incident_public_id===candidate.public_id)).toMatchObject({responder_public_id:responder.public_id,responder_label:responder.display_name,status:"REQUESTED"});

@@ -2,7 +2,7 @@ import { createMockDashboardSnapshot } from "@/features/control-dashboard/mockDa
 import type { DashboardIncident, IncidentStatus } from "@/features/control-dashboard/dashboardTypes";
 import { resetMockIncidentRuntime, updateMockDispatchRuntime, updateMockIncidentRuntime } from "@/features/control-dashboard/mockIncidentRuntimeState";
 import { availableMemoTypes } from "./incidentDetailDomain";
-import type { DispatchResponderOption, IncidentActionRequest, IncidentActionResult, IncidentDecisionPayload, IncidentDetailAdapter, IncidentDetailRecord, IncidentDispatchAssignmentRequest, IncidentEvidence, IncidentHistory, IncidentMemoRequest } from "./incidentDetailTypes";
+import type { DispatchResponderOption, IncidentActionRequest, IncidentActionResult, IncidentDecisionPayload, IncidentDetailAdapter, IncidentDetailRecord, IncidentDispatchAssignmentRequest, IncidentEvidence, IncidentHistory, IncidentMemoDeleteRequest, IncidentMemoRequest, IncidentMemoUpdateRequest } from "./incidentDetailTypes";
 const snapshot=createMockDashboardSnapshot();
 const image="/images/incidents/fallen-object-realistic.png";
 const original="/images/incidents/cctv-highway-base.webp";
@@ -33,7 +33,7 @@ const initialRecords=new Map([...records].map(([publicId,record])=>[publicId,str
 const transition:Record<string,IncidentStatus>={acknowledge:"ACKNOWLEDGED",claim:"CLAIMED",release:"ACKNOWLEDGED",review:"UNDER_REVIEW",assign:"DISPATCH_REQUESTED",close:"CLOSED"};
 const decisionTransition:Record<IncidentDecisionPayload["decision_type"],IncidentStatus>={REAL_RISK:"DISPATCH_REQUESTED",FALSE_POSITIVE:"FALSE_POSITIVE",NEEDS_REVIEW:"UNDER_REVIEW",NO_DISPATCH:"CLOSED"};
 const decisionLabel:Record<IncidentDecisionPayload["decision_type"],string>={REAL_RISK:"실제 위험",FALSE_POSITIVE:"오탐",NEEDS_REVIEW:"추가 검토",NO_DISPATCH:"출동 불필요"};
-const actionSources:Partial<Record<IncidentActionRequest["action"],IncidentStatus[]>>={acknowledge:["NEW"],claim:["ACKNOWLEDGED"],release:["CLAIMED","UNDER_REVIEW"],review:["CLAIMED"],decide:["UNDER_REVIEW"],close:["ACTION_COMPLETED"]};
+const actionSources:Partial<Record<IncidentActionRequest["action"],IncidentStatus[]>>={acknowledge:["NEW"],claim:["ACKNOWLEDGED"],release:["CLAIMED"],review:["CLAIMED"],decide:["UNDER_REVIEW"],close:["ACTION_COMPLETED"]};
 const responders:DispatchResponderOption[]=[{public_id:"mock-responder-1",display_name:"이천 도로대응 1팀",organization_name:"이천 도로관리소",available:true},{public_id:"mock-responder-2",display_name:"이천 도로대응 2팀",organization_name:"이천 도로관리소",available:true},{public_id:"mock-responder-3",display_name:"광주 현장지원팀",organization_name:"광주 도로관리소",available:false}];
 function appendHistory(record:IncidentDetailRecord,{label,actorName,occurredAt,detail}:{label:string;actorName:string|null;occurredAt:string;detail:string|null}):IncidentHistory[]{
   return [...record.histories,{public_id:`history-${record.incident.public_id}-${Date.now()}-${record.histories.length}`,event_type:"INCIDENT_UPDATED",label,actor_name:actorName,occurred_at:occurredAt,detail}];
@@ -53,6 +53,7 @@ export class MockIncidentDetailAdapter implements IncidentDetailAdapter{
   readonly supportsDispatchAssignment=true;
   readonly supportsMemoRead=true;
   readonly supportsMemoWrite=true;
+  readonly supportsMemoMutation=true;
   async get(public_id:string){return createMockIncidentDetailRecord(public_id)}
   async act(request:IncidentActionRequest):Promise<IncidentActionResult>{
     const current=records.get(request.incident_public_id);
@@ -90,8 +91,8 @@ export class MockIncidentDetailAdapter implements IncidentDetailAdapter{
     const requestMessage=request.request_message?.trim()||null;
     const dispatch={public_id:crypto.randomUUID(),incident_public_id:request.incident_public_id,status:"REQUESTED" as const,responder_public_id:responder.public_id,responder_label:responder.display_name,requested_at:now,updated_at:now};
     const incident={...current.incident,status:"DISPATCH_REQUESTED" as const,version_no:current.incident.version_no+1,updated_at:now};
-    const historyDetail=`${responder.display_name}${requestMessage?` · ${requestMessage}`:""}`;
-    const updated={...current,incident,dispatch,histories:appendHistory(current,{label:"출동 담당자 배정",actorName:current.incident.assigned_controller?.display_name??"관제 담당자",occurredAt:now,detail:historyDetail}),request_message:requestMessage};
+    const historyDetail=`배정 대상: ${responder.display_name}${requestMessage?` · ${requestMessage}`:""}`;
+    const updated={...current,incident,dispatch,histories:appendHistory(current,{label:"출동 담당자 배정",actorName:current.incident.assigned_controller?.display_name??"시스템",occurredAt:now,detail:historyDetail}),request_message:requestMessage};
     records.set(request.incident_public_id,updated);
     updateMockIncidentRuntime(request.incident_public_id,{status:incident.status,version_no:incident.version_no,updated_at:now});
     updateMockDispatchRuntime(dispatch);
@@ -100,14 +101,45 @@ export class MockIncidentDetailAdapter implements IncidentDetailAdapter{
   async createMemo(request:IncidentMemoRequest){
     const current=records.get(request.incident_public_id);
     if(!current)throw new Error("INCIDENT_NOT_FOUND");
-    const content=request.content.trim();
-    if(!content||content.length>2000)throw new Error("COMMON_VALIDATION_ERROR");
+    const content=request.content;
+    if(!content.trim()||content.length>2000)throw new Error("COMMON_VALIDATION_ERROR");
     if(current.incident.status!=="UNDER_REVIEW")throw new Error("INCIDENT_INVALID_STATE_TRANSITION");
-    if(!availableMemoTypes(current.incident).includes(request.memo_type as "GENERAL"|"REVIEW"))throw new Error("INCIDENT_INVALID_MEMO_TYPE");
+    if(!availableMemoTypes(current.incident).includes(request.memo_type))throw new Error("INCIDENT_INVALID_MEMO_TYPE");
     if(current.incident.assigned_controller?.public_id!==request.actor_public_id)throw new Error("INCIDENT_NOT_ASSIGNED_CONTROLLER");
     const memo={public_id:`memo-${request.incident_public_id}-${Date.now()}`,incident_public_id:request.incident_public_id,memo_type:request.memo_type,content,created_by:{public_id:request.actor_public_id,user_name:request.actor_name},created_at:new Date().toISOString()};
     const memos=[memo,...current.memos.filter(item=>item.public_id!==memo.public_id)];
     records.set(request.incident_public_id,{...current,memos});
     return structuredClone(memo);
+  }
+  async updateMemo(request:IncidentMemoUpdateRequest){
+    const current=records.get(request.incident_public_id),content=request.content;
+    if(!current)throw new Error("INCIDENT_NOT_FOUND");
+    if(current.incident.status!=="UNDER_REVIEW")throw new Error("INCIDENT_INVALID_STATE_TRANSITION");
+    if(current.incident.assigned_controller?.public_id!==request.actor_public_id)throw new Error("INCIDENT_NOT_ASSIGNED_CONTROLLER");
+    const memo=current.memos.find(item=>item.public_id===request.memo_public_id);
+    if(!memo)throw new Error("INCIDENT_MEMO_NOT_FOUND");
+    if(memo.deleted_at)throw new Error("INCIDENT_MEMO_DELETED");
+    if(!request.actor_permissions.includes("INCIDENT.DECIDE"))throw new Error("AUTH_PERMISSION_DENIED");
+    if(memo.created_by.public_id!==request.actor_public_id)throw new Error("AUTH_PERMISSION_DENIED");
+    if(!content.trim()||content.length>2000||!["GENERAL","REVIEW","DISPATCH","CLOSURE"].includes(request.memo_type))throw new Error("COMMON_VALIDATION_ERROR");
+    const now=new Date().toISOString();
+    const updated={...memo,memo_type:request.memo_type,content,updated_at:now,revisions:[...(memo.revisions??[]),{memo_type:memo.memo_type,content:memo.content,revised_at:now,revised_by:{public_id:request.actor_public_id,user_name:request.actor_name}}]};
+    records.set(request.incident_public_id,{...current,memos:current.memos.map(item=>item.public_id===memo.public_id?updated:item)});
+    return structuredClone(updated);
+  }
+  async deleteMemo(request:IncidentMemoDeleteRequest){
+    const current=records.get(request.incident_public_id),reason=request.reason.trim();
+    if(!current)throw new Error("INCIDENT_NOT_FOUND");
+    if(current.incident.status!=="UNDER_REVIEW")throw new Error("INCIDENT_INVALID_STATE_TRANSITION");
+    if(current.incident.assigned_controller?.public_id!==request.actor_public_id)throw new Error("INCIDENT_NOT_ASSIGNED_CONTROLLER");
+    const memo=current.memos.find(item=>item.public_id===request.memo_public_id);
+    if(!memo)throw new Error("INCIDENT_MEMO_NOT_FOUND");
+    if(memo.deleted_at)throw new Error("INCIDENT_MEMO_DELETED");
+    if(!request.actor_permissions.includes("INCIDENT.DECIDE"))throw new Error("AUTH_PERMISSION_DENIED");
+    if(memo.created_by.public_id!==request.actor_public_id)throw new Error("AUTH_PERMISSION_DENIED");
+    if(!reason||reason.length>500)throw new Error("COMMON_VALIDATION_ERROR");
+    const deleted={...memo,deleted_at:new Date().toISOString(),deleted_by:{public_id:request.actor_public_id,user_name:request.actor_name},delete_reason:reason};
+    records.set(request.incident_public_id,{...current,memos:current.memos.map(item=>item.public_id===memo.public_id?deleted:item)});
+    return structuredClone(deleted);
   }
 }

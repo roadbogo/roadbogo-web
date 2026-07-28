@@ -15,6 +15,7 @@ import styles from "@/app/login/login.module.css";
 const EMAIL_PATTERN=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export function LoginForm({ intent }: { intent: LoginIntent }){
  const router=useRouter();const{ready,setAuthenticatedUser}=useAuth();
+ const fieldPrefix=`login-${intent}`;
  const[email,setEmail]=useState("");const[password,setPassword]=useState("");const[remember,setRemember]=useState(false);const[errors,setErrors]=useState<{email?:string;password?:string}>({});const[accountError,setAccountError]=useState("");const[accountNotice,setAccountNotice]=useState("");const[isSubmitting,setIsSubmitting]=useState(false);const[isSuccess,setIsSuccess]=useState(false);const[pendingLogin,setPendingLogin]=useState<{user:AuthUser;accessToken:string}|null>(null);
  useEffect(()=>{const params=new URLSearchParams(window.location.search);if(consumeWithdrawalNotice())setAccountNotice("withdrawn");else if(params.get("reason")==="expired"||sessionStorage.getItem(AUTH_EXPIRED_KEY)==="true"){setAccountError("로그인 시간이 만료되었습니다. 안전한 이용을 위해 다시 로그인해주세요.");sessionStorage.removeItem(AUTH_EXPIRED_KEY)}},[]);
  useEffect(()=>{setAccountError("")},[intent]);
@@ -23,8 +24,8 @@ export function LoginForm({ intent }: { intent: LoginIntent }){
  const useGeneralService=()=>{if(!pendingLogin)return;storeAccessToken(pendingLogin.accessToken);finishLogin(pendingLogin.user,"/")};
  const handleAnotherAccount=async()=>{if(isSubmitting)return;setIsSubmitting(true);try{await authApi.logout()}catch{}finally{clearClientAuth();setPendingLogin(null);setPassword("");setIsSubmitting(false)}};
  return <form className={styles.form} onSubmit={submit} noValidate data-login-form>
-  <div className={styles.field}><label htmlFor="email">이메일</label><input id="email" name="email" className={styles.input} type="email" inputMode="email" value={email} onChange={event=>setEmail(event.target.value)} autoComplete="username" aria-invalid={Boolean(errors.email)} aria-describedby="email-error" required/><p id="email-error" className={styles.fieldError} aria-live="polite">{errors.email??" "}</p></div>
-  <PasswordField value={password} error={errors.password} onChange={setPassword}/>
+  <div className={styles.field}><label htmlFor={`${fieldPrefix}-email`}>이메일</label><input id={`${fieldPrefix}-email`} name={`${fieldPrefix}-email`} className={styles.input} type="email" inputMode="email" value={email} onChange={event=>setEmail(event.target.value)} autoComplete={`section-${intent} username`} aria-invalid={Boolean(errors.email)} aria-describedby={`${fieldPrefix}-email-error`} required/><p id={`${fieldPrefix}-email-error`} className={styles.fieldError} aria-live="polite">{errors.email??" "}</p></div>
+  <PasswordField fieldPrefix={fieldPrefix} autoCompleteSection={intent} value={password} error={errors.password} onChange={setPassword}/>
   <div className={styles.formOptions}><label><input type="checkbox" checked={remember} onChange={event=>setRemember(event.target.checked)}/>로그인 상태 유지</label><nav aria-label="계정 복구"><Link href="/forgot-password">비밀번호 재설정</Link></nav></div>
   {accountNotice&&<section className={styles.registrationNotice} role="status"><strong>회원 탈퇴가 완료되었습니다</strong><span>그동안 도로보GO를 이용해 주셔서 감사합니다.</span></section>}
   <p className={styles.commonError} role="alert" aria-live="polite">{!ready?"세션 복구 중...":accountError||" "}</p>

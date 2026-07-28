@@ -4,6 +4,7 @@ import { createMockDashboardSnapshot } from "@/features/control-dashboard/mockDa
 import { ApiIncidentDetailAdapter } from "./incidentApiAdapter";
 import { availableMemoTypes, resolveMemoAvailability } from "./incidentDetailDomain";
 import { MockIncidentDetailAdapter } from "./mockIncidentDetailAdapter";
+import type { IncidentMemoType } from "./incidentDetailTypes";
 
 const incident = {
   public_id: "11111111-1111-4111-8111-111111111112",
@@ -18,8 +19,8 @@ describe("incident memo policy", () => {
     expect(resolveMemoAvailability(incident, { public_id: "controller-id", permissions: [] }).allowed).toBe(false);
   });
 
-  it("offers only memo types that are usable in the mock review workflow", () => {
-    expect(availableMemoTypes(incident)).toEqual(["GENERAL", "REVIEW"]);
+  it("offers all four contracted memo types in the mock review workflow", () => {
+    expect(availableMemoTypes(incident)).toEqual(["GENERAL", "REVIEW", "DISPATCH", "CLOSURE"]);
   });
 
   it.each(["NEW", "ACKNOWLEDGED", "CLAIMED", "DISPATCHED", "ACTION_COMPLETED", "FALSE_POSITIVE", "CLOSED"] as const)("disables memo creation and types in %s", status => {
@@ -34,6 +35,7 @@ describe("incident memo API adapter", () => {
     const adapter = new ApiIncidentDetailAdapter();
     expect(adapter.supportsMemoRead).toBe(false);
     expect(adapter.supportsMemoWrite).toBe(false);
+    expect(adapter.supportsMemoMutation).toBe(false);
   });
 
   it("does not issue a request through the unsupported memo method", async () => {
@@ -43,7 +45,7 @@ describe("incident memo API adapter", () => {
 });
 
 describe("incident memo mock adapter", () => {
-  it("persists a supported memo in the mock record and rejects unsupported types", async () => {
+  it("persists contracted memo types and rejects unknown types", async () => {
     const target=createMockDashboardSnapshot().incidents.find(item=>item.status==="UNDER_REVIEW" && item.assigned_controller);
     expect(target).toBeDefined();
     const adapter=new MockIncidentDetailAdapter();
@@ -53,6 +55,85 @@ describe("incident memo mock adapter", () => {
     const refreshed=await adapter.get(target!.public_id);
     expect(refreshed?.memos[0]).toMatchObject({public_id:created.public_id,memo_type:"REVIEW",content:"최종 회귀 검증 메모"});
     expect(refreshed?.memos).toHaveLength((before?.memos.length??0)+1);
-    await expect(adapter.createMemo({...request,memo_type:"DISPATCH"})).rejects.toThrow("INCIDENT_INVALID_MEMO_TYPE");
+    const dispatch=await adapter.createMemo({...request,memo_type:"DISPATCH",content:"출동 전달 메모"});
+    expect(dispatch).toMatchObject({memo_type:"DISPATCH",content:"출동 전달 메모"});
+    await expect(adapter.createMemo({...request,memo_type:"UNKNOWN" as IncidentMemoType})).rejects.toThrow("INCIDENT_INVALID_MEMO_TYPE");
+  });
+
+  it("preserves revisions and logically deletes only the author's memo", async () => {
+    const target=createMockDashboardSnapshot().incidents.find(item=>item.status==="UNDER_REVIEW" && item.assigned_controller)!;
+    const adapter=new MockIncidentDetailAdapter();
+    const actor={actor_public_id:target.assigned_controller!.public_id,actor_name:target.assigned_controller!.display_name};
+    const mutationActor={...actor,actor_permissions:["INCIDENT.DECIDE"]};
+    const created=await adapter.createMemo({incident_public_id:target.public_id,memo_type:"REVIEW",content:"최초 검토 내용",...actor});
+    const revised=await adapter.updateMemo({incident_public_id:target.public_id,memo_public_id:created.public_id,memo_type:"DISPATCH",content:"출동 전달 내용으로 정정",...mutationActor});
+
+    expect(revised).toMatchObject({
+      public_id:created.public_id,
+      created_at:created.created_at,
+      memo_type:"DISPATCH",
+      content:"출동 전달 내용으로 정정",
+      revisions:[{memo_type:"REVIEW",content:"최초 검토 내용",revised_by:{public_id:actor.actor_public_id}}],
+    });
+    expect(revised.updated_at).toBeTruthy();
+
+    await expect(adapter.updateMemo({
+      incident_public_id:target.public_id,
+      memo_public_id:created.public_id,
+      memo_type:"GENERAL",
+      content:"다른 사용자의 변경",
+      actor_public_id:"other-controller",
+      actor_name:"다른 관제자",
+      actor_permissions:["INCIDENT.DECIDE"],
+    })).rejects.toThrow("INCIDENT_NOT_ASSIGNED_CONTROLLER");
+
+    const deleted=await adapter.deleteMemo({
+      incident_public_id:target.public_id,
+      memo_public_id:created.public_id,
+      reason:"중복 기록",
+      ...mutationActor,
+    });
+    expect(deleted).toMatchObject({
+      public_id:created.public_id,
+      delete_reason:"중복 기록",
+      deleted_by:{public_id:actor.actor_public_id},
+    });
+    expect(deleted.deleted_at).toBeTruthy();
+
+    const refreshed=await adapter.get(target.public_id);
+    expect(refreshed?.memos.find(memo=>memo.public_id===created.public_id)).toMatchObject({
+      deleted_at:deleted.deleted_at,
+      delete_reason:"중복 기록",
+    });
+    await expect(adapter.deleteMemo({
+      incident_public_id:target.public_id,
+      memo_public_id:created.public_id,
+      reason:"다시 삭제",
+      ...mutationActor,
+    })).rejects.toThrow("INCIDENT_MEMO_DELETED");
+  });
+
+  it("rechecks review state, current assignment, and decision permission for mutations",async()=>{
+    const adapter=new MockIncidentDetailAdapter();
+    const snapshot=createMockDashboardSnapshot();
+    const reviewing=snapshot.incidents.find(item=>item.status==="UNDER_REVIEW"&&item.assigned_controller)!;
+    const record=await adapter.get(reviewing.public_id);
+    const memo=record!.memos.find(item=>!item.deleted_at)!;
+    const base={incident_public_id:reviewing.public_id,memo_public_id:memo.public_id,actor_public_id:reviewing.assigned_controller!.public_id,actor_name:reviewing.assigned_controller!.display_name};
+    await expect(adapter.updateMemo({...base,memo_type:"REVIEW",content:"권한 없음",actor_permissions:[]})).rejects.toThrow("AUTH_PERMISSION_DENIED");
+    await expect(adapter.deleteMemo({...base,reason:"다른 담당자",actor_public_id:"other-controller",actor_permissions:["INCIDENT.DECIDE"]})).rejects.toThrow("INCIDENT_NOT_ASSIGNED_CONTROLLER");
+
+    const closed=snapshot.incidents.find(item=>item.status==="CLOSED"&&item.assigned_controller)!;
+    const closedRecord=await adapter.get(closed.public_id);
+    const closedMemo=closedRecord!.memos[0];
+    await expect(adapter.updateMemo({
+      incident_public_id:closed.public_id,
+      memo_public_id:closedMemo.public_id,
+      memo_type:"REVIEW",
+      content:"종료 후 변경",
+      actor_public_id:closed.assigned_controller!.public_id,
+      actor_name:closed.assigned_controller!.display_name,
+      actor_permissions:["INCIDENT.DECIDE"],
+    })).rejects.toThrow("INCIDENT_INVALID_STATE_TRANSITION");
   });
 });
