@@ -221,6 +221,64 @@ describe("notifications page audience layout", () => {
     expect(screen.getAllByRole("listitem")).toHaveLength(5);
   });
 
+  it("keeps the selected detail open after an unread alert becomes read",async()=>{
+    mocks.roles=["CONTROLLER"];
+    mocks.primaryRole="CONTROLLER";
+    mocks.items=[item("selected-unread","선택한 새 업무",false)];
+    const {rerender}=render(<NotificationsPage/>);
+    fireEvent.click(screen.getByRole("tab",{name:/새 알림 1/}));
+    fireEvent.click(screen.getByText("선택한 새 업무"));
+    expect(mocks.markRead).toHaveBeenCalledWith("selected-unread");
+
+    mocks.items=[{...mocks.items[0],read:true,read_at:"2026-07-22T09:00:00.000Z"}];
+    rerender(<NotificationsPage/>);
+    await waitFor(()=>expect(screen.queryByText("선택한 새 업무")).not.toBeInTheDocument());
+    expect(screen.getByRole("heading",{name:"사건 상태 변경"})).toBeInTheDocument();
+    expect(screen.getByText("서비스 알림 본문")).toBeInTheDocument();
+    expect(screen.getByRole("button",{name:"업무 상세 닫기"})).toBeInTheDocument();
+    expect(screen.getByRole("button",{name:"알림 상세 닫기"})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button",{name:"상세 정보 보기"}));
+    expect(screen.getByText("2026. 7. 22. 오후 6:00")).toBeInTheDocument();
+  });
+
+  it("keeps detail selected when markRead does not update the item",async()=>{
+    mocks.roles=["CONTROLLER"];
+    mocks.primaryRole="CONTROLLER";
+    mocks.markRead.mockResolvedValueOnce(false);
+    mocks.items=[item("read-failed","읽음 실패 업무",false)];
+    render(<NotificationsPage/>);
+    fireEvent.click(screen.getByText("읽음 실패 업무"));
+    await waitFor(()=>expect(mocks.markRead).toHaveBeenCalledWith("read-failed"));
+    expect(screen.getByRole("heading",{name:"사건 상태 변경"})).toBeInTheDocument();
+    expect(screen.getAllByText("서비스 알림 본문")).toHaveLength(2);
+  });
+
+  it("closes selected detail only when the item is deleted from current data",async()=>{
+    mocks.roles=["CONTROLLER"];
+    mocks.primaryRole="CONTROLLER";
+    mocks.items=[item("deleted-selection","삭제될 업무",false)];
+    const {rerender}=render(<NotificationsPage/>);
+    fireEvent.click(screen.getByText("삭제될 업무"));
+    expect(screen.getByRole("heading",{name:"사건 상태 변경"})).toBeInTheDocument();
+    mocks.replace.mockClear();
+
+    mocks.items=[];
+    rerender(<NotificationsPage/>);
+    await waitFor(()=>expect(screen.getByText("알림을 선택해 주세요")).toBeInTheDocument());
+    expect(mocks.replace).toHaveBeenCalledWith("/notifications",{scroll:false});
+  });
+
+  it("still closes selected detail on an explicit filter change",()=>{
+    mocks.roles=["CONTROLLER"];
+    mocks.primaryRole="CONTROLLER";
+    mocks.items=[item("filter-selection","필터 변경 업무",false)];
+    render(<NotificationsPage/>);
+    fireEvent.click(screen.getByText("필터 변경 업무"));
+    expect(screen.getByRole("heading",{name:"사건 상태 변경"})).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("중요도"),{target:{value:"CRITICAL"}});
+    expect(screen.getByText("알림을 선택해 주세요")).toBeInTheDocument();
+  });
+
   it("clears an older unread snapshot after all alerts are marked read",async()=>{
     mocks.roles=["CONTROLLER"];
     mocks.primaryRole="CONTROLLER";

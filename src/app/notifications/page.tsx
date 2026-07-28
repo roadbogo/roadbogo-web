@@ -234,10 +234,8 @@ function OperationsNotificationInbox() {
     if (loading) return;
     if (selectedId && !items.some(item => item.public_id === selectedId)) {
       closeMobileDetail();
-    } else if (selectedId && !pageItems.some(item => item.public_id === selectedId)) {
-      closeMobileDetail();
     }
-  }, [closeMobileDetail, items, loading, pageItems, selectedId]);
+  }, [closeMobileDetail, items, loading, selectedId]);
   useEffect(() => {
     if (!mobileDetailOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {

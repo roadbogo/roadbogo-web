@@ -138,7 +138,7 @@ export function IncidentManagementPage() {
   }, []);
   useEffect(() => { void load(query); }, [load, query]);
   useEffect(() => {
-    const sync = () => { const next = queryFromSearchParams(new URLSearchParams(window.location.search)); tabPages.current[next.tab]=next.page; setQuery(next); setSelected(new Set()); setManagement(false); setArchiveSuccess(null); };
+    const sync = () => { const next = queryFromSearchParams(new URLSearchParams(window.location.search)); tabPages.current[next.tab]=next.page; setQuery(next); setSelected(new Set()); setManagement(false); setArchiveSuccess(null); setDialog(null); setReason(""); };
     window.addEventListener("popstate", sync); return () => window.removeEventListener("popstate", sync);
   }, []);
   useEffect(() => {

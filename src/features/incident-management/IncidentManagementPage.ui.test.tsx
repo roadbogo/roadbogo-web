@@ -115,6 +115,64 @@ describe("incident management status filter",()=>{
 });
 
 describe("incident management bulk lifecycle",()=>{
+  it("closes an archive dialog and clears its reason on popstate",async()=>{
+    mocks.closedItems=[incident("dialog-archive")];
+    window.history.replaceState(null,"","/control/incidents?tab=closed");
+    render(<IncidentManagementPage/>);
+    await screen.findByText("INC-dialog-archive");
+    fireEvent.click(screen.getByRole("button",{name:"목록 관리"}));
+    fireEvent.click(screen.getByRole("checkbox",{name:"INC-dialog-archive 선택"}));
+    fireEvent.click(screen.getByRole("button",{name:"1건 보관"}));
+    fireEvent.change(screen.getByPlaceholderText("보관 사유를 입력하세요"),{target:{value:"이전 보관 사유"}});
+    expect(screen.getByRole("dialog")).toHaveTextContent("선택한 사건 1건");
+
+    window.history.pushState(null,"","/control/incidents?tab=closed&page=1");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    await waitFor(()=>expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(screen.queryByText(/선택한 사건 0건/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button",{name:"목록 관리"})).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button",{name:"목록 관리"}));
+    fireEvent.click(screen.getByRole("checkbox",{name:"INC-dialog-archive 선택"}));
+    fireEvent.click(screen.getByRole("button",{name:"1건 보관"}));
+    expect(screen.getByPlaceholderText("보관 사유를 입력하세요")).toHaveValue("");
+  });
+
+  it("closes a restore dialog and clears management selection on popstate",async()=>{
+    mocks.archivedItems=[incident("dialog-restore",true)];
+    window.history.replaceState(null,"","/control/incidents?tab=archived");
+    render(<IncidentManagementPage/>);
+    await screen.findByText("INC-dialog-restore");
+    fireEvent.click(screen.getByRole("button",{name:"목록 관리"}));
+    fireEvent.click(screen.getByRole("checkbox",{name:"INC-dialog-restore 선택"}));
+    fireEvent.click(screen.getByRole("button",{name:"1건 복원"}));
+    expect(screen.getByRole("dialog")).toHaveTextContent("선택한 사건 1건");
+
+    window.history.pushState(null,"","/control/incidents?tab=archived&page=1");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    await waitFor(()=>expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(screen.getByRole("button",{name:"목록 관리"})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button",{name:"목록 관리"}));
+    expect(screen.getByText("0건 선택됨")).toBeInTheDocument();
+  });
+
+  it("keeps the normal dialog cancel and backdrop close interactions",async()=>{
+    mocks.closedItems=[incident("dialog-close")];
+    window.history.replaceState(null,"","/control/incidents?tab=closed");
+    render(<IncidentManagementPage/>);
+    await screen.findByText("INC-dialog-close");
+    fireEvent.click(screen.getByRole("button",{name:"목록 관리"}));
+    fireEvent.click(screen.getByRole("checkbox",{name:"INC-dialog-close 선택"}));
+    fireEvent.click(screen.getByRole("button",{name:"1건 보관"}));
+    fireEvent.click(screen.getByRole("button",{name:"취소"}));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button",{name:"1건 보관"}));
+    const dialog=screen.getByRole("dialog");
+    fireEvent.mouseDown(dialog.parentElement!);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("reloads once on archive, corrects the last page, and clears success on popstate",async()=>{
     mocks.closedItems=[incident("closed-1")];
     mocks.archive.mockImplementationOnce(async(publicIds:string[])=>{
