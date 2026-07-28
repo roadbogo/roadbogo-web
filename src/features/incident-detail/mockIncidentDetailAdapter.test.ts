@@ -165,4 +165,19 @@ describe("MockIncidentDetailAdapter commands",()=>{
     expect(detail?.evidences[0]).toMatchObject({class_name:"정지 차량",original_image_url:"/images/incidents/highway-traffic-realistic.png",annotated_image_url:null});
     expect(detail?.evidences[0].bbox).not.toBeNull();
   });
+
+  it("keeps six CAM04 box evidences on the dedicated original frame with overlay coordinates",async()=>{
+    const adapter=new MockIncidentDetailAdapter();
+    const snapshot=createMockDashboardSnapshot();
+    const incident=snapshot.incidents.find(item=>item.incident_no==="INC-20260719-0007")!;
+    const detail=await adapter.get(incident.public_id);
+    expect(detail?.evidences).toHaveLength(6);
+    expect(detail?.evidences.every(item=>item.original_image_url==="/images/incidents/cam04-box-highway-v2.png"&&item.annotated_image_url===null&&JSON.stringify(item.bbox)===JSON.stringify({x:.505,y:.655,width:.06,height:.085}))).toBe(true);
+    expect(detail?.evidences.filter(item=>item.is_representative)).toHaveLength(1);
+    expect(detail?.evidences[0].is_representative).toBe(true);
+    expect(detail?.evidences.slice(1).every(item=>!item.is_representative)).toBe(true);
+    expect(detail?.evidences.slice(1).every((item,index)=>Date.parse(item.detected_at)-Date.parse(detail.evidences[index].detected_at)===1000)).toBe(true);
+    const other=await adapter.get(snapshot.incidents.find(item=>item.incident_no!==incident.incident_no)!.public_id);
+    expect(other?.evidences.some(item=>item.original_image_url==="/images/incidents/cam04-box-highway-v2.png")).toBe(false);
+  });
 });

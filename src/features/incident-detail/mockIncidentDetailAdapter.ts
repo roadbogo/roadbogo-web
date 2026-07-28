@@ -7,8 +7,11 @@ const snapshot=createMockDashboardSnapshot();
 const image="/images/incidents/fallen-object-realistic.png";
 const original="/images/incidents/cctv-highway-base.webp";
 function evidenceVisual(incident:DashboardIncident){
+ const cam04Box=incident.incident_no==="INC-20260719-0007"&&incident.class_code==="BOX";
  const stoppedVehicle=incident.class_code==="STOPPED_VEHICLE"||incident.class_name==="정지 차량";
- return stoppedVehicle
+ return cam04Box
+  ?{original_image_url:"/images/incidents/cam04-box-highway-v2.png",annotated_image_url:null,bbox:{x:.505,y:.655,width:.06,height:.085}}
+  :stoppedVehicle
   ?{original_image_url:"/images/incidents/highway-traffic-realistic.png",annotated_image_url:null,bbox:{x:.67,y:.38,width:.2,height:.28}}
   :{original_image_url:original,annotated_image_url:image,bbox:{x:.43,y:.42,width:.22,height:.25}};
 }
