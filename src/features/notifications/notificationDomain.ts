@@ -119,6 +119,32 @@ export function notificationNavigationLabel(item: Pick<NotificationViewModel, "r
   return item.target_path === "/control" ? "관제 화면 보기" : null;
 }
 
+export type ManagerQueueGroup = "immediate" | "action" | "complete";
+
+export const managerQueuePresentation: Record<ManagerQueueGroup,{label:string;description:string}> = {
+  immediate:{label:"즉시 확인",description:"신규 위험 사건의 초기 대응 상태를 확인합니다."},
+  action:{label:"조치 필요",description:"중단되거나 거절된 후속 대응을 점검합니다."},
+  complete:{label:"완료 확인",description:"현장 조치 결과와 종료 여부를 확인합니다."},
+};
+
+export function managerQueueGroup(item:Pick<NotificationViewModel,"notification_type">):ManagerQueueGroup|null {
+  if(item.notification_type==="INCIDENT_CREATED")return"immediate";
+  if(["DISPATCH_REJECTED","DISPATCH_CANCELLED"].includes(item.notification_type))return"action";
+  if(item.notification_type==="ACTION_COMPLETED")return"complete";
+  return null;
+}
+
+export const managerGuidance:Record<NotificationType,{title:string;body:string}>={
+  INCIDENT_CREATED:{title:"초기 대응 확인",body:"신규 사건의 확인 및 담당 상태를 점검해 주세요."},
+  INCIDENT_STATUS_CHANGED:{title:"상태 변경 확인",body:"사건 상태가 변경되었습니다. 현재 담당자와 다음 처리 단계를 확인해 주세요."},
+  DISPATCH_ASSIGNED:{title:"출동 상태 확인",body:"출동 요청 상태와 후속 대응 여부를 확인해 주세요."},
+  DISPATCH_ACCEPTED:{title:"진행 상황 확인",body:"출동 요청이 수락되었습니다. 현재 출동 진행 상태를 확인할 수 있습니다."},
+  DISPATCH_REJECTED:{title:"재배정 확인",body:"출동 요청이 거절되었습니다. 담당 관제자가 후속 출동 담당자를 검토해야 합니다."},
+  DISPATCH_CANCELLED:{title:"출동 상태 확인",body:"출동 요청이 취소되었습니다. 사건의 후속 대응 여부를 확인해 주세요."},
+  DISPATCH_ARRIVED:{title:"진행 상황 확인",body:"출동 담당자가 현장에 도착했습니다. 현재 조치 진행 상태를 확인할 수 있습니다."},
+  ACTION_COMPLETED:{title:"종료 확인",body:"현장 조치가 완료되었습니다. 조치 결과와 사건 종료 여부를 확인해 주세요."},
+};
+
 export type NotificationQueueGroup = "priority" | "action" | "update";
 export type NotificationSort = "newest" | "severity" | "unread";
 

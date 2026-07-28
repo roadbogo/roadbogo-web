@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AuthenticatedUser } from "@/components/auth/AuthContext";
-import { canReceiveNotification, compareNotificationPriority, deriveNotificationActionState, formatUnreadCount, hasNewUnreadNotification, notificationNavigationLabel, notificationPresentation, notificationQueueGroup, notificationStateCopy, notificationTaskCopy, resolveNotificationTarget, safeNotificationTarget, severityLabels, sortNotificationQueue } from "./notificationDomain";
+import { canReceiveNotification, compareNotificationPriority, deriveNotificationActionState, formatUnreadCount, hasNewUnreadNotification, managerGuidance, managerQueueGroup, notificationNavigationLabel, notificationPresentation, notificationQueueGroup, notificationStateCopy, notificationTaskCopy, resolveNotificationTarget, safeNotificationTarget, severityLabels, sortNotificationQueue } from "./notificationDomain";
 import type { LinkedResourceState, NotificationRecord, NotificationViewModel } from "./notificationTypes";
 import { mockDispatchPublicIds, mockIncidentPublicIds } from "@/features/mocks/mockResourceIds";
 
@@ -18,6 +18,23 @@ const notification = (type: NotificationRecord["notification_type"], resourceTyp
 describe("notification bell state",()=>{
   it("uses the unified label for HIGH without changing the severity code",()=>{expect(severityLabels.HIGH).toBe("주의");expect(notification("INCIDENT_CREATED").severity).toBe("HIGH")});
   it("detects only newly visible unread notification IDs",()=>{expect(hasNewUnreadNotification(["visible-1"],new Set())).toBe(true);expect(hasNewUnreadNotification(["visible-1"],new Set(["visible-1"]))).toBe(false);expect(hasNewUnreadNotification([],new Set(["visible-1"]))).toBe(false)});
+});
+
+describe("manager notification queue",()=>{
+  const view=(type:NotificationRecord["notification_type"])=>({
+    ...notification(type),
+    resource_label:"INC-1",action_required:true,action_label:"사건 상세 보기",reason:"UPDATE_ONLY",state_label:"상태 업데이트",evidence:null,
+  } as NotificationViewModel);
+  it("maps only verifiable notification types to one management group",()=>{
+    expect(managerQueueGroup(view("INCIDENT_CREATED"))).toBe("immediate");
+    expect(managerQueueGroup(view("DISPATCH_REJECTED"))).toBe("action");
+    expect(managerQueueGroup(view("ACTION_COMPLETED"))).toBe("complete");
+    expect(managerQueueGroup(view("INCIDENT_STATUS_CHANGED"))).toBeNull();
+  });
+  it("provides manager guidance without inventing an action endpoint",()=>{
+    expect(managerGuidance.DISPATCH_REJECTED).toEqual({title:"재배정 확인",body:expect.stringContaining("후속 출동 담당자")});
+    expect(managerGuidance.ACTION_COMPLETED.title).toBe("종료 확인");
+  });
 });
 
 describe("deriveNotificationActionState", () => {
