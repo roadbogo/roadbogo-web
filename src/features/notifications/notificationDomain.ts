@@ -127,10 +127,11 @@ export const managerQueuePresentation: Record<ManagerQueueGroup,{label:string;de
   complete:{label:"완료 확인",description:"현장 조치 결과와 종료 여부를 확인합니다."},
 };
 
-export function managerQueueGroup(item:Pick<NotificationViewModel,"notification_type">):ManagerQueueGroup|null {
-  if(item.notification_type==="INCIDENT_CREATED")return"immediate";
-  if(["DISPATCH_REJECTED","DISPATCH_CANCELLED"].includes(item.notification_type))return"action";
-  if(item.notification_type==="ACTION_COMPLETED")return"complete";
+export function managerQueueGroup(item:Pick<NotificationViewModel,"action_required"|"reason">):ManagerQueueGroup|null {
+  if(!item.action_required)return null;
+  if(item.reason==="INCIDENT_UNACKNOWLEDGED")return"immediate";
+  if(item.reason==="DISPATCH_REASSIGNMENT_REQUIRED")return"action";
+  if(item.reason==="ACTION_REVIEW_REQUIRED")return"complete";
   return null;
 }
 

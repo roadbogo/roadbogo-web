@@ -8,7 +8,7 @@ import { directionLabel, objectCategoryLabel } from "@/features/control-dashboar
 import { createIncidentManagementRepository } from "./incidentManagementRepository";
 import {
   formatDateRange, INCIDENT_PAGE_SIZE, incidentResultRange, isArchiveEligible, kstDateBoundaryToUtc, queryFromSearchParams,
-  queryToSearchParams, sortOptions, utcBoundaryToKstDate, visibleIncidentPages,
+  queryToSearchParams, sortOptions, statusForIncidentTab, utcBoundaryToKstDate, visibleIncidentPages,
 } from "./incidentManagementDomain";
 import type {
   IncidentListQuery, IncidentListResult, IncidentListTab, IncidentManagementItem, RiskFilter, StatusFilter,
@@ -173,7 +173,7 @@ export function IncidentManagementPage() {
 
   const changeTab = (tab: IncidentListTab) => {
     historyMode.current="push";
-    setQuery(current=>{tabPages.current[current.tab]=current.page;return{...current,tab,page:tabPages.current[tab],size:INCIDENT_PAGE_SIZE}});
+    setQuery(current=>{tabPages.current[current.tab]=current.page;return{...current,tab,status:statusForIncidentTab(tab,current.status),page:tabPages.current[tab],size:INCIDENT_PAGE_SIZE}});
     setManagement(false); setSelected(new Set()); setArchiveSuccess(null);
   };
   const changePage=(page:number)=>{

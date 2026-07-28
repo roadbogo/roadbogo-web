@@ -19,6 +19,10 @@ export const statusGroups: Record<Exclude<StatusFilter, "ALL">, DashboardInciden
   DONE: ["ACTION_COMPLETED", "CLOSED", "FALSE_POSITIVE"],
 };
 
+export function statusForIncidentTab(tab: IncidentListTab, status: StatusFilter): StatusFilter {
+  return tab === "active" ? status : "ALL";
+}
+
 export function isArchiveEligible(item: Pick<DashboardIncident, "status">) {
   return terminalStatuses.includes(item.status);
 }
@@ -60,7 +64,8 @@ export function filterAndSortIncidents(items: IncidentManagementItem[], query: I
     const terminal = isArchiveEligible(item);
     const tabMatch = query.tab === "archived" ? archived : query.tab === "closed" ? terminal && !archived : !terminal && !archived;
     const keywordMatch = !keyword || item.incident_no.toLocaleLowerCase("ko-KR").includes(keyword) || (item.class_name ?? "").toLocaleLowerCase("ko-KR").includes(keyword);
-    const statusMatch = query.status === "ALL" || statusGroups[query.status].includes(item.status);
+    const status = statusForIncidentTab(query.tab, query.status);
+    const statusMatch = status === "ALL" || statusGroups[status].includes(item.status);
     const riskMatch = query.risk === "ALL" || item.current_risk_grade === query.risk;
     const detected = safeTime(item.first_detected_at);
     return tabMatch && keywordMatch && statusMatch && riskMatch && detected >= from && detected <= to;
@@ -87,13 +92,15 @@ export function queryFromSearchParams(params: URLSearchParams): IncidentListQuer
   const sort = params.get("sort") as IncidentSort;
   const status = params.get("status") as StatusFilter;
   const risk = params.get("risk") as RiskFilter;
+  const validTab = validTabs.has(tab) ? tab : "active";
+  const validStatus = validStatuses.has(status) ? status : "ALL";
   return {
     page: Math.max(1, Number(params.get("page")) || 1),
     size: INCIDENT_PAGE_SIZE,
     keyword: params.get("keyword") ?? "",
-    tab: validTabs.has(tab) ? tab : "active",
+    tab: validTab,
     sort: validSorts.has(sort) ? sort : "priority,desc",
-    status: validStatuses.has(status) ? status : "ALL",
+    status: statusForIncidentTab(validTab, validStatus),
     risk: validRisks.has(risk) ? risk : "ALL",
     from: params.get("from") || undefined,
     to: params.get("to") || undefined,
@@ -102,11 +109,12 @@ export function queryFromSearchParams(params: URLSearchParams): IncidentListQuer
 
 export function queryToSearchParams(query: IncidentListQuery) {
   const params = new URLSearchParams();
+  const status = statusForIncidentTab(query.tab, query.status);
   params.set("tab", query.tab);
   params.set("page", String(query.page));
   params.set("size", String(INCIDENT_PAGE_SIZE));
   if (query.keyword) params.set("keyword", query.keyword);
-  if (query.status !== "ALL") params.set("status", query.status);
+  if (status !== "ALL") params.set("status", status);
   if (query.risk !== "ALL") params.set("risk", query.risk);
   if (query.from) params.set("from", query.from);
   if (query.to) params.set("to", query.to);

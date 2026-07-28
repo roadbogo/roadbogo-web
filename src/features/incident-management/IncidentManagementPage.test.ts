@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createMockDashboardSnapshot } from "@/features/control-dashboard/mockDashboardAdapter";
 import {
   filterAndSortIncidents, formatDateRange, incidentResultRange, isArchiveEligible, kstDateBoundaryToUtc,
-  queryFromSearchParams, queryToSearchParams, visibleIncidentPages,
+  queryFromSearchParams, queryToSearchParams, statusForIncidentTab, visibleIncidentPages,
 } from "./incidentManagementDomain";
 import { buildIncidentListApiPath, MockIncidentManagementRepository } from "./incidentManagementRepository";
 import type { IncidentListQuery, IncidentManagementItem } from "./incidentManagementTypes";
@@ -45,6 +45,17 @@ describe("incident management query", () => {
     expect(queryFromSearchParams(queryToSearchParams(query))).toEqual(query);
   });
 
+  it("clears incompatible status filters for closed and archived tabs", () => {
+    expect(statusForIncidentTab("active", "OPEN")).toBe("OPEN");
+    expect(statusForIncidentTab("closed", "OPEN")).toBe("ALL");
+    expect(statusForIncidentTab("archived", "DONE")).toBe("ALL");
+    expect(queryFromSearchParams(new URLSearchParams("tab=closed&status=OPEN&page=3"))).toMatchObject({
+      tab: "closed", status: "ALL", page: 3,
+    });
+    expect(queryToSearchParams({ ...baseQuery, tab: "closed", status: "OPEN" }).has("status")).toBe(false);
+    expect(buildIncidentListApiPath({ ...baseQuery, tab: "closed", status: "OPEN" })).toContain("status=CLOSED%2CFALSE_POSITIVE");
+  });
+
   it.each([
     [4,1,[1,2,3,4]],
     [5,1,[1,2,3,4,5]],
@@ -74,6 +85,13 @@ describe("incident management query", () => {
 });
 
 describe("incident archive capabilities", () => {
+  it("uses the same closed-tab meaning in Mock and API repositories", async () => {
+    const repository = new MockIncidentManagementRepository();
+    const result = await repository.list({ ...baseQuery, tab: "closed", status: "OPEN" });
+    expect(result.items.length).toBeGreaterThan(0);
+    expect(result.items.every(isArchiveEligible)).toBe(true);
+  });
+
   it.each([0,1,9,10,11,38,47,50,51,83])("paginates %i Mock incidents after filtering with a fixed size of ten",async(total)=>{
     const template=items().find(item=>!isArchiveEligible(item))!;
     const fixtures=Array.from({length:total},(_,index)=>({

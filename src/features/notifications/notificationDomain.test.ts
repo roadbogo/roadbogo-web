@@ -21,15 +21,17 @@ describe("notification bell state",()=>{
 });
 
 describe("manager notification queue",()=>{
-  const view=(type:NotificationRecord["notification_type"])=>({
+  const view=(type:NotificationRecord["notification_type"],reason:NotificationViewModel["reason"],actionRequired=true)=>({
     ...notification(type),
-    resource_label:"INC-1",action_required:true,action_label:"사건 상세 보기",reason:"UPDATE_ONLY",state_label:"상태 업데이트",evidence:null,
+    resource_label:"INC-1",action_required:actionRequired,action_label:"사건 상세 보기",reason,state_label:"상태 업데이트",evidence:null,
   } as NotificationViewModel);
-  it("maps only verifiable notification types to one management group",()=>{
-    expect(managerQueueGroup(view("INCIDENT_CREATED"))).toBe("immediate");
-    expect(managerQueueGroup(view("DISPATCH_REJECTED"))).toBe("action");
-    expect(managerQueueGroup(view("ACTION_COMPLETED"))).toBe("complete");
-    expect(managerQueueGroup(view("INCIDENT_STATUS_CHANGED"))).toBeNull();
+  it("maps only currently actionable reasons to one management group",()=>{
+    expect(managerQueueGroup(view("INCIDENT_CREATED","INCIDENT_UNACKNOWLEDGED"))).toBe("immediate");
+    expect(managerQueueGroup(view("DISPATCH_REJECTED","DISPATCH_REASSIGNMENT_REQUIRED"))).toBe("action");
+    expect(managerQueueGroup(view("ACTION_COMPLETED","ACTION_REVIEW_REQUIRED"))).toBe("complete");
+    expect(managerQueueGroup(view("INCIDENT_CREATED","INCIDENT_PROCESSED",false))).toBeNull();
+    expect(managerQueueGroup(view("DISPATCH_CANCELLED","UPDATE_ONLY",false))).toBeNull();
+    expect(managerQueueGroup(view("ACTION_COMPLETED","INCIDENT_PROCESSED",false))).toBeNull();
   });
   it("provides manager guidance without inventing an action endpoint",()=>{
     expect(managerGuidance.DISPATCH_REJECTED).toEqual({title:"재배정 확인",body:expect.stringContaining("후속 출동 담당자")});

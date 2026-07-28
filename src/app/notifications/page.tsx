@@ -149,7 +149,7 @@ function OperationsNotificationInbox() {
   const { items, unreadCount, actionCount, loading, error, refresh, markRead, markAllRead, targetFor } = useNotifications();
   const params = useSearchParams();
   const router = useRouter();
-  const manager=user?.role==="CONTROL_MANAGER";
+  const manager=user?.roles.includes("CONTROL_MANAGER")??false;
   const roleViews=manager?managerViews:controllerViews;
   const requested = params.get("tab") as View | null;
   const defaultView: View = manager?"queue":user?.role === "SYSTEM_ADMIN" ? "all" : "action";
@@ -164,7 +164,7 @@ function OperationsNotificationInbox() {
   const [selectedId, setSelectedId] = useState<string | null>(params.get("selected"));
   const [mobileDetailOpen, setMobileDetailOpen] = useState(Boolean(params.get("selected")));
   const [page, setPage] = useState(0);
-  const [frozenPageIds, setFrozenPageIds] = useState<string[] | null>(null);
+  const [frozenListIds, setFrozenListIds] = useState<string[] | null>(null);
   const [pendingNewCount, setPendingNewCount] = useState(0);
   const previousItemIds = useRef<Set<string> | null>(null);
   const queueListRef = useRef<HTMLDivElement>(null);
@@ -201,13 +201,20 @@ function OperationsNotificationInbox() {
     return sortNotificationQueue(matching, sort);
   }, [items, severity, sort, type, view]);
   const managerGroups=useMemo(()=>manager?(["immediate","action","complete"] as ManagerQueueGroup[]).map(group=>({group,items:filtered.filter(item=>managerQueueGroup(item)===group)})).filter(entry=>entry.items.length):[],[filtered,manager]);
+  const historicalListIds=useMemo(()=>{
+    if(page===0||!frozenListIds)return null;
+    const currentIds=new Set(items.map(item=>item.public_id));
+    return frozenListIds.filter(id=>currentIds.has(id));
+  },[frozenListIds,items,page]);
+  const listTotal=historicalListIds?.length??filtered.length;
   const pageItems = useMemo(() => {
-    if (page > 0 && frozenPageIds) {
-      const byId = new Map(items.map(item => [item.public_id, item]));
-      return frozenPageIds.map(id => byId.get(id)).filter((item): item is NotificationViewModel => Boolean(item));
-    }
-    return filtered.slice(0, NOTIFICATION_PAGE_SIZE);
-  }, [filtered, frozenPageIds, items, page]);
+    if (!historicalListIds) return filtered.slice(0, NOTIFICATION_PAGE_SIZE);
+    const byId = new Map(items.map(item => [item.public_id, item]));
+    return historicalListIds
+      .slice(page * NOTIFICATION_PAGE_SIZE, (page + 1) * NOTIFICATION_PAGE_SIZE)
+      .map(id => byId.get(id))
+      .filter((item): item is NotificationViewModel => Boolean(item));
+  }, [filtered, historicalListIds, items, page]);
   const selected = useMemo(() => selectedId ? items.find(item => item.public_id === selectedId) ?? null : null, [items, selectedId]);
 
   useEffect(() => {
@@ -240,7 +247,7 @@ function OperationsNotificationInbox() {
   const selectView = (next: View) => {
     setView(next);
     setPage(0);
-    setFrozenPageIds(null);
+    setFrozenListIds(null);
     setPendingNewCount(0);
     setSelectedId(null);
     setMobileDetailOpen(false);
@@ -248,16 +255,18 @@ function OperationsNotificationInbox() {
   };
   const resetListPosition = () => {
     setPage(0);
-    setFrozenPageIds(null);
+    setFrozenListIds(null);
     setPendingNewCount(0);
     setSelectedId(null);
     setMobileDetailOpen(false);
     if (queueListRef.current) queueListRef.current.scrollTop = 0;
   };
   const changePage = (nextPage: number) => {
-    const next = Math.max(0, Math.min(nextPage, Math.max(0, Math.ceil(filtered.length / NOTIFICATION_PAGE_SIZE) - 1)));
+    const snapshotIds=frozenListIds??filtered.map(item=>item.public_id);
+    const total=historicalListIds?.length??filtered.length;
+    const next = Math.max(0, Math.min(nextPage, Math.max(0, Math.ceil(total / NOTIFICATION_PAGE_SIZE) - 1)));
     setPage(next);
-    setFrozenPageIds(next === 0 ? null : filtered.slice(next * NOTIFICATION_PAGE_SIZE, (next + 1) * NOTIFICATION_PAGE_SIZE).map(item => item.public_id));
+    setFrozenListIds(next === 0 ? null : snapshotIds);
     if (next === 0) setPendingNewCount(0);
     setSelectedId(null);
     setMobileDetailOpen(false);
@@ -265,14 +274,14 @@ function OperationsNotificationInbox() {
     if (queueListRef.current) queueListRef.current.scrollTop = 0;
   };
   useEffect(() => {
-    if (page <= Math.max(0, Math.ceil(filtered.length / NOTIFICATION_PAGE_SIZE) - 1)) return;
+    if (page <= Math.max(0, Math.ceil(listTotal / NOTIFICATION_PAGE_SIZE) - 1)) return;
     setPage(0);
-    setFrozenPageIds(null);
+    setFrozenListIds(null);
     setPendingNewCount(0);
     setSelectedId(null);
     setMobileDetailOpen(false);
     if (queueListRef.current) queueListRef.current.scrollTop = 0;
-  }, [filtered.length, page]);
+  }, [listTotal, page]);
   const onTabKey = (event: React.KeyboardEvent<HTMLButtonElement>) => {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
     event.preventDefault();
@@ -327,7 +336,7 @@ function OperationsNotificationInbox() {
                       <span className={`${styles.typeIcon} ${styles[`severity${item.severity}`]}`}><NotificationTypeIcon kind={presentation.icon} /></span>
                       <span className={styles.queueCopy}><span className={styles.queueTitle}><strong>{item.title}</strong><time dateTime={item.created_at} title={formatExactKst(item.created_at)}>{formatRelativeTime(item.created_at)}</time></span><span className={styles.queueBody}>{item.body}</span><span className={styles.queueMeta}>{manager&&view==="queue"&&managerQueueGroup(item)&&<b data-manager-group={managerQueueGroup(item)!}>{managerQueuePresentation[managerQueueGroup(item)!].label}</b>}<b>{severityLabels[item.severity]}</b><span>{item.resource_label}</span><strong>{notificationStateCopy(item)}</strong><em>{item.read ? "읽음" : "읽지 않음"}</em></span><span className={styles.srState}>{item.read ? "읽음" : "읽지 않음"}</span></span>
                     </button></li>;
-                  })}</ul>{filtered.length>5&&<NotificationPager total={filtered.length} page={page} onPage={changePage}/>}</>}
+                  })}</ul>{listTotal>5&&<NotificationPager total={listTotal} page={page} onPage={changePage}/>}</>}
             </div>
           </div>
           <NotificationDetail item={selected} onNavigate={navigate} onClose={closeMobileDetail} mobile={mobileDetailOpen} manager={manager} />
