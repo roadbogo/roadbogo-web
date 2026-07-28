@@ -69,7 +69,7 @@ export default function LoginPage() {
       <div className={styles.authContent}>
       <header className={styles.heading} data-login-heading><p>{current.eyebrow}</p><h2><span>{current.title}</span></h2><span>{current.description}</span></header>
       {registered && intent === "general" && <p className={styles.registrationNotice} role="status">회원가입이 완료되었습니다.<br/>등록한 이메일과 비밀번호로 로그인해 주세요.</p>}
-      <LoginForm intent={intent} />
+      <LoginForm key={intent} intent={intent} />
       <section className={`${styles.accountGuidance} ${intent === "operations" ? styles.accountGuidanceOperations : styles.accountGuidanceGeneral}`} aria-labelledby="account-guidance-title">
         <div>
           {intent === "operations" ? <>
