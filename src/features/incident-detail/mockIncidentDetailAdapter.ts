@@ -91,8 +91,8 @@ export class MockIncidentDetailAdapter implements IncidentDetailAdapter{
     const requestMessage=request.request_message?.trim()||null;
     const dispatch={public_id:crypto.randomUUID(),incident_public_id:request.incident_public_id,status:"REQUESTED" as const,responder_public_id:responder.public_id,responder_label:responder.display_name,requested_at:now,updated_at:now};
     const incident={...current.incident,status:"DISPATCH_REQUESTED" as const,version_no:current.incident.version_no+1,updated_at:now};
-    const historyDetail=`${responder.display_name}${requestMessage?` · ${requestMessage}`:""}`;
-    const updated={...current,incident,dispatch,histories:appendHistory(current,{label:"출동 담당자 배정",actorName:current.incident.assigned_controller?.display_name??"관제 담당자",occurredAt:now,detail:historyDetail}),request_message:requestMessage};
+    const historyDetail=`배정 대상: ${responder.display_name}${requestMessage?` · ${requestMessage}`:""}`;
+    const updated={...current,incident,dispatch,histories:appendHistory(current,{label:"출동 담당자 배정",actorName:current.incident.assigned_controller?.display_name??"시스템",occurredAt:now,detail:historyDetail}),request_message:requestMessage};
     records.set(request.incident_public_id,updated);
     updateMockIncidentRuntime(request.incident_public_id,{status:incident.status,version_no:incident.version_no,updated_at:now});
     updateMockDispatchRuntime(dispatch);
@@ -114,9 +114,12 @@ export class MockIncidentDetailAdapter implements IncidentDetailAdapter{
   async updateMemo(request:IncidentMemoUpdateRequest){
     const current=records.get(request.incident_public_id),content=request.content;
     if(!current)throw new Error("INCIDENT_NOT_FOUND");
+    if(current.incident.status!=="UNDER_REVIEW")throw new Error("INCIDENT_INVALID_STATE_TRANSITION");
+    if(current.incident.assigned_controller?.public_id!==request.actor_public_id)throw new Error("INCIDENT_NOT_ASSIGNED_CONTROLLER");
     const memo=current.memos.find(item=>item.public_id===request.memo_public_id);
     if(!memo)throw new Error("INCIDENT_MEMO_NOT_FOUND");
     if(memo.deleted_at)throw new Error("INCIDENT_MEMO_DELETED");
+    if(!request.actor_permissions.includes("INCIDENT.DECIDE"))throw new Error("AUTH_PERMISSION_DENIED");
     if(memo.created_by.public_id!==request.actor_public_id)throw new Error("AUTH_PERMISSION_DENIED");
     if(!content.trim()||content.length>2000||!["GENERAL","REVIEW","DISPATCH","CLOSURE"].includes(request.memo_type))throw new Error("COMMON_VALIDATION_ERROR");
     const now=new Date().toISOString();
@@ -127,9 +130,12 @@ export class MockIncidentDetailAdapter implements IncidentDetailAdapter{
   async deleteMemo(request:IncidentMemoDeleteRequest){
     const current=records.get(request.incident_public_id),reason=request.reason.trim();
     if(!current)throw new Error("INCIDENT_NOT_FOUND");
+    if(current.incident.status!=="UNDER_REVIEW")throw new Error("INCIDENT_INVALID_STATE_TRANSITION");
+    if(current.incident.assigned_controller?.public_id!==request.actor_public_id)throw new Error("INCIDENT_NOT_ASSIGNED_CONTROLLER");
     const memo=current.memos.find(item=>item.public_id===request.memo_public_id);
     if(!memo)throw new Error("INCIDENT_MEMO_NOT_FOUND");
-    if(memo.deleted_at)return structuredClone(memo);
+    if(memo.deleted_at)throw new Error("INCIDENT_MEMO_DELETED");
+    if(!request.actor_permissions.includes("INCIDENT.DECIDE"))throw new Error("AUTH_PERMISSION_DENIED");
     if(memo.created_by.public_id!==request.actor_public_id)throw new Error("AUTH_PERMISSION_DENIED");
     if(!reason||reason.length>500)throw new Error("COMMON_VALIDATION_ERROR");
     const deleted={...memo,deleted_at:new Date().toISOString(),deleted_by:{public_id:request.actor_public_id,user_name:request.actor_name},delete_reason:reason};

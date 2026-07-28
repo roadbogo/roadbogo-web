@@ -64,8 +64,9 @@ describe("incident memo mock adapter", () => {
     const target=createMockDashboardSnapshot().incidents.find(item=>item.status==="UNDER_REVIEW" && item.assigned_controller)!;
     const adapter=new MockIncidentDetailAdapter();
     const actor={actor_public_id:target.assigned_controller!.public_id,actor_name:target.assigned_controller!.display_name};
+    const mutationActor={...actor,actor_permissions:["INCIDENT.DECIDE"]};
     const created=await adapter.createMemo({incident_public_id:target.public_id,memo_type:"REVIEW",content:"최초 검토 내용",...actor});
-    const revised=await adapter.updateMemo({incident_public_id:target.public_id,memo_public_id:created.public_id,memo_type:"DISPATCH",content:"출동 전달 내용으로 정정",...actor});
+    const revised=await adapter.updateMemo({incident_public_id:target.public_id,memo_public_id:created.public_id,memo_type:"DISPATCH",content:"출동 전달 내용으로 정정",...mutationActor});
 
     expect(revised).toMatchObject({
       public_id:created.public_id,
@@ -83,13 +84,14 @@ describe("incident memo mock adapter", () => {
       content:"다른 사용자의 변경",
       actor_public_id:"other-controller",
       actor_name:"다른 관제자",
-    })).rejects.toThrow("AUTH_PERMISSION_DENIED");
+      actor_permissions:["INCIDENT.DECIDE"],
+    })).rejects.toThrow("INCIDENT_NOT_ASSIGNED_CONTROLLER");
 
     const deleted=await adapter.deleteMemo({
       incident_public_id:target.public_id,
       memo_public_id:created.public_id,
       reason:"중복 기록",
-      ...actor,
+      ...mutationActor,
     });
     expect(deleted).toMatchObject({
       public_id:created.public_id,
@@ -103,5 +105,35 @@ describe("incident memo mock adapter", () => {
       deleted_at:deleted.deleted_at,
       delete_reason:"중복 기록",
     });
+    await expect(adapter.deleteMemo({
+      incident_public_id:target.public_id,
+      memo_public_id:created.public_id,
+      reason:"다시 삭제",
+      ...mutationActor,
+    })).rejects.toThrow("INCIDENT_MEMO_DELETED");
+  });
+
+  it("rechecks review state, current assignment, and decision permission for mutations",async()=>{
+    const adapter=new MockIncidentDetailAdapter();
+    const snapshot=createMockDashboardSnapshot();
+    const reviewing=snapshot.incidents.find(item=>item.status==="UNDER_REVIEW"&&item.assigned_controller)!;
+    const record=await adapter.get(reviewing.public_id);
+    const memo=record!.memos.find(item=>!item.deleted_at)!;
+    const base={incident_public_id:reviewing.public_id,memo_public_id:memo.public_id,actor_public_id:reviewing.assigned_controller!.public_id,actor_name:reviewing.assigned_controller!.display_name};
+    await expect(adapter.updateMemo({...base,memo_type:"REVIEW",content:"권한 없음",actor_permissions:[]})).rejects.toThrow("AUTH_PERMISSION_DENIED");
+    await expect(adapter.deleteMemo({...base,reason:"다른 담당자",actor_public_id:"other-controller",actor_permissions:["INCIDENT.DECIDE"]})).rejects.toThrow("INCIDENT_NOT_ASSIGNED_CONTROLLER");
+
+    const closed=snapshot.incidents.find(item=>item.status==="CLOSED"&&item.assigned_controller)!;
+    const closedRecord=await adapter.get(closed.public_id);
+    const closedMemo=closedRecord!.memos[0];
+    await expect(adapter.updateMemo({
+      incident_public_id:closed.public_id,
+      memo_public_id:closedMemo.public_id,
+      memo_type:"REVIEW",
+      content:"종료 후 변경",
+      actor_public_id:closed.assigned_controller!.public_id,
+      actor_name:closed.assigned_controller!.display_name,
+      actor_permissions:["INCIDENT.DECIDE"],
+    })).rejects.toThrow("INCIDENT_INVALID_STATE_TRANSITION");
   });
 });

@@ -11,8 +11,8 @@ export interface IncidentMemoActor{public_id:string;user_name:string}
 export interface IncidentMemoRevision{memo_type:IncidentMemoType;content:string;revised_at:string;revised_by:IncidentMemoActor}
 export interface IncidentMemo{public_id:string;incident_public_id:string;memo_type:IncidentMemoType;content:string;created_by:IncidentMemoActor;created_at:string;updated_at?:string|null;deleted_at?:string|null;deleted_by?:IncidentMemoActor|null;delete_reason?:string|null;revisions?:IncidentMemoRevision[]}
 export interface IncidentMemoRequest {incident_public_id:string;memo_type:IncidentMemoType;content:string;actor_public_id:string;actor_name:string}
-export interface IncidentMemoUpdateRequest extends IncidentMemoRequest{memo_public_id:string}
-export interface IncidentMemoDeleteRequest{incident_public_id:string;memo_public_id:string;reason:string;actor_public_id:string;actor_name:string}
+export interface IncidentMemoUpdateRequest extends IncidentMemoRequest{memo_public_id:string;actor_permissions:string[]}
+export interface IncidentMemoDeleteRequest{incident_public_id:string;memo_public_id:string;reason:string;actor_public_id:string;actor_name:string;actor_permissions:string[]}
 export interface FieldAction {action_type:string;detail:string;before_image_url:string|null;after_image_url:string|null;completed_at:string}
 export interface IncidentDetailRecord {
   incident:DashboardIncident;cctv:DashboardCctv;evidences:IncidentEvidence[];dispatch:DashboardDispatch|null;

@@ -170,4 +170,26 @@ describe("사건 기록 탭", () => {
     expect(screen.getByRole("dialog", { name: "관제 메모 작성" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "검토 기록" })).toHaveAttribute("aria-checked", "true");
   });
+
+  it("shows completed incidents as finished instead of exposing a current stage",()=>{
+    const record=recordFixture();
+    record.incident.status="CLOSED";
+    render(<DetailTabs record={record} user={null} currentTask={<p>현재 업무 내용</p>} onMemoChanged={vi.fn()} onRefresh={vi.fn().mockResolvedValue(true)} onNotify={vi.fn()}/>);
+    expect(screen.getAllByText("업무 완료")).toHaveLength(2);
+    expect(screen.getByText("사건 처리 완료")).toBeInTheDocument();
+    expect(screen.queryByText(/현재 단계 \d/)).not.toBeInTheDocument();
+  });
+
+  it("hides memo mutation menus when the incident is no longer under review",()=>{
+    const record=recordFixture();
+    record.incident.status="CLOSED";
+    record.incident.assigned_controller={public_id:"me",display_name:"김관제"};
+    record.memos=[{public_id:"memo",incident_public_id:record.incident.public_id,memo_type:"REVIEW",content:"읽기 전용 기록",created_by:{public_id:"me",user_name:"김관제"},created_at:"2026-07-20T00:00:00Z"}];
+    const user={publicId:"me",name:"김관제",apiPermissions:["INCIDENT.DECIDE"]} as AuthenticatedUser;
+    render(<DetailTabs record={record} user={user} currentTask={<p>완료</p>} onMemoChanged={vi.fn()} onRefresh={vi.fn().mockResolvedValue(true)} onNotify={vi.fn()} memoCapabilities={{write:true,mutation:true}}/>);
+    fireEvent.click(screen.getByRole("tab",{name:/전체 기록/}));
+    fireEvent.click(screen.getByRole("button",{name:"메모"}));
+    expect(screen.getByText("읽기 전용 기록")).toBeInTheDocument();
+    expect(screen.queryByRole("button",{name:/메모 메뉴/})).not.toBeInTheDocument();
+  });
 });

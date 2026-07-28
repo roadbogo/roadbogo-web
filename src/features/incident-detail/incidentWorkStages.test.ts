@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createMockDashboardSnapshot } from "@/features/control-dashboard/mockDashboardAdapter";
 import { createMockIncidentDetailRecord } from "./mockIncidentDetailAdapter";
-import { getIncidentWorkStages, incidentWorkStageFlow } from "./incidentWorkStages";
+import { currentIncidentWorkStage, getIncidentWorkStages, incidentWorkStageFlow } from "./incidentWorkStages";
 import type { IncidentDetailRecord } from "./incidentDetailTypes";
 
 function record(status: IncidentDetailRecord["incident"]["status"]) {
@@ -16,7 +16,7 @@ describe("incident work stage view model", () => {
     ["NEW", "사건 확인"],
     ["ACKNOWLEDGED", "담당 지정"],
     ["CLAIMED", "검토"],
-    ["UNDER_REVIEW", "검토"],
+    ["UNDER_REVIEW", "판정"],
     ["DISPATCH_REQUESTED", "출동"],
     ["ON_SCENE", "현장 조치"],
     ["ACTION_IN_PROGRESS", "현장 조치"],
@@ -30,6 +30,15 @@ describe("incident work stage view model", () => {
     expect(stages.find((stage) => stage.id === "dispatch")?.state).toBe("skipped");
     expect(stages.find((stage) => stage.id === "field")?.state).toBe("skipped");
     expect(stages.find((stage) => stage.id === "close")?.state).toBe("done");
+    expect(currentIncidentWorkStage(stages)).toBeNull();
+    expect(incidentWorkStageFlow(stages)).toBe("모든 사건 처리 단계가 완료되었습니다.");
+  });
+
+  it("marks closed incidents as completed instead of forcing the last stage to current",()=>{
+    const stages=getIncidentWorkStages(record("CLOSED"));
+    expect(currentIncidentWorkStage(stages)).toBeNull();
+    expect(stages.every(stage=>stage.state==="done"||stage.state==="skipped")).toBe(true);
+    expect(incidentWorkStageFlow(stages)).toBe("모든 사건 처리 단계가 완료되었습니다.");
   });
 
   it("only exposes history data already present on the detail record", () => {
@@ -45,6 +54,7 @@ describe("incident work stage view model", () => {
     expect(acknowledged.find(stage=>stage.state==="current")?.actionLabel).toBe("담당 관제자 지정");
     expect(incidentWorkStageFlow(acknowledged)).toBe("사건 확인 완료 · 다음 단계 검토");
     expect(incidentWorkStageFlow(getIncidentWorkStages(record("NEW")))).toBe("다음 단계 담당 지정");
+    expect(incidentWorkStageFlow(getIncidentWorkStages(record("UNDER_REVIEW")))).toBe("검토 완료 · 판정 결과에 따라 출동 또는 종료");
     expect(incidentWorkStageFlow(getIncidentWorkStages(record("ACTION_COMPLETED")))).toBe("현장 조치 완료 · 최종 종료 단계");
   });
 });

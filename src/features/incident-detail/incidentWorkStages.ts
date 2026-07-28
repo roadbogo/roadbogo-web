@@ -38,7 +38,7 @@ const statesByStatus: Record<IncidentStatus, IncidentWorkStageState[]> = {
   NEW: ["current", "pending", "pending", "pending", "pending", "pending", "pending"],
   ACKNOWLEDGED: ["done", "current", "pending", "pending", "pending", "pending", "pending"],
   CLAIMED: ["done", "done", "current", "pending", "pending", "pending", "pending"],
-  UNDER_REVIEW: ["done", "done", "current", "pending", "pending", "pending", "pending"],
+  UNDER_REVIEW: ["done", "done", "done", "current", "pending", "pending", "pending"],
   DISPATCH_REQUESTED: ["done", "done", "done", "done", "current", "pending", "pending"],
   DISPATCHED: ["done", "done", "done", "done", "current", "pending", "pending"],
   ON_SCENE: ["done", "done", "done", "done", "done", "current", "pending"],
@@ -74,14 +74,16 @@ export function getIncidentWorkStages(record: IncidentDetailRecord): IncidentWor
 }
 
 export function currentIncidentWorkStage(stages: IncidentWorkStage[]) {
-  return stages.find((stage) => stage.state === "current") ?? stages.at(-1);
+  return stages.find((stage) => stage.state === "current") ?? null;
 }
 
 export function incidentWorkStageFlow(stages:IncidentWorkStage[]){
   const current=currentIncidentWorkStage(stages);
+  if(!current)return "모든 사건 처리 단계가 완료되었습니다.";
   const index=Math.max(0,stages.findIndex(stage=>stage===current));
   const previous=stages.slice(0,index).reverse().find(stage=>stage.state==="done");
   const next=stages.slice(index+1).find(stage=>stage.state==="pending"||stage.state==="current");
+  if(current.id==="decision"&&previous)return `${previous.label} 완료 · 판정 결과에 따라 출동 또는 종료`;
   if(previous&&next)return `${previous.label} 완료 · 다음 단계 ${next.label}`;
   if(next)return `다음 단계 ${next.label}`;
   if(previous)return `${previous.label} 완료 · 최종 종료 단계`;

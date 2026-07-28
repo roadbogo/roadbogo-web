@@ -81,7 +81,7 @@ describe("MockIncidentDetailAdapter commands",()=>{
     if(!result.ok)throw new Error("mock dispatch assignment failed");
     expect(result.record?.dispatch?.public_id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
     expect(result.record?.histories).toHaveLength(historyCount+1);
-    expect(result.record?.histories.at(-1)).toMatchObject({label:"출동 담당자 배정",detail:`${responder.display_name} · 현장 확인 요청`});
+    expect(result.record?.histories.at(-1)).toMatchObject({label:"출동 담당자 배정",detail:`배정 대상: ${responder.display_name} · 현장 확인 요청`});
     expect((await adapter.get(candidate.public_id))?.dispatch).toMatchObject({responder_public_id:responder.public_id,status:"REQUESTED"});
     expect((await adapter.get(candidate.public_id))?.histories.at(-1)).toMatchObject({label:"출동 담당자 배정"});
     expect(createMockDashboardSnapshot().dispatches.find(dispatch=>dispatch.incident_public_id===candidate.public_id)).toMatchObject({responder_public_id:responder.public_id,responder_label:responder.display_name,status:"REQUESTED"});

@@ -1,3 +1,4 @@
+import { dispatchStatusLabel } from "@/features/control-dashboard/dashboardDomain";
 import type { DashboardIncident, IncidentStatus } from "@/features/control-dashboard/dashboardTypes";
 import type { IncidentCommandAction, IncidentDetailRecord, IncidentEvidence, IncidentHistory, IncidentMemo, IncidentMemoType, IncidentWorkspaceMode } from "./incidentDetailTypes";
 
@@ -11,8 +12,19 @@ export function buildIncidentTimeline(record:IncidentDetailRecord):IncidentTimel
     ...record.memos.map(item=>({id:`memo:${item.public_id}`,occurredAt:item.deleted_at??item.updated_at??item.created_at,title:item.deleted_at?"관제 메모 삭제":item.updated_at?"관제 메모 정정":"관제 메모 등록",detail:item.deleted_at?item.delete_reason??"삭제된 메모입니다":item.content,actor:item.deleted_at?item.deleted_by?.user_name??"사용자":item.created_by.user_name,type:"메모" as const})),
   ];
   if(record.dispatch){
-    entries.push({id:`dispatch:${record.dispatch.public_id}:requested`,occurredAt:record.dispatch.requested_at,title:"출동 요청 생성",detail:record.request_message,actor:record.dispatch.responder_label,type:"출동"});
-    if(record.dispatch.updated_at!==record.dispatch.requested_at)entries.push({id:`dispatch:${record.dispatch.public_id}:updated`,occurredAt:record.dispatch.updated_at,title:`출동 상태 · ${record.dispatch.status}`,detail:null,actor:record.dispatch.responder_label,type:"출동"});
+    const hasAssignmentHistory=record.histories.some(item=>/출동 (담당자 )?배정|출동 요청 생성/.test(item.label));
+    const statusLabel=dispatchStatusLabel[record.dispatch.status];
+    const hasStatusHistory=record.histories.some(item=>
+      item.occurred_at===record.dispatch?.updated_at &&
+      (item.label.includes("출동 상태")||item.label.includes(statusLabel)),
+    );
+    if(!hasAssignmentHistory){
+      const detail=[`배정 대상: ${record.dispatch.responder_label}`,record.request_message].filter(Boolean).join(" · ");
+      entries.push({id:`dispatch:${record.dispatch.public_id}:requested`,occurredAt:record.dispatch.requested_at,title:"출동 요청 생성",detail,actor:"시스템",type:"출동"});
+    }
+    if(record.dispatch.updated_at!==record.dispatch.requested_at&&!hasStatusHistory){
+      entries.push({id:`dispatch:${record.dispatch.public_id}:updated`,occurredAt:record.dispatch.updated_at,title:`출동 상태 · ${statusLabel}`,detail:null,actor:"시스템",type:"출동"});
+    }
   }
   return entries.filter(item=>Number.isFinite(Date.parse(item.occurredAt))).sort((a,b)=>Date.parse(b.occurredAt)-Date.parse(a.occurredAt)||a.id.localeCompare(b.id));
 }
@@ -27,6 +39,20 @@ export function resolveMemoAvailability(incident:DashboardIncident,user:{public_
   if(incident.status!=="UNDER_REVIEW")return{allowed:false,reason:"현재 사건 상태에서는 메모를 작성할 수 없습니다"};
   if(!incident.assigned_controller)return{allowed:false,reason:"담당 관제자만 메모를 작성할 수 있습니다"};
   return{allowed:true,reason:"관제 메모를 작성할 수 있습니다"};
+}
+
+export function canMutateIncidentMemo(
+  incident:DashboardIncident,
+  memo:IncidentMemo,
+  user:{public_id:string;permissions:string[]},
+  supportsMutation:boolean,
+){
+  return supportsMutation &&
+    incident.status==="UNDER_REVIEW" &&
+    incident.assigned_controller?.public_id===user.public_id &&
+    user.permissions.includes("INCIDENT.DECIDE") &&
+    memo.created_by.public_id===user.public_id &&
+    !memo.deleted_at;
 }
 
 export const incidentMemoTypes:IncidentMemoType[]=["GENERAL","REVIEW","DISPATCH","CLOSURE"];
