@@ -40,11 +40,10 @@ describe("authenticated sidebar menus",()=>{
     expect(new Set(items.map(item=>item.id)).size).toBe(items.length);
   });
 
-  it("uses the primary role to choose the system administrator navigation",()=>{
+  it("does not expose system administration to a non-admin primary role",()=>{
     const items=getAuthenticatedSidebarMenus(user("CONTROLLER",["CCTV.READ","INCIDENT.READ_ALL","USER.READ_ALL"],["CONTROLLER","SYSTEM_ADMIN"]));
     expect(items.find(item=>item.id==="control")?.label).toBe("실시간 관제");
-    expect(items.find(item=>item.id==="admin")?.label).toBe("시스템 관리");
-    expect(items.find(item=>item.id==="admin")?.section).toBe("운영 메뉴");
+    expect(items.find(item=>item.id==="admin")).toBeUndefined();
   });
 });
 

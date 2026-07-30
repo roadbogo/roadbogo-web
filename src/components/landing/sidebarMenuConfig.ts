@@ -91,7 +91,6 @@ export function getAuthenticatedSidebarMenus(user: NavigationUser): SidebarMenuI
   if (canAccessControl(user)&&hasAny("INCIDENT.READ_ALL","INCIDENT.CLAIM","INCIDENT.DECIDE")) menus.push({ id:"incidents",label:"사건 관리",description:"사건 목록과 처리 현황",href:"/control/incidents",activePaths:["/control/incidents"],icon:"incidents",roles:allSidebarRoles,section:"운영 메뉴" });
   if (user.roles.includes("RESPONDER")&&hasAny("DISPATCH.READ_OWN")) menus.push({ id:"dispatch",label:"내 출동 요청",description:"배정된 출동 업무 확인",href:"/dispatch",activePaths:["/dispatch"],icon:"dispatch",roles:allSidebarRoles,section:"운영 메뉴" });
   if (user.roles.some(role=>role!=="GENERAL_USER")&&hasAny("NOTIFICATION.READ_OWN")) menus.push({ id:"notifications",label:"업무 알림",description:"사건과 출동 알림",href:"/notifications",activePaths:["/notifications"],icon:"bell",roles:allSidebarRoles,section:"운영 메뉴" });
-  if (hasAny("USER.READ_ALL","USER.WRITE","ROLE.MANAGE")) menus.push({ id:"admin",label:"시스템 관리",description:"사용자와 역할 관리",href:"/admin",activePaths:["/admin"],icon:"admin",roles:allSidebarRoles,section:"운영 메뉴" });
   menus.push(authenticatedAccount);
   return menus;
 }

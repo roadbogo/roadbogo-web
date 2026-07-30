@@ -9,7 +9,7 @@ export type ResponderProfile={responderCode:string;dutyStatus:ResponderDutyStatu
 export type ManagedUser={
   publicId:string;email:string;userName:string;phone:string|null;accountStatus:AccountStatus;
   organization:OrganizationOption|null;roles:UserRole[];lastLoginAt:string|null;createdAt:string;updatedAt:string;
-  changes:UserChange[];responderProfile?:ResponderProfile|null;deactivatedAt?:string|null;activeAssignments?:number;
+  changes:UserChange[];responderProfile?:ResponderProfile|null;deactivatedAt?:string|null;deletedAt?:string|null;activeAssignments?:number;
 };
 export type CreateAdminUserInput={email:string;password:string;userName:string;phone?:string;organizationPublicId:string;roles:UserRole[];responderProfile?:Omit<ResponderProfile,"linked">};
 export type UpdateAdminUserInput={userName?:string;phone?:string|null;organizationPublicId?:string};

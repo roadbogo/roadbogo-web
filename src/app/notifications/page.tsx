@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LandingHeader } from "@/components/landing/LandingHeader";
+import {AdminFilterSelect} from "@/features/user-management/AdminFilterSelect";
 import { useAuth } from "@/components/auth/AuthContext";
 import { useNotifications } from "@/features/notifications/NotificationContext";
 import { NotificationRow, NotificationTypeIcon } from "@/features/notifications/NotificationRow";
@@ -198,9 +199,9 @@ function SystemAdminNotificationInbox(){
               {adminViews.map(tab=><button key={tab} type="button" role="tab" aria-selected={view===tab} tabIndex={view===tab?0:-1} onClick={()=>change({tab:tab==="all"?null:tab})}>{adminViewLabels[tab]} <b>{tab==="all"?items.length:tab==="unread"?unreadCount:items.filter(item=>tab==="system"?item.admin_category==="SYSTEM":["ACCOUNT","ROLE"].includes(item.admin_category??"")).length}</b></button>)}
             </div>
             <div className={styles.filters}>
-              <label><span>중요도</span><select value={severity} onChange={event=>change({severity:event.target.value})}><option value="ALL">전체</option><option value="CRITICAL">긴급</option><option value="HIGH">높음</option><option value="WARNING">주의</option><option value="INFO">일반</option></select></label>
-              <label><span>유형</span><select value={type} onChange={event=>change({type:event.target.value})}>{adminTypes.map(value=><option key={value} value={value}>{adminTypeLabels[value]}</option>)}</select></label>
-              <label className={styles.sortControl}><span>정렬</span><select aria-label="운영 알림 정렬" value={sort} onChange={event=>change({sort:event.target.value})}><option value="newest">최신순</option><option value="severity">긴급도순</option><option value="unread">미열람순</option></select></label>
+              <AdminFilterSelect label="중요도" value={severity} options={[{value:"ALL",label:"전체"},{value:"CRITICAL",label:"긴급"},{value:"HIGH",label:"높음"},{value:"WARNING",label:"주의"},{value:"INFO",label:"일반"}]} onChange={value=>change({severity:value})}/>
+              <AdminFilterSelect label="유형" value={type} options={adminTypes.map(value=>({value,label:adminTypeLabels[value]}))} onChange={value=>change({type:value})}/>
+              <div className={styles.sortControl}><AdminFilterSelect label="정렬" value={sort} options={[{value:"newest",label:"최신순"},{value:"severity",label:"긴급도순"},{value:"unread",label:"미열람순"}]} onChange={value=>change({sort:value})}/></div>
             </div>
           </div>
         </header>

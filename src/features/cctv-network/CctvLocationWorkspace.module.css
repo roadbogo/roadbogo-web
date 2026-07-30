@@ -311,6 +311,11 @@
   font-variant-numeric: tabular-nums;
 }
 
+.mapTools button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
 .infoRail {
   min-height: 0;
   overflow-y: auto;

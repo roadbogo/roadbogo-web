@@ -2,8 +2,9 @@ import { mockManagedUsers, mockOrganizations } from "./mockUserFixtures";
 import type { ActivateUserInput, CreateAdminUserInput, DeactivateUserInput, DeactivationCheckResult, ManagedUser, UpdateAdminUserInput, UpdateUserRolesInput, UserListQuery, UserListResult, UserManagementAdapter } from "./userManagementTypes";
 import { UserManagementError } from "./userManagementTypes";
 import {ROLE_ORDER,ROLE_PRESENTATIONS,sortRoles} from "./rolePresentationConfig";
+import {getAccountRecoveryEligibility} from "./accountRecoveryPolicy";
 
-const STORAGE_KEY="roadbogo:mock-admin-users:v1";
+const STORAGE_KEY="roadbogo:mock-admin-users:v2";
 let memoryUsers:ManagedUser[]=structuredClone(mockManagedUsers);
 function readUsers(){
   if(typeof window==="undefined")return memoryUsers;
@@ -105,7 +106,8 @@ export class MockUserManagementAdapter implements UserManagementAdapter{
     if(index<0)throw new UserManagementError("USER_NOT_FOUND","사용자를 찾을 수 없습니다.");
     const current=users[index];
     if(current.accountStatus!=="INACTIVE")throw new UserManagementError("USER_ALREADY_ACTIVE","이미 활성 상태인 계정입니다.");
-    if(!current.deactivatedAt)throw new UserManagementError("USER_RECOVERY_REVIEW_REQUIRED","복구 가능 여부를 확인할 수 없습니다.");
+    const recovery=getAccountRecoveryEligibility(current);
+    if(recovery.eligibility!=="AVAILABLE")throw new UserManagementError(recovery.eligibility==="UNAVAILABLE"?"USER_RECOVERY_UNAVAILABLE":"USER_RECOVERY_REVIEW_REQUIRED",recovery.reason);
     const reason=input.reason.trim();
     if(reason.length<5||reason.length>200)throw new UserManagementError("ACTIVATION_REASON_INVALID","활성화 사유를 5자 이상 200자 이하로 입력해 주세요.");
     const now=new Date().toISOString(),next={...current,accountStatus:"ACTIVE" as const,deactivatedAt:null,updatedAt:now,changes:[change("계정 활성화",reason),...current.changes]};

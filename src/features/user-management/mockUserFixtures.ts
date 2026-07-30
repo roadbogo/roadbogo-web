@@ -28,9 +28,10 @@ export const mockManagedUsers:ManagedUser[]=Array.from({length:27},(_,index)=>{
     accountStatus:index%6===0?"INACTIVE":"ACTIVE",organization,
     roles,lastLoginAt:index%7===0?null:new Date(Date.UTC(2026,6,28-(index%8),index%12,24,0)).toISOString(),
     createdAt,updatedAt,
-    changes:index%4===0?[]:[
+    changes:index===0?[{id:"change-1-deactivate",action:"계정 비활성화",summary:"장기 미사용 계정 정리",actor:"로컬 시스템 관리자",occurredAt:updatedAt}]:index===6?[{id:"change-7-withdraw",action:"회원탈퇴",summary:"회원탈퇴 및 개인정보 익명화 완료",actor:"시스템",occurredAt:updatedAt}]:index%4===0?[]:[
       {id:`change-${number}-1`,action:"사용자 정보 수정",summary:"연락처 및 소속 정보 확인",actor:"로컬 시스템 관리자",occurredAt:updatedAt},
       ...(index%3===0?[{id:`change-${number}-2`,action:"역할 변경",summary:"운영 역할 구성을 변경함",actor:"로컬 시스템 관리자",occurredAt:createdAt}]:[]),
     ],responderProfile:roles.includes("RESPONDER")?{responderCode:`RSP-${String(number).padStart(3,"0")}`,dutyStatus:"AVAILABLE",coverageArea:organization?.name??null,isDispatchEnabled:true,linked:true}:null,activeAssignments:index===1?2:0,
+    deactivatedAt:index===0?updatedAt:null,deletedAt:index===6?updatedAt:null,
   };
 });

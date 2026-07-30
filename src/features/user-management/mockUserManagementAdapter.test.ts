@@ -103,6 +103,12 @@ describe("MockUserManagementAdapter",()=>{
     await expect(adapter.activateUser(created.publicId,{reason:"짧음"})).rejects.toMatchObject({code:"ACTIVATION_REASON_INVALID"});
   });
 
+  it("rechecks unavailable and unknown recovery states before activation",async()=>{
+    const adapter=new MockUserManagementAdapter();
+    await expect(adapter.activateUser("22222222-2222-4222-8222-000000000007",{reason:"관리자 검토를 통한 복구 요청"})).rejects.toMatchObject({code:"USER_RECOVERY_UNAVAILABLE"});
+    await expect(adapter.activateUser("22222222-2222-4222-8222-000000000013",{reason:"관리자 검토를 통한 복구 요청"})).rejects.toMatchObject({code:"USER_RECOVERY_REVIEW_REQUIRED"});
+  });
+
   it("checks self-deactivation and active assignments before execution",async()=>{
     const adapter=new MockUserManagementAdapter(),users=(await load({size:50})).items;
     const target=users.find(user=>user.accountStatus==="ACTIVE"&&(user.activeAssignments??0)===0)!;

@@ -32,3 +32,14 @@ export function getDirectionLabel(directionCode: string) {
 
   return labels[directionCode] ?? directionCode;
 }
+
+export function getCctvSourceLabel(sourceType:string){
+  return({ITS:"ITS 연동",DEMO:"시연 데이터",MANUAL:"수동 등록"} as Record<string,string>)[sourceType]??"확인되지 않은 출처";
+}
+
+export function formatLocationKst(value:string|null|undefined){
+  if(!value)return"기록 없음";
+  const date=new Date(value);
+  if(Number.isNaN(date.getTime()))return"기록 확인 필요";
+  return `${new Intl.DateTimeFormat("ko-KR",{timeZone:"Asia/Seoul",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false}).format(date)} KST`;
+}
