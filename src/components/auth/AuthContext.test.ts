@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { handleAuthRestoreError } from "./AuthContext";
+import { handleAuthRestoreError, resolveAuthenticatedApiPermissions } from "./AuthContext";
 import { beginLoginAttempt, completeLogin, resetAuthSession } from "@/lib/apiClient";
 import { getAccessToken } from "@/lib/auth/accessToken";
+import {SYSTEM_ADMIN_API_PERMISSIONS} from "@/lib/auth/accessMapping";
+import type {AuthUser} from "@/types/auth";
 
 function createStorage(): Storage {
   const values = new Map<string, string>();
@@ -73,5 +75,27 @@ describe("AuthProvider startup restore errors", () => {
 
     expect(clearUser).toHaveBeenCalledOnce();
     expect(getAccessToken()).toBeNull();
+  });
+});
+
+const authUser=(roles:AuthUser["roles"],permissions:string[]):AuthUser=>({
+  publicId:"mock-user",email:"mock@roadbogo.test",userName:"Mock 사용자",accountStatus:"ACTIVE",
+  organization:null,roles,permissions,lastLoginAt:null,updatedAt:"2026-07-30T00:00:00Z",
+});
+
+describe("development mock SYSTEM_ADMIN permissions",()=>{
+  it("fills an empty SYSTEM_ADMIN permission list only in development mock mode",()=>{
+    expect(resolveAuthenticatedApiPermissions(authUser(["SYSTEM_ADMIN"],[]),"SYSTEM_ADMIN","development","true")).toEqual(SYSTEM_ADMIN_API_PERMISSIONS);
+  });
+  it("does not grant administrator permissions to another role",()=>{
+    expect(resolveAuthenticatedApiPermissions(authUser(["CONTROLLER"],[]),"CONTROLLER","development","true")).toEqual([]);
+  });
+  it("does not fill empty permissions outside mock mode or development",()=>{
+    const admin=authUser(["SYSTEM_ADMIN"],[]);
+    expect(resolveAuthenticatedApiPermissions(admin,"SYSTEM_ADMIN","development","false")).toEqual([]);
+    expect(resolveAuthenticatedApiPermissions(admin,"SYSTEM_ADMIN","production","true")).toEqual([]);
+  });
+  it("preserves existing server permissions without duplicates",()=>{
+    expect(resolveAuthenticatedApiPermissions(authUser(["SYSTEM_ADMIN"],["USER.READ_ALL","USER.READ_ALL"]),"SYSTEM_ADMIN","development","true")).toEqual(["USER.READ_ALL"]);
   });
 });

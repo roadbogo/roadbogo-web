@@ -3,6 +3,17 @@ import type { UserRole } from "@/types/auth";
 
 type UiAccess = { uiRoles: AppRole[]; uiPermissions: AppPermission[] };
 
+export const SYSTEM_ADMIN_API_PERMISSIONS = [
+  "USER.READ_ALL",
+  "USER.WRITE",
+  "ROLE.MANAGE",
+  "CCTV.READ",
+  "CCTV.MANAGE",
+  "AUDIT.READ",
+  "NOTIFICATION.READ_OWN",
+  "DB.STATUS.READ",
+] as const;
+
 const roleAccess: Record<UserRole, UiAccess> = {
   SYSTEM_ADMIN: { uiRoles: ["SYSTEM_ADMIN"], uiPermissions: ["users:manage", "roles:manage", "system:view", "audit:view", "alerts:view", "profile:view"] },
   CONTROL_MANAGER: { uiRoles: ["CONTROL_OPERATOR"], uiPermissions: ["control:view", "cctv:view", "incidents:view", "dispatch:manage", "alerts:view", "profile:view"] },

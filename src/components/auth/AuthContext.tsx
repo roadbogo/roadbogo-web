@@ -6,17 +6,24 @@ import type { AuthUser, UserRole } from "@/types/auth";
 import { clearClientAuth } from "@/lib/auth/authStorage";
 import { isAbortError, refreshAccessToken, resetAuthSession } from "@/lib/apiClient";
 import { authApi, toAuthUser } from "@/lib/authApi";
-import { mapApiPermissionsToUiPermissions, mapApiRolesToUiAccess, normalizeApiRoles } from "@/lib/auth/accessMapping";
+import { mapApiPermissionsToUiPermissions, mapApiRolesToUiAccess, normalizeApiRoles, SYSTEM_ADMIN_API_PERMISSIONS } from "@/lib/auth/accessMapping";
 import { getPrimaryRole } from "@/lib/auth/roleRedirect";
 
 export interface AuthenticatedUser { publicId?: string; name: string; role: UserRole; roles: UserRole[]; email: string; phone?: string; accountStatus?: string; organization?: AuthUser["organization"]; lastLoginAt?: string | null; updatedAt?: string; apiPermissions: string[]; uiRoles: AppRole[]; uiPermissions: AppPermission[]; }
 interface AuthValue { user: AuthenticatedUser | null; ready: boolean; clearAuth: () => void; updateUser: (user: AuthenticatedUser) => void; setAuthenticatedUser: (user: AuthUser) => void; }
 
+export function resolveAuthenticatedApiPermissions(user:AuthUser,role:UserRole,environment=process.env.NODE_ENV,useMock=process.env.NEXT_PUBLIC_USE_MOCK){
+  if(environment==="development"&&useMock==="true"&&role==="SYSTEM_ADMIN"&&user.permissions.length===0)return[...SYSTEM_ADMIN_API_PERMISSIONS];
+  return[...new Set(user.permissions)];
+}
+
 function toAuthenticatedUser(user:AuthUser):AuthenticatedUser{
   const roles=normalizeApiRoles(user.roles);
+  const role=getPrimaryRole(roles);
+  const apiPermissions=resolveAuthenticatedApiPermissions(user,role);
   const roleAccess=mapApiRolesToUiAccess(roles);
-  const permissionAccess=mapApiPermissionsToUiPermissions(user.permissions);
-  return{publicId:user.publicId,name:user.userName,role:getPrimaryRole(roles),roles,email:user.email,phone:user.phone,accountStatus:user.accountStatus,organization:user.organization,lastLoginAt:user.lastLoginAt,updatedAt:user.updatedAt,apiPermissions:[...user.permissions],uiRoles:roleAccess.uiRoles,uiPermissions:[...new Set([...roleAccess.uiPermissions,...permissionAccess])]};
+  const permissionAccess=mapApiPermissionsToUiPermissions(apiPermissions);
+  return{publicId:user.publicId,name:user.userName,role,roles,email:user.email,phone:user.phone,accountStatus:user.accountStatus,organization:user.organization,lastLoginAt:user.lastLoginAt,updatedAt:user.updatedAt,apiPermissions,uiRoles:roleAccess.uiRoles,uiPermissions:[...new Set([...roleAccess.uiPermissions,...permissionAccess])]};
 }
 const AuthContext = createContext<AuthValue | null>(null);
 
