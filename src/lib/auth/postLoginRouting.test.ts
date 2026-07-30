@@ -11,7 +11,8 @@ describe("post login routing",()=>{
   expect(getRoleDefaultRoute(controller)).toBe("/control");
   expect(getRoleDefaultRoute({...controller,roles:["CONTROL_MANAGER"]})).toBe("/control");
   expect(getRoleDefaultRoute({...controller,roles:["RESPONDER"],apiPermissions:["DISPATCH.READ_OWN"]})).toBe("/dispatch");
-  expect(getRoleDefaultRoute({...controller,roles:["SYSTEM_ADMIN"],apiPermissions:["USER.READ_ALL"]})).toBe("/mypage");
+  expect(getRoleDefaultRoute({...controller,roles:["SYSTEM_ADMIN"],apiPermissions:["USER.READ_ALL"]})).toBe("/admin");
+  expect(getRoleDefaultRoute({...controller,roles:["SYSTEM_ADMIN"],apiPermissions:["USER.READ_ALL","INCIDENT.READ_ALL"]})).toBe("/admin");
   expect(getRoleDefaultRoute({...controller,roles:["SYSTEM_ADMIN"],apiPermissions:["INCIDENT.READ_ALL"]})).toBe("/control");
  });
  it("uses permissions instead of the first role in a multi-role account",()=>expect(getRoleDefaultRoute({...controller,roles:["SYSTEM_ADMIN","CONTROLLER"],apiPermissions:["INCIDENT.READ_ALL"]})).toBe("/control"));

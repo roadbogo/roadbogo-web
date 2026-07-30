@@ -278,8 +278,8 @@ export function MyPageView({ user, initialEditing = false, onSave, isLoggingOut 
     <main className={styles.workspace}>
       <header className={styles.pageHeading}>
         <div>
-          <nav aria-label="현재 위치"><Link href="/">홈</Link><span aria-hidden="true">/</span><span>내 계정</span></nav>
-          <h1>내 계정</h1>
+          <nav aria-label="현재 위치"><Link href="/">홈</Link><span aria-hidden="true">/</span><span>마이페이지</span></nav>
+          <h1>마이페이지</h1>
           <span>계정 정보와 이용 상태를 확인하고 필요한 정보를 관리할 수 있습니다.</span>
         </div>
       </header>

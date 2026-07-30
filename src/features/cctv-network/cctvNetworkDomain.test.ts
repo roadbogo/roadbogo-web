@@ -1,0 +1,5 @@
+import {describe,expect,it} from "vitest";
+import {displayStatus,getCctvPaginationItems,mapPosition,needsReview} from "./cctvNetworkDomain";
+import {mockNetworkCctvs} from "./mockCctvNetworkRepository";
+describe("cctv network domain",()=>{it("prioritizes inactive and maps supported states",()=>{expect(displayStatus({...mockNetworkCctvs[0],isActive:false})).toBe("inactive");expect(displayStatus({...mockNetworkCctvs[0],operationalStatus:"DELAYED"})).toBe("attention")});it("identifies review items",()=>{expect(needsReview({...mockNetworkCctvs[0],operationalStatus:"FAULT"})).toBe(true)});it("normalizes coordinates inside the atlas",()=>{for(const cctv of mockNetworkCctvs){const point=mapPosition(cctv,mockNetworkCctvs);expect(point.x).toBeGreaterThanOrEqual(8);expect(point.x).toBeLessThanOrEqual(92);expect(point.y).toBeGreaterThanOrEqual(8);expect(point.y).toBeLessThanOrEqual(92)}})});
+describe("cctv pagination",()=>{it("keeps short pagination complete",()=>expect(getCctvPaginationItems(2,3)).toEqual([1,2,3]));it("adds stable ellipses for long pagination",()=>expect(getCctvPaginationItems(5,10)).toEqual([1,"ellipsis",4,5,6,"ellipsis",10]))});

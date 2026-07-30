@@ -67,6 +67,7 @@ export function canAccessInternalRoute(user:RoutingUser,path:string){
 
 export function getRoleDefaultRoute(user:RoutingUser){
   if(user.accountStatus&&user.accountStatus!=="ACTIVE")return "/mypage";
+  if(hasAdminAccess(user))return "/admin";
   if(hasControlAccess(user))return "/control";
   if(hasDispatchAccess(user))return "/dispatch";
   if(user.roles.includes("GENERAL_USER"))return "/";

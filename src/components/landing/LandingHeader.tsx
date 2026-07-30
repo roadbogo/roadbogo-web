@@ -53,7 +53,7 @@ export function LandingHeader({ showSections = true }: { showSections?: boolean 
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") { setSidebarOpen(false); setHealthPanelOpen(false); if (compactNavigation) mobileTriggerRef.current?.focus(); }
+      if (event.key === "Escape") { setSidebarOpen(false); setHealthPanelOpen(false); setOpenGroups(new Set()); if (compactNavigation) mobileTriggerRef.current?.focus(); }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -97,33 +97,52 @@ export function LandingHeader({ showSections = true }: { showSections?: boolean 
   const showPublicSidebar = isPublicHome || showWorkSidebar;
   const showPublicDrawer = showPublicSidebar && compactNavigation;
   const role = (["SYSTEM_ADMIN","CONTROL_MANAGER","CONTROLLER","RESPONDER","GENERAL_USER"] as UserRole[]).includes(user?.role as UserRole) ? user?.role as UserRole : "GENERAL_USER";
+  const isSystemAdmin = user?.role === "SYSTEM_ADMIN";
   const sidebarMenus = useMemo(() => {
     return user ? getAuthenticatedSidebarMenus(user) : getLandingSidebarMenus(role, false);
   }, [role, user]);
   const activeMenuId=useMemo(()=>getActiveSidebarMenuId(sidebarMenus,pathname),[pathname,sidebarMenus]);
   const groupedMenus = useMemo(() => sidebarMenus.reduce<Record<string, SidebarMenuItem[]>>((groups, item) => { const section = item.section ?? "메뉴"; (groups[section] ??= []).push(item); return groups; }, {}), [sidebarMenus]);
-  const healthLabel = health.isLoading ? "상태 확인 중" : health.status === "healthy" ? "서버 정상" : health.status === "degraded" ? "일부 기능 점검" : "서버 연결 확인";
-  const healthDetail = health.isLoading ? "서비스 상태 확인 중" : health.status === "healthy" ? "모든 서비스 정상" : health.status === "degraded" ? "일부 서비스 점검 중" : "서비스 연결 확인 필요";
   const healthBadge = health.isLoading ? "확인 중" : health.status === "healthy" ? "정상" : health.status === "degraded" ? "점검" : "장애";
+  const healthStateLabel = health.isLoading ? "확인 중" : health.status === "healthy" ? "정상" : health.status === "degraded" ? "경고" : "장애";
 
   useEffect(() => {
     setOpenGroups((current) => {
       const next = new Set(current);
+      if (!sidebarOpen && !compactNavigation) {
+        sidebarMenus.forEach((item) => { if (item.children?.length) next.delete(item.id); });
+        return next.size === current.size && [...next].every((id) => current.has(id)) ? current : next;
+      }
       sidebarMenus.forEach((item) => {
-        if (item.children?.some((child) => child.href === pathname || (child.href !== "/" && pathname.startsWith(child.href ?? "\u0000")))) next.add(item.id);
+        if (item.children?.length&&(item.href===pathname||item.children.some((child) => child.href === pathname || (child.href !== "/" && pathname.startsWith(child.href ?? "\u0000"))))) next.add(item.id);
       });
       return next.size === current.size && [...next].every((id) => current.has(id)) ? current : next;
     });
-  }, [pathname, sidebarMenus]);
+  }, [compactNavigation, pathname, sidebarMenus, sidebarOpen]);
 
   return <>
-    {showPublicSidebar && <aside ref={sidebarRef} id="landing-sidebar" className={`landing-sidebar landing-public-drawer${isPublicHome ? " is-home-sidebar" : ""} ${sidebarOpen ? "is-open" : "is-collapsed"}`} aria-label="주요 메뉴" onKeyDown={(event)=>{if(!compactNavigation||event.key!=="Tab")return;const focusable=sidebarRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]),a[href]');if(!focusable?.length)return;const first=focusable[0],last=focusable[focusable.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}}}>
+    {showPublicSidebar && <aside ref={sidebarRef} id="landing-sidebar" className={`landing-sidebar landing-public-drawer${isPublicHome ? " is-home-sidebar" : ""}${isSystemAdmin ? " is-system-admin" : ""} ${sidebarOpen ? "is-open" : "is-collapsed"}`} aria-label="주요 메뉴" onKeyDown={(event)=>{if(!compactNavigation||event.key!=="Tab")return;const focusable=sidebarRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]),a[href]');if(!focusable?.length)return;const first=focusable[0],last=focusable[focusable.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}}}>
       <div className="landing-sidebar__frame">
         <div className="landing-sidebar__header"><button ref={sidebarToggleRef} type="button" className="landing-sidebar__toggle" aria-label={compactNavigation?(sidebarOpen?"메뉴 닫기":"메뉴 열기"):(sidebarOpen?"메뉴 접기":"메뉴 펼치기")} aria-expanded={sidebarOpen} aria-controls="landing-sidebar-nav" onClick={() => compactNavigation && sidebarOpen ? close(true) : setSidebarOpen((value) => !value)}><MenuIcon /><span>운영 메뉴</span></button></div>
         <nav id="landing-sidebar-nav" className="landing-sidebar__navigation" aria-label="페이지 바로가기">
-          {Object.entries(groupedMenus).map(([section, items])=><div className="landing-sidebar__group" key={section}><p>{section}</p>{items.map((item)=>{const isActive=item.targetSection?activeSection===item.id:activeMenuId===item.id;const hasChildren=Boolean(item.children?.length);const expanded=openGroups.has(item.id);const activate=()=>{if(hasChildren){setOpenGroups(current=>{const next=new Set(current);if(next.has(item.id))next.delete(item.id);else next.add(item.id);return next});return}if(item.targetSection){scrollTo(item.targetSection,item.id)}else if(item.href){close();if(item.isExternal)window.open(item.href,"_blank","noopener,noreferrer");else router.push(item.href)}};return <div className="landing-sidebar__menu" key={item.id}><button type="button" className={isActive?"is-active":""} aria-current={isActive?"page":undefined} aria-expanded={hasChildren?expanded:undefined} onClick={activate} onMouseEnter={(event)=>{if(!compactNavigation&&!sidebarOpen){const rect=event.currentTarget.getBoundingClientRect();setTooltip({label:item.label,top:rect.top+rect.height/2})}}} onMouseLeave={()=>setTooltip(null)} onFocus={(event)=>{if(!compactNavigation&&!sidebarOpen){const rect=event.currentTarget.getBoundingClientRect();setTooltip({label:item.label,top:rect.top+rect.height/2})}}} onBlur={()=>setTooltip(null)}><span className="landing-sidebar__icon"><RailIcon type={item.icon}/></span><span className="landing-sidebar__menu-text"><strong>{item.label}</strong>{item.description&&<small>{item.description}</small>}</span>{item.badge!=null&&<b>{item.badge}</b>}{hasChildren&&<i className={expanded?"is-expanded":""}>⌄</i>}</button>{hasChildren&&expanded&&<div className="landing-sidebar__children">{item.children?.map(child=><button type="button" key={child.id} onClick={()=>child.href&&router.push(child.href)}><span className="landing-sidebar__menu-text"><strong>{child.label}</strong>{child.description&&<small>{child.description}</small>}</span></button>)}</div>}</div>})}</div>)}
+          {Object.entries(groupedMenus).map(([section,items])=><div className="landing-sidebar__group" key={section}><p>{section}</p>{items.map(item=>{
+            const childActive=Boolean(item.children?.some(child=>child.id===activeMenuId));
+            const isActive=item.targetSection?activeSection===item.id:activeMenuId===item.id;
+            const hasChildren=Boolean(item.children?.length),expanded=openGroups.has(item.id);
+            const navigate=()=>{if(item.targetSection)scrollTo(item.targetSection,item.id);else if(item.href){close();if(item.isExternal)window.open(item.href,"_blank","noopener,noreferrer");else router.push(item.href)}};
+            const showTooltip=(event:React.FocusEvent<HTMLButtonElement>|React.MouseEvent<HTMLButtonElement>)=>{if(!compactNavigation&&!sidebarOpen){const rect=event.currentTarget.getBoundingClientRect();setTooltip({label:item.label,top:rect.top+rect.height/2})}};
+            return <div className={`landing-sidebar__menu landing-sidebar__menu--${item.id}${hasChildren?" has-children":""}`} key={item.id}>
+              <div className="landing-sidebar__parent">
+                <button type="button" className={`${isActive?"is-active":""}${childActive?" is-group-active":""}`} aria-label={item.id==="admin"?"관리 콘솔로 이동":item.label} aria-current={isActive?"page":undefined} onClick={navigate} onMouseEnter={showTooltip} onMouseLeave={()=>setTooltip(null)} onFocus={showTooltip} onBlur={()=>setTooltip(null)}>
+                  <span className="landing-sidebar__icon"><RailIcon type={item.icon}/></span><span className="landing-sidebar__menu-text"><strong>{item.label}</strong>{item.description&&<small>{item.description}</small>}</span>{item.badge!=null&&<b>{item.badge}</b>}
+                </button>
+                {hasChildren&&sidebarOpen&&<button type="button" className="landing-sidebar__chevron" aria-label={expanded?"시스템 관리 메뉴 접기":"시스템 관리 메뉴 펼치기"} aria-expanded={expanded} onClick={()=>setOpenGroups(current=>{const next=new Set(current);if(next.has(item.id))next.delete(item.id);else next.add(item.id);return next})}><i className={expanded?"is-expanded":""}>⌄</i></button>}
+              </div>
+              {hasChildren&&expanded&&sidebarOpen&&<div className="landing-sidebar__children" aria-label={`${item.label} 하위 메뉴`}>{item.children?.map(child=>{const isChildActive=child.id===activeMenuId;return <button type="button" className={isChildActive?"is-active":""} aria-current={isChildActive?"page":undefined} key={child.id} onClick={()=>{if(!child.href)return;close();router.push(child.href)}}><span className="landing-sidebar__menu-text"><strong>{child.label}</strong></span></button>})}</div>}
+            </div>;
+          })}</div>)}
         </nav>
-        <div className="landing-sidebar__footer"><button type="button" className={`landing-sidebar__status landing-sidebar__health is-${health.isLoading?"loading":health.status}`} onClick={()=>setHealthPanelOpen(true)} aria-label={`서버 상태 ${healthLabel}`} onMouseEnter={(event)=>{if(!compactNavigation&&!sidebarOpen){const rect=event.currentTarget.getBoundingClientRect();setTooltip({label:`서버 상태 · ${healthLabel}`,top:rect.top+rect.height/2})}}} onMouseLeave={()=>setTooltip(null)} onFocus={(event)=>{if(!compactNavigation&&!sidebarOpen){const rect=event.currentTarget.getBoundingClientRect();setTooltip({label:`서버 상태 · ${healthLabel}`,top:rect.top+rect.height/2})}}} onBlur={()=>setTooltip(null)}><span className="landing-sidebar__health-icon"><ServerIcon/><i/></span>{sidebarOpen&&<><div className="landing-sidebar__health-copy" role="status" aria-live="polite"><strong>서버 상태</strong><span>{healthDetail}</span></div><span className="landing-sidebar__health-badge">{healthBadge}</span></>}</button></div>
+        <footer className="landing-sidebar__footer"><button type="button" className={`landing-sidebar__status landing-sidebar__health is-${health.isLoading?"loading":health.status}`} onClick={()=>setHealthPanelOpen(true)} aria-label={`시스템 상태 · ${healthStateLabel}`} onMouseEnter={(event)=>{if(!compactNavigation&&!sidebarOpen){const rect=event.currentTarget.getBoundingClientRect();setTooltip({label:`시스템 상태 · ${healthStateLabel}`,top:rect.top+rect.height/2})}}} onMouseLeave={()=>setTooltip(null)} onFocus={(event)=>{if(!compactNavigation&&!sidebarOpen){const rect=event.currentTarget.getBoundingClientRect();setTooltip({label:`시스템 상태 · ${healthStateLabel}`,top:rect.top+rect.height/2})}}} onBlur={()=>setTooltip(null)}><span className="landing-sidebar__health-icon"><ServerIcon/><i/></span>{sidebarOpen&&<><div className="landing-sidebar__health-copy" role="status" aria-live="polite"><strong>시스템 상태</strong><span>서비스 연결 상태</span></div><span className="landing-sidebar__health-badge">{healthBadge}</span></>}</button></footer>
       </div>
       {tooltip&&<span className="landing-sidebar__tooltip" style={{top:tooltip.top}} role="tooltip">{tooltip.label}</span>}
     </aside>}

@@ -24,7 +24,7 @@ import {
   type ManagerQueueGroup,
   type NotificationSort,
 } from "@/features/notifications/notificationDomain";
-import type { NotificationSeverity, NotificationViewModel } from "@/features/notifications/notificationTypes";
+import type { NotificationSeverity, NotificationViewModel, SystemAdminNotificationCategory } from "@/features/notifications/notificationTypes";
 import styles from "@/features/notifications/notifications.module.css";
 import "@/components/landing/landing.css";
 
@@ -144,12 +144,83 @@ function GeneralNotificationInbox(){
   return <div className={styles.page}><LandingHeader showSections={false}/><main className={`${styles.workspace} ${styles.generalWorkspace}`}><nav className={styles.breadcrumb} aria-label="현재 위치"><Link href="/">홈</Link><span>/</span><span>알림</span></nav><div className={styles.heading}><div><h1>알림</h1><p>계정과 서비스 관련 안내를 확인할 수 있습니다</p></div><div className={styles.headingActions}><span>읽지 않음 <b>{unreadCount}</b></span><button type="button" onClick={()=>void markAllRead()} disabled={unreadCount===0}>모두 읽음</button></div></div><section className={styles.generalInbox}><header><div className={styles.segmentedTabs} role="tablist" aria-label="알림 보기"><button type="button" role="tab" aria-selected={!unreadOnly} onClick={()=>changeView(false)}>전체 알림 <b>{items.length}</b></button><button type="button" role="tab" aria-selected={unreadOnly} onClick={()=>changeView(true)}>새 알림 <b>{unreadCount}</b></button></div></header><div className={styles.generalList}>{loading?<div className={styles.queueSkeleton} aria-label="알림을 불러오는 중"><i/><i/><i/></div>:error?<div className={styles.error}><strong>알림을 불러오지 못했습니다</strong><p>{error}</p><button type="button" onClick={()=>void refresh()}>다시 시도</button></div>:visible.length===0?<EmptyState view={unreadOnly?"unread":"all"} general/>:<div>{pageItems.map(item=><NotificationRow key={item.public_id} item={item} onOpen={openItem} showOperationsMetadata={false}/>)}</div>}</div>{visible.length>5&&<NotificationPager total={visible.length} page={page} onPage={setPage}/>}</section></main></div>;
 }
 
+type AdminView="all"|"system"|"account"|"unread";
+type AdminType="ALL"|SystemAdminNotificationCategory;
+const adminViews:AdminView[]=["all","system","account","unread"];
+const adminTypes:AdminType[]=["ALL","SYSTEM","ACCOUNT","ROLE","AUDIT"];
+const adminViewLabels:Record<AdminView,string>={all:"전체 알림",system:"시스템 상태",account:"계정·권한",unread:"읽지 않음"};
+const adminTypeLabels:Record<AdminType,string>={ALL:"전체",SYSTEM:"시스템 상태",ACCOUNT:"계정",ROLE:"역할·권한",AUDIT:"감사 기록"};
+
+function SystemAdminNotificationInbox(){
+  const{items,unreadCount,loading,error,refresh,markRead,markAllRead}=useNotifications();
+  const params=useSearchParams();
+  const router=useRouter();
+  const requestedView=params.get("tab") as AdminView|null;
+  const requestedType=params.get("type") as AdminType|null;
+  const requestedSeverity=params.get("severity") as NotificationSeverity|"ALL"|null;
+  const requestedSort=params.get("sort") as NotificationSort|null;
+  const view=requestedView&&adminViews.includes(requestedView)?requestedView:"all";
+  const type=requestedType&&adminTypes.includes(requestedType)?requestedType:"ALL";
+  const severity=requestedSeverity&&severities.includes(requestedSeverity)?requestedSeverity:"ALL";
+  const sort=requestedSort&&sorts.includes(requestedSort)?requestedSort:"newest";
+  const selectedId=params.get("selected");
+  const page=Math.max(0,Number(params.get("page")??0)||0);
+  const replaceQuery=useCallback((updates:Record<string,string|null>)=>{
+    const next=new URLSearchParams(params.toString());
+    Object.entries(updates).forEach(([key,value])=>value&&value!=="ALL"&&value!=="newest"&&value!=="0"?next.set(key,value):next.delete(key));
+    const query=next.toString();
+    router.replace(query?`/notifications?${query}`:"/notifications",{scroll:false});
+  },[params,router]);
+  const filtered=useMemo(()=>sortNotificationQueue(items.filter(item=>{
+    const category=item.admin_category;
+    const matchesView=view==="all"||view==="unread"&&!item.read||view==="system"&&category==="SYSTEM"||view==="account"&&(category==="ACCOUNT"||category==="ROLE");
+    return matchesView&&(type==="ALL"||category===type)&&(severity==="ALL"||item.severity===severity);
+  }),sort),[items,severity,sort,type,view]);
+  const totalPages=Math.max(1,Math.ceil(filtered.length/NOTIFICATION_PAGE_SIZE));
+  const safePage=Math.min(page,totalPages-1);
+  const pageItems=filtered.slice(safePage*NOTIFICATION_PAGE_SIZE,(safePage+1)*NOTIFICATION_PAGE_SIZE);
+  const selected=selectedId?items.find(item=>item.public_id===selectedId)??null:null;
+  const selectItem=async(item:NotificationViewModel)=>{
+    replaceQuery({selected:item.public_id});
+    await markRead(item.public_id);
+  };
+  const change=(updates:Record<string,string|null>)=>replaceQuery({...updates,page:null,selected:null});
+  return <div className={styles.page}>
+    <LandingHeader showSections={false}/>
+    <main className={`${styles.workspace} ${styles.adminWorkspace}`}>
+      <nav className={styles.breadcrumb} aria-label="현재 위치"><Link href="/">홈</Link><span>/</span><span>운영 알림</span></nav>
+      <div className={styles.heading}><div><h1>운영 알림</h1><p>시스템 운영과 계정·권한 변경 사항을 확인합니다.</p></div><div className={styles.headingActions}><span>읽지 않음 <b>{unreadCount}</b></span><button type="button" aria-label="모든 운영 알림 읽음 처리" onClick={()=>void markAllRead()} disabled={unreadCount===0}>모두 읽음</button></div></div>
+      <section className={styles.inboxShell}>
+        <header className={styles.inboxHeader}>
+          <div className={styles.queueHeader}><div><h2>운영 알림 목록</h2><p>시스템 상태와 계정·권한 변경 기록을 시간순으로 확인합니다.</p></div></div>
+          <div className={styles.queueTools}>
+            <div className={styles.segmentedTabs} role="tablist" aria-label="운영 알림 보기">
+              {adminViews.map(tab=><button key={tab} type="button" role="tab" aria-selected={view===tab} tabIndex={view===tab?0:-1} onClick={()=>change({tab:tab==="all"?null:tab})}>{adminViewLabels[tab]} <b>{tab==="all"?items.length:tab==="unread"?unreadCount:items.filter(item=>tab==="system"?item.admin_category==="SYSTEM":["ACCOUNT","ROLE"].includes(item.admin_category??"")).length}</b></button>)}
+            </div>
+            <div className={styles.filters}>
+              <label><span>중요도</span><select value={severity} onChange={event=>change({severity:event.target.value})}><option value="ALL">전체</option><option value="CRITICAL">긴급</option><option value="HIGH">높음</option><option value="WARNING">주의</option><option value="INFO">일반</option></select></label>
+              <label><span>유형</span><select value={type} onChange={event=>change({type:event.target.value})}>{adminTypes.map(value=><option key={value} value={value}>{adminTypeLabels[value]}</option>)}</select></label>
+              <label className={styles.sortControl}><span>정렬</span><select aria-label="운영 알림 정렬" value={sort} onChange={event=>change({sort:event.target.value})}><option value="newest">최신순</option><option value="severity">긴급도순</option><option value="unread">미열람순</option></select></label>
+            </div>
+          </div>
+        </header>
+        <div className={styles.inboxBody}>
+          <div className={styles.queuePanel}><div id="admin-notification-list" className={styles.queueList} role="tabpanel">
+            {loading?<div className={styles.queueSkeleton} aria-label="운영 알림을 불러오는 중"><i/><i/><i/><i/></div>:error?<div className={styles.error}><strong>운영 알림을 불러오지 못했습니다</strong><p>{error}</p><button type="button" onClick={()=>void refresh()}>다시 시도</button></div>:filtered.length===0?<div className={styles.empty}><strong>조건에 맞는 운영 알림이 없습니다</strong><p>필터를 변경해 다른 운영 기록을 확인해 주세요.</p></div>:<><ul className={styles.queueItems}>{pageItems.map(item=>{const presentation=notificationPresentation[item.notification_type];const isSelected=selected?.public_id===item.public_id;return <li key={item.public_id}><button type="button" className={`${styles.queueItem} ${isSelected?styles.queueItemSelected:""} ${!item.read?styles.queueItemUnread:""}`} aria-pressed={isSelected} onClick={()=>void selectItem(item)}><span className={styles.readState} aria-hidden="true"/><span className={`${styles.typeIcon} ${styles[`severity${item.severity}`]}`}><NotificationTypeIcon kind={presentation.icon}/></span><span className={styles.queueCopy}><span className={styles.queueTitle}><strong>{item.title}</strong><time dateTime={item.created_at}>{formatRelativeTime(item.created_at)}</time></span><span className={styles.queueBody}>{item.body}</span><span className={styles.queueMeta}><b>{severityLabels[item.severity]}</b><span>{adminTypeLabels[item.admin_category??"AUDIT"]}</span><span>{item.resource_label}</span><em>{item.read?"읽음":"읽지 않음"}</em></span></span></button></li>})}</ul>{filtered.length>NOTIFICATION_PAGE_SIZE&&<NotificationPager total={filtered.length} page={safePage} onPage={next=>replaceQuery({page:String(next),selected:null})}/>}</>}
+          </div></div>
+          <aside className={styles.detailPanel} aria-label="운영 알림 상세">{selected?<><header className={styles.detailHeader}><p className={styles.detailEyebrow}>운영 기록 상세</p><div className={styles.detailTitle}><span className={`${styles.typeIcon} ${styles[`severity${selected.severity}`]}`}><NotificationTypeIcon kind={notificationPresentation[selected.notification_type].icon}/></span><div><div className={styles.detailTitleLine}><h2>{selected.title}</h2><time dateTime={selected.created_at}>{formatRelativeTime(selected.created_at)}</time></div><p><b>{severityLabels[selected.severity]}</b><span>·</span><strong>{adminTypeLabels[selected.admin_category??"AUDIT"]}</strong></p></div></div></header><div className={styles.detailScroll}><div className={styles.detailBodyBlock}><p className={styles.detailBody}>{selected.body}</p></div><dl className={`${styles.detailFacts} ${styles.detailFactsPrimary}`}><div><dt>대상</dt><dd>{selected.resource_label}</dd></div><div><dt>유형</dt><dd>{adminTypeLabels[selected.admin_category??"AUDIT"]}</dd></div><div><dt>수신 시각</dt><dd><time dateTime={selected.delivered_at}>{formatExactKst(selected.delivered_at)}</time></dd></div><div><dt>상태</dt><dd>{selected.read?"읽음":"읽지 않음"}</dd></div></dl></div></>:<div className={styles.detailEmpty}><strong>운영 알림을 선택해 주세요</strong><p>목록에서 알림을 선택하면 시스템·계정 운영 기록을 확인할 수 있습니다.</p></div>}</aside>
+        </div>
+      </section>
+    </main>
+  </div>;
+}
+
 function OperationsNotificationInbox() {
   const { user } = useAuth();
   const { items, unreadCount, actionCount, loading, error, refresh, markRead, markAllRead, targetFor } = useNotifications();
   const params = useSearchParams();
   const router = useRouter();
-  const manager=user?.roles.includes("CONTROL_MANAGER")??false;
+  const manager=user?.role==="CONTROL_MANAGER";
   const roleViews=manager?managerViews:controllerViews;
   const requested = params.get("tab") as View | null;
   const defaultView: View = manager?"queue":user?.role === "SYSTEM_ADMIN" ? "all" : "action";
@@ -352,5 +423,6 @@ export default function NotificationsPage() {
 
 function NotificationAudienceInbox(){
   const{user}=useAuth();
-  return resolveNotificationAudience(user).general?<GeneralNotificationInbox/>:<OperationsNotificationInbox/>;
+  const audience=resolveNotificationAudience(user);
+  return audience.systemAdmin?<SystemAdminNotificationInbox/>:audience.general?<GeneralNotificationInbox/>:<OperationsNotificationInbox/>;
 }
