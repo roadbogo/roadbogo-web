@@ -1,0 +1,19 @@
+.nav{position:relative;z-index:20;margin-left:var(--landing-sidebar-space,90px);padding:10px clamp(20px,3vw,42px);background:#eef2f0}
+.desktop{min-height:58px;display:flex;align-items:center;gap:5px;max-width:1500px;box-sizing:border-box;margin:auto;padding:6px;border:1px solid #d8e1e0;border-radius:15px;background:#f3f5f4}
+.desktop a{min-width:max-content;min-height:44px;display:flex;align-items:center;box-sizing:border-box;padding:0 20px;border:1px solid transparent;border-radius:10px;color:#344b58;font-size:14px;font-weight:700;text-decoration:none;transition:background-color 180ms,border-color 180ms,color 180ms,transform 180ms,box-shadow 180ms}
+.desktop a:hover{border-color:#d8e1e0;background:#fcfcfa;color:#193345;box-shadow:0 3px 8px rgb(25 51 69 / 8%);transform:translateY(-1px)}
+.desktop a:active{transform:scale(.98)}
+.desktop a[aria-current=page]{border-color:rgb(255 255 255 / 20%);background:linear-gradient(135deg,#3c6fe8,#26999e);color:#fff;box-shadow:0 5px 12px rgb(44 99 154 / 18%)}
+.desktop a:focus-visible,.mobile summary:focus-visible,.mobile a:focus-visible{outline:3px solid rgb(60 111 232 / 38%);outline-offset:2px}
+.mobile{display:none}
+@media(prefers-reduced-motion:reduce){.desktop a{transition:none}.desktop a:hover,.desktop a:active{transform:none}}
+@media(max-width:767px){
+ .nav{margin-left:0;padding:9px 13px;background:#eef2f0}
+ .desktop{display:none}.mobile{display:block;position:relative;max-width:520px;margin:auto}
+ .mobile summary{min-height:46px;display:flex;align-items:center;justify-content:space-between;gap:16px;box-sizing:border-box;padding:0 14px;border:1px solid #cfdadb;border-radius:10px;background:#fff;color:#5e6f7b;font-size:12px;cursor:pointer;list-style:none}
+ .mobile summary::-webkit-details-marker{display:none}.mobile summary strong{color:#193345;font-size:14px}
+ .mobile[open] summary{border-color:#9eb9c2;border-radius:10px 10px 0 0}
+ .mobile>div{position:absolute;inset:100% 0 auto;display:grid;padding:6px;border:1px solid #cfdadb;border-top:0;border-radius:0 0 10px 10px;background:#fff;box-shadow:0 12px 28px rgb(25 51 69 / 14%)}
+ .mobile a{min-height:44px;display:flex;align-items:center;padding:0 11px;border-radius:7px;color:#344b58;font-size:14px;font-weight:700;text-decoration:none}
+ .mobile a:hover,.mobile a[aria-current=page]{background:#eef3f7;color:#2459c9}
+}

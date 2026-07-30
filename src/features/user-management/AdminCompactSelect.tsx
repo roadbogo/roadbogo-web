@@ -1,0 +1,17 @@
+"use client";
+
+import {createPortal} from "react-dom";
+import {useEffect,useLayoutEffect,useRef,useState,type CSSProperties,type KeyboardEvent} from "react";
+import styles from "./AdminCompactSelect.module.css";
+
+export type CompactSelectOption<T extends string>={value:T;label:string};
+export function AdminCompactSelect<T extends string>({label,value,placeholder,options,onChange}:{label:string;value:T|"";placeholder:string;options:CompactSelectOption<T>[];onChange:(value:T)=>void}){
+ const[open,setOpen]=useState(false),[active,setActive]=useState(Math.max(0,options.findIndex(option=>option.value===value))),[position,setPosition]=useState<CSSProperties>({});
+ const trigger=useRef<HTMLButtonElement>(null),menu=useRef<HTMLDivElement>(null),id=`compact-select-${label.replace(/\s/g,"-")}`;
+ useLayoutEffect(()=>{if(!open)return;const place=()=>{const rect=trigger.current?.getBoundingClientRect();if(!rect)return;const height=Math.min(280,options.length*44+12),width=rect.width,left=Math.max(12,Math.min(rect.left,window.innerWidth-width-12)),below=window.innerHeight-rect.bottom;setPosition({position:"fixed",width,left,top:below>=height?rect.bottom+7:undefined,bottom:below<height?window.innerHeight-rect.top+7:undefined})};place();window.addEventListener("resize",place);window.addEventListener("scroll",place,true);return()=>{window.removeEventListener("resize",place);window.removeEventListener("scroll",place,true)}},[open,options.length]);
+ useEffect(()=>{if(!open)return;const outside=(event:PointerEvent)=>{if(!trigger.current?.contains(event.target as Node)&&!menu.current?.contains(event.target as Node)){setOpen(false);trigger.current?.focus()}};document.addEventListener("pointerdown",outside);return()=>document.removeEventListener("pointerdown",outside)},[open]);
+ const choose=(option:CompactSelectOption<T>)=>{onChange(option.value);setOpen(false);requestAnimationFrame(()=>trigger.current?.focus())};
+ const key=(event:KeyboardEvent<HTMLElement>)=>{if(!open&&(event.key==="Enter"||event.key===" "||event.key==="ArrowDown")){event.preventDefault();setOpen(true);return}if(!open)return;if(event.key==="Escape"){event.preventDefault();setOpen(false);trigger.current?.focus()}else if(event.key==="ArrowDown"||event.key==="ArrowUp"){event.preventDefault();setActive(index=>(index+(event.key==="ArrowDown"?1:-1)+options.length)%options.length)}else if(event.key==="Enter"||event.key===" "){event.preventDefault();choose(options[active])}};
+ const selected=options.find(option=>option.value===value);
+ return <div className={styles.root}><span className={styles.label}>{label}</span><button ref={trigger} type="button" className={styles.trigger} aria-label={label} aria-haspopup="listbox" aria-expanded={open} aria-controls={id} onClick={()=>setOpen(current=>!current)} onKeyDown={key}><span>{selected?.label??placeholder}</span><i data-open={open} aria-hidden="true">⌄</i></button>{open&&typeof document!=="undefined"&&createPortal(<div ref={menu} id={id} className={styles.menu} style={position} role="listbox" aria-label={label} onKeyDown={key}>{options.map((option,index)=><button type="button" role="option" aria-selected={option.value===value} data-active={index===active} key={option.value} onMouseEnter={()=>setActive(index)} onClick={()=>choose(option)}><span aria-hidden="true">{option.value===value?"✓":""}</span><b>{option.label}</b></button>)}</div>,document.body)}</div>;
+}

@@ -23,6 +23,7 @@ vi.mock("./NotificationContext", () => ({
     loading: false,
     error: "",
     realtimeStatus: "unavailable",
+    refresh: vi.fn(async () => undefined),
     markRead: state.markRead,
     targetFor: () => null,
   }),
@@ -57,7 +58,7 @@ beforeEach(() => {
   state.items = Array.from({ length: 7 }, (_, index) => item(index + 1));
 });
 afterEach(() => { cleanup(); state.push.mockClear(); state.markRead.mockClear(); });
-const open = () => { render(<NotificationPopover />); fireEvent.click(screen.getByRole("button", { name: /읽지 않은 알림/ })); };
+const open = () => { render(<NotificationPopover />); fireEvent.click(screen.getByRole("button", { name: /알림/ })); };
 
 describe("NotificationPopover audiences", () => {
   it("renders at most six newest general notifications without operations metadata or dangling tab aria", () => {
@@ -85,11 +86,64 @@ describe("NotificationPopover audiences", () => {
     expect(screen.getByText("데모 알림 표시 중")).toBeInTheDocument();
   });
 
-  it("uses the operations popover for multi-role accounts", () => {
+  it("uses the primary role for multi-role accounts", () => {
     state.roles = ["GENERAL_USER", "CONTROLLER"];
     state.items = [item(1)];
     open();
-    expect(screen.getByRole("tab", { name: /최근 업데이트/ })).toBeInTheDocument();
-    expect(screen.getByText("INC-001 · 확인 필요")).toBeInTheDocument();
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.queryByText("INC-001 · 확인 필요")).not.toBeInTheDocument();
+  });
+
+  it("shows only response-required notifications in the system administrator inbox", () => {
+    state.roles = ["SYSTEM_ADMIN"];
+    state.items = [
+      {...item(1), public_id:"system", notification_type:"SYSTEM_STATUS", admin_category:"SYSTEM", resource:{resource_type:"SYSTEM",resource_public_id:"system",resource_label:"인증 서비스"},resource_label:"인증 서비스",title:"인증 서비스 연결 장애"},
+      {...item(2), public_id:"audit", notification_type:"AUDIT_RECORDED", admin_category:"AUDIT", severity:"INFO", resource:{resource_type:"AUDIT",resource_public_id:"audit",resource_label:"감사 기록"},resource_label:"감사 기록",title:"사용자 정보 변경 기록"},
+    ];
+    open();
+
+    expect(screen.getByRole("heading", { name: "운영 알림" })).toBeInTheDocument();
+    expect(screen.getAllByRole("tab").map(tab=>tab.textContent)).toEqual(["전체","미확인","긴급","계정","시스템"]);
+    expect(screen.getByText("인증 서비스 연결 장애")).toBeInTheDocument();
+    expect(screen.queryByText("사용자 정보 변경 기록")).not.toBeInTheDocument();
+    expect(screen.getByText("미확인 1건")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "전체 알림 보기" })).toHaveAttribute("href", "/notifications");
+    expect(screen.queryByText("미확인", {selector:"em"})).not.toBeInTheDocument();
+    expect(screen.getByRole("button",{name:/긴급 알림, 인증 서비스 연결 장애/})).toBeInTheDocument();
+  });
+
+  it("marks only unread response notifications when confirming all", () => {
+    state.roles = ["SYSTEM_ADMIN"];
+    state.items = [
+      {...item(1), public_id:"system", notification_type:"SYSTEM_STATUS", admin_category:"SYSTEM", resource:{resource_type:"SYSTEM",resource_public_id:"system",resource_label:"인증 서비스"},resource_label:"인증 서비스"},
+      {...item(2), public_id:"audit", notification_type:"AUDIT_RECORDED", admin_category:"AUDIT", severity:"INFO", resource:{resource_type:"AUDIT",resource_public_id:"audit",resource_label:"감사 기록"},resource_label:"감사 기록"},
+    ];
+    open();
+    fireEvent.click(screen.getByRole("button", { name: "모두 읽음" }));
+
+    expect(state.markRead).toHaveBeenCalledWith("system");
+    expect(state.markRead).not.toHaveBeenCalledWith("audit");
+  });
+
+  it("filters compact administrator alerts by account and system category",()=>{
+    state.roles=["SYSTEM_ADMIN"];
+    state.items=[
+      {...item(1),public_id:"system",notification_type:"SYSTEM_STATUS",admin_category:"SYSTEM",resource:{resource_type:"SYSTEM",resource_public_id:"system",resource_label:"인증 서비스"},resource_label:"인증 서비스",title:"인증 서비스 연결 장애"},
+      {...item(3),public_id:"account",notification_type:"ACCOUNT_CHANGED",admin_category:"ACCOUNT",severity:"WARNING",resource:{resource_type:"ACCOUNT",resource_public_id:"account",resource_label:"운영 계정"},resource_label:"운영 계정",title:"비활성 계정 로그인 시도"},
+    ];
+    open();
+    fireEvent.click(screen.getByRole("tab",{name:"계정"}));
+    expect(screen.getByText("비활성 계정 로그인 시도")).toBeInTheDocument();
+    expect(screen.queryByText("인증 서비스 연결 장애")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab",{name:"시스템"}));
+    expect(screen.getByText("인증 서비스 연결 장애")).toBeInTheDocument();
+  });
+
+  it("uses the whole inbox row to confirm an unread administrator alert",()=>{
+    state.roles=["SYSTEM_ADMIN"];
+    state.items=[{...item(1),public_id:"system",notification_type:"SYSTEM_STATUS",admin_category:"SYSTEM",resource:{resource_type:"SYSTEM",resource_public_id:"system",resource_label:"인증 서비스"},resource_label:"인증 서비스",title:"인증 서비스 연결 장애"}];
+    open();
+    fireEvent.click(screen.getByRole("button",{name:/긴급 알림, 인증 서비스 연결 장애/}));
+    expect(state.markRead).toHaveBeenCalledWith("system");
   });
 });

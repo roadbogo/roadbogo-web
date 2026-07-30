@@ -27,7 +27,7 @@ describe("authenticated sidebar menus",()=>{
   });
 
   it("filters fixed-order work menus by API permission and an existing protected route",()=>{
-    expect(getAuthenticatedSidebarMenus(user("SYSTEM_ADMIN",["USER.READ_ALL","ROLE.MANAGE","NOTIFICATION.READ_OWN"])).map(item=>item.id)).toEqual(["home","notifications","admin","mypage"]);
+    expect(getAuthenticatedSidebarMenus(user("SYSTEM_ADMIN",["USER.READ_ALL","ROLE.MANAGE","NOTIFICATION.READ_OWN"])).map(item=>item.id)).toEqual(["home","admin","notifications","mypage"]);
     expect(getAuthenticatedSidebarMenus(user("CONTROL_MANAGER",["CCTV.READ","INCIDENT.READ_ALL","DISPATCH.ASSIGN","NOTIFICATION.READ_OWN"])).map(item=>item.id)).toEqual(["home","control","incidents","notifications","mypage"]);
     expect(getAuthenticatedSidebarMenus(user("CONTROLLER",["CCTV.READ","INCIDENT.READ_ALL","DISPATCH.ASSIGN","NOTIFICATION.READ_OWN"])).map(item=>item.id)).toEqual(["home","control","incidents","notifications","mypage"]);
     expect(getAuthenticatedSidebarMenus(user("RESPONDER",["DISPATCH.READ_OWN","DISPATCH.UPDATE_OWN","NOTIFICATION.READ_OWN"])).map(item=>item.id)).toEqual(["home","dispatch","notifications","mypage"]);
@@ -36,8 +36,15 @@ describe("authenticated sidebar menus",()=>{
 
   it("uses the union of multi-role permissions without duplicating menu ids",()=>{
     const items=getAuthenticatedSidebarMenus(user("SYSTEM_ADMIN",["INCIDENT.READ_ALL","USER.READ_ALL"],["SYSTEM_ADMIN","CONTROLLER"]));
-    expect(items.map(item=>item.id)).toEqual(["home","control","incidents","admin","mypage"]);
+    expect(items.map(item=>item.id)).toEqual(["home","admin","control","incidents","mypage"]);
     expect(new Set(items.map(item=>item.id)).size).toBe(items.length);
+  });
+
+  it("uses the primary role to choose the system administrator navigation",()=>{
+    const items=getAuthenticatedSidebarMenus(user("CONTROLLER",["CCTV.READ","INCIDENT.READ_ALL","USER.READ_ALL"],["CONTROLLER","SYSTEM_ADMIN"]));
+    expect(items.find(item=>item.id==="control")?.label).toBe("실시간 관제");
+    expect(items.find(item=>item.id==="admin")?.label).toBe("시스템 관리");
+    expect(items.find(item=>item.id==="admin")?.section).toBe("운영 메뉴");
   });
 });
 
@@ -60,5 +67,25 @@ describe("authenticated sidebar active route",()=>{
   it("keeps dispatch detail paths attached to the dispatch item",()=>{
     const responderItems=getAuthenticatedSidebarMenus(user("RESPONDER",["DISPATCH.READ_OWN"]));
     expect(getActiveSidebarMenuId(responderItems,"/dispatch/dispatch-1")).toBe("dispatch");
+  });
+});
+
+describe("system admin navigation",()=>{
+  const admin={...user("SYSTEM_ADMIN",["CCTV.READ","INCIDENT.READ_ALL","NOTIFICATION.READ_OWN","USER.READ_ALL","ROLE.MANAGE"]),uiPermissions:[...accessByRole.SYSTEM_ADMIN.uiPermissions,"incidents:view"] as AppPermission[]};
+
+  it("keeps a single system-management entry in the common sidebar",()=>{
+    const items=getAuthenticatedSidebarMenus(admin);
+    expect(items.find(item=>item.id==="admin")?.description).toBe("계정·권한·서비스 운영");
+    expect(items.map(item=>[item.section,item.label,item.href])).toEqual([
+      ["공통","홈","/"],
+      ["운영 메뉴","시스템 관리","/admin"],
+      ["시스템 운영","운영 알림","/notifications"],
+      ["운영 조회","관제 현황","/control"],
+      ["운영 조회","사건 조회","/control/incidents"],
+      ["계정","마이페이지","/mypage"],
+    ]);
+    expect(items.find(item=>item.id==="admin")?.children).toBeUndefined();
+    expect(getActiveSidebarMenuId(items,"/admin")).toBe("admin");
+    expect(getActiveSidebarMenuId(items,"/admin/users/new")).toBe("admin");
   });
 });

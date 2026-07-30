@@ -4,8 +4,8 @@ import { formatExactKst, formatRelativeTime, notificationPresentation, notificat
 import type { NotificationViewModel } from "./notificationTypes";
 import styles from "./notifications.module.css";
 
-export const NotificationTypeIcon = ({ kind }: { kind: "incident" | "dispatch" | "complete" }) => <svg viewBox="0 0 24 24" aria-hidden="true">
-  {kind === "incident" ? <><path d="M12 3 2.8 20h18.4Z" /><path d="M12 9v5M12 17h.01" /></> : kind === "dispatch" ? <><path d="M3 6h11v11H3zM14 10h4l3 4v3h-7z" /><circle cx="7" cy="19" r="2" /><circle cx="18" cy="19" r="2" /></> : <><path d="M7 4h10v17H7zM9 4V2h6v2" /><path d="m9 13 2 2 4-5" /></>}
+export const NotificationTypeIcon = ({ kind }: { kind: "incident" | "dispatch" | "complete" | "system" | "account" | "audit" }) => <svg viewBox="0 0 24 24" aria-hidden="true">
+  {kind === "incident" ? <><path d="M12 3 2.8 20h18.4Z" /><path d="M12 9v5M12 17h.01" /></> : kind === "dispatch" ? <><path d="M3 6h11v11H3zM14 10h4l3 4v3h-7z" /><circle cx="7" cy="19" r="2" /><circle cx="18" cy="19" r="2" /></> : kind === "account" ? <><circle cx="12" cy="8" r="4"/><path d="M4 21c.7-4 3.4-6 8-6s7.3 2 8 6"/></> : kind === "system" ? <><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3M7 9h4M7 13h7"/></> : kind === "audit" ? <><path d="M6 3h12v18H6zM9 3V1h6v2"/><path d="m9 13 2 2 4-5"/></> : <><path d="M7 4h10v17H7zM9 4V2h6v2" /><path d="m9 13 2 2 4-5" /></>}
 </svg>;
 
 export function NotificationRow({ item, onOpen, compact = false, showOperationsMetadata = true }: { item: NotificationViewModel; onOpen: (item: NotificationViewModel) => void; compact?: boolean; showOperationsMetadata?: boolean }) {
