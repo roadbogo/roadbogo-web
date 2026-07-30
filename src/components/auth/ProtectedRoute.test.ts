@@ -6,6 +6,7 @@ import type { UserRole } from "@/types/auth";
 import { hasProtectedRouteAccess } from "./ProtectedRoute";
 
 const adminRequirements = {
+  requiredRoles: ["SYSTEM_ADMIN"] as AppRole[],
   requiredAnyPermissions: ["users:manage", "roles:manage"] as AppPermission[],
 };
 
@@ -15,21 +16,21 @@ function user(uiRoles: AppRole[], uiPermissions: AppPermission[]) {
 
 describe("hasProtectedRouteAccess", () => {
   it.each([
-    ["SYSTEM_ADMIN", ["SYSTEM_ADMIN"], [], true],
-    ["USER.READ_ALL", [], ["USER.READ_ALL"], true],
-    ["USER.WRITE", [], ["USER.WRITE"], true],
-    ["ROLE.MANAGE", [], ["ROLE.MANAGE"], true],
-    ["USER.WRITE + ROLE.MANAGE", [], ["USER.WRITE", "ROLE.MANAGE"], true],
-    ["no permission", [], [], false],
-  ] as const)("keeps the admin shortcut and route policy aligned for %s", (_label, roles, apiPermissions, expected) => {
+    ["SYSTEM_ADMIN", ["SYSTEM_ADMIN"], [], true, true],
+    ["USER.READ_ALL", [], ["USER.READ_ALL"], true, false],
+    ["USER.WRITE", [], ["USER.WRITE"], true, false],
+    ["ROLE.MANAGE", [], ["ROLE.MANAGE"], true, false],
+    ["USER.WRITE + ROLE.MANAGE", [], ["USER.WRITE", "ROLE.MANAGE"], true, false],
+    ["no permission", [], [], false, false],
+  ] as const)("requires SYSTEM_ADMIN for /admin even when %s exposes a permission shortcut", (_label, roles, apiPermissions, shortcutExpected, routeExpected) => {
     const roleAccess = mapApiRolesToUiAccess([...roles] as UserRole[]);
     const permissionAccess = mapApiPermissionsToUiPermissions([...apiPermissions]);
     const uiPermissions = [...new Set([...roleAccess.uiPermissions, ...permissionAccess])];
     const subject = user(roleAccess.uiRoles, uiPermissions);
     const hasShortcut = getAccountShortcuts([...apiPermissions], uiPermissions).some(shortcut => shortcut.href === "/admin");
 
-    expect(hasShortcut).toBe(expected);
-    expect(hasProtectedRouteAccess(subject, adminRequirements)).toBe(expected);
+    expect(hasShortcut).toBe(shortcutExpected);
+    expect(hasProtectedRouteAccess(subject, adminRequirements)).toBe(routeExpected);
   });
 
   it("keeps requiredPermissions as an every/AND condition", () => {

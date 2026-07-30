@@ -3,9 +3,11 @@ import type { AuthenticatedUser } from "@/components/auth/AuthContext";
 export type NotificationType =
   | "INCIDENT_CREATED" | "INCIDENT_STATUS_CHANGED"
   | "DISPATCH_ASSIGNED" | "DISPATCH_ACCEPTED" | "DISPATCH_REJECTED"
-  | "DISPATCH_CANCELLED" | "DISPATCH_ARRIVED" | "ACTION_COMPLETED";
+  | "DISPATCH_CANCELLED" | "DISPATCH_ARRIVED" | "ACTION_COMPLETED"
+  | "SYSTEM_STATUS" | "ACCOUNT_CHANGED" | "ROLE_CHANGED" | "AUDIT_RECORDED";
 export type NotificationSeverity = "INFO" | "WARNING" | "HIGH" | "CRITICAL";
-export type NotificationResourceType = "INCIDENT" | "DISPATCH";
+export type NotificationResourceType = "INCIDENT" | "DISPATCH" | "SYSTEM" | "ACCOUNT" | "ROLE" | "AUDIT";
+export type SystemAdminNotificationCategory = "SYSTEM" | "ACCOUNT" | "ROLE" | "AUDIT";
 export type NotificationTargetPath = "/control" | `/control/incidents/${string}` | "/dispatch";
 
 export type NotificationRecord = {
@@ -21,6 +23,7 @@ export type NotificationRecord = {
   delivered_at: string;
   read_at: string | null;
   created_at: string;
+  admin_category?: SystemAdminNotificationCategory;
 };
 
 export type NotificationPage = {
@@ -57,7 +60,7 @@ export type NotificationEvidence = {
 
 export type NotificationPresentation = {
   label: string;
-  icon: "incident" | "dispatch" | "complete";
+  icon: "incident" | "dispatch" | "complete" | "system" | "account" | "audit";
   category: "ACTION_REQUIRED" | "UPDATE";
   tone: "critical" | "warning" | "info" | "success" | "neutral";
 };

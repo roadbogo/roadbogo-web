@@ -256,6 +256,20 @@ button:focus-visible,a:focus-visible,.incident-stage:focus-visible,.service-flow
  .flow-rail div:not(:last-child):before{transition:none!important}
 }
 
+.stage-role-context{
+  display:grid;
+  gap:4px;
+  max-width:520px;
+  margin:-8px 0 20px;
+  padding:12px 14px;
+  border:1px solid rgba(38,153,158,.18);
+  border-radius:12px;
+  background:rgba(232,241,242,.72);
+  color:#344b58;
+}
+.stage-role-context strong{color:#193345;font-size:13px;font-weight:800}
+.stage-role-context span{font-size:14px;line-height:1.55;word-break:keep-all}
+
 /* Give the brand plate breathing room above the header divider. */
 .main-header{
  background:linear-gradient(100deg,var(--blue-card) 0%,var(--section-background) 48%,var(--teal-card) 100%);

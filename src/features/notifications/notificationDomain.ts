@@ -10,6 +10,10 @@ export const notificationPresentation: Record<NotificationType, NotificationPres
   DISPATCH_CANCELLED: { label: "출동 요청 취소", icon: "dispatch", category: "UPDATE", tone: "neutral" },
   DISPATCH_ARRIVED: { label: "현장 도착", icon: "dispatch", category: "UPDATE", tone: "info" },
   ACTION_COMPLETED: { label: "현장 조치 완료", icon: "complete", category: "ACTION_REQUIRED", tone: "success" },
+  SYSTEM_STATUS: { label: "시스템 상태", icon: "system", category: "UPDATE", tone: "warning" },
+  ACCOUNT_CHANGED: { label: "계정 변경", icon: "account", category: "UPDATE", tone: "info" },
+  ROLE_CHANGED: { label: "역할·권한 변경", icon: "account", category: "UPDATE", tone: "info" },
+  AUDIT_RECORDED: { label: "감사 기록", icon: "audit", category: "UPDATE", tone: "neutral" },
 };
 
 export const severityLabels: Record<NotificationSeverity, string> = { INFO: "일반", WARNING: "주의", HIGH: "주의", CRITICAL: "긴급" };
@@ -21,6 +25,7 @@ const responder = (user: AuthenticatedUser) =>
   user.roles.includes("RESPONDER") || user.apiPermissions.some(permission => ["DISPATCH.READ_OWN", "DISPATCH.UPDATE_OWN"].includes(permission));
 
 export function canReceiveNotification(notification: NotificationRecord, resource: LinkedResourceState | null, user: AuthenticatedUser) {
+  if (notification.admin_category) return user.role === "SYSTEM_ADMIN";
   if (user.roles.length === 1 && user.roles[0] === "GENERAL_USER") return false;
   if (notification.resource.resource_type === "INCIDENT") return controlUser(user);
   if (controlUser(user)) return notification.notification_type !== "DISPATCH_ASSIGNED";
@@ -148,6 +153,10 @@ export const managerGuidance:Record<NotificationType,{title:string;body:string}>
   DISPATCH_CANCELLED:{title:"출동 상태 확인",body:"출동 요청이 취소되었습니다. 사건의 후속 대응 여부를 확인해 주세요."},
   DISPATCH_ARRIVED:{title:"진행 상황 확인",body:"출동 담당자가 현장에 도착했습니다. 현재 조치 진행 상태를 확인할 수 있습니다."},
   ACTION_COMPLETED:{title:"종료 확인",body:"현장 조치가 완료되었습니다. 조치 결과와 사건 종료 여부를 확인해 주세요."},
+  SYSTEM_STATUS:{title:"시스템 상태 확인",body:"시스템 운영 상태 변경 내용을 확인합니다."},
+  ACCOUNT_CHANGED:{title:"계정 변경 확인",body:"계정 정보 변경 내용을 확인합니다."},
+  ROLE_CHANGED:{title:"권한 변경 확인",body:"역할과 권한 변경 내용을 확인합니다."},
+  AUDIT_RECORDED:{title:"감사 기록 확인",body:"관리 작업 기록을 확인합니다."},
 };
 
 export type NotificationQueueGroup = "priority" | "action" | "update";

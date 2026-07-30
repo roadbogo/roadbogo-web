@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { AuthenticatedUser } from "@/components/auth/AuthContext";
 import { isGeneralUserOnly, resolveNotificationAudience } from "./notificationAudience";
 
-const user = (roles: AuthenticatedUser["roles"]) => ({ roles }) as Pick<AuthenticatedUser, "roles">;
+const user = (role: AuthenticatedUser["role"]) => ({ role }) as Pick<AuthenticatedUser, "role">;
 
 describe("notification audience presentation", () => {
   it("keeps the main account-service copy contract for a single general role", () => {
-    const generalUser = user(["GENERAL_USER"]);
+    const generalUser = user("GENERAL_USER");
     const audience = resolveNotificationAudience(generalUser);
 
     expect(isGeneralUserOnly(generalUser)).toBe(true);
@@ -25,16 +25,13 @@ describe("notification audience presentation", () => {
     expect(audience.views).toEqual(["all", "unread"]);
   });
 
-  const operationRoleSets: Array<[AuthenticatedUser["roles"]]> = [
-    [["CONTROLLER"]],
-    [["CONTROL_MANAGER"]],
-    [["RESPONDER"]],
-    [["SYSTEM_ADMIN"]],
-    [["GENERAL_USER", "CONTROLLER"]],
-    [[]],
+  const operationRoles: AuthenticatedUser["role"][] = [
+    "CONTROLLER",
+    "CONTROL_MANAGER",
+    "RESPONDER",
   ];
-  it.each(operationRoleSets)("keeps %j on the operations UI", roles => {
-    const account = user(roles);
+  it.each(operationRoles)("keeps %s on the operations UI", role => {
+    const account = user(role);
     const audience = resolveNotificationAudience(account);
 
     expect(isGeneralUserOnly(account)).toBe(false);
@@ -46,6 +43,19 @@ describe("notification audience presentation", () => {
       detailTitle: "업무 상세",
     });
     expect(audience.views).toEqual(["action", "all", "unread"]);
+  });
+
+  it("gives the system administrator a dedicated operations audience",()=>{
+    expect(resolveNotificationAudience(user("SYSTEM_ADMIN"))).toMatchObject({
+      kind:"systemAdmin",
+      systemAdmin:true,
+      showOperationsControls:false,
+      pageTitle:"운영 알림",
+      pageDescription:"시스템 운영과 계정·권한 변경 사항을 확인합니다.",
+      breadcrumb:"운영 알림",
+      listTitle:"운영 알림 목록",
+      views:["all","system","account","unread"],
+    });
   });
 
   it.each([null, undefined])("does not expose general UI while user data is %s", account => {

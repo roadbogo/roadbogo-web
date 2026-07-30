@@ -35,7 +35,6 @@ afterEach(() => {
 
 describe("LandingPage permission-aware CTAs", () => {
   it.each([
-    ["SYSTEM_ADMIN", user("SYSTEM_ADMIN", true)],
     ["CONTROL_MANAGER", user("CONTROL_MANAGER", true)],
     ["CONTROLLER", user("CONTROLLER", true)],
   ] as const)("shows both CTAs for %s with actual control access", (_role, authenticatedUser) => {
@@ -46,8 +45,19 @@ describe("LandingPage permission-aware CTAs", () => {
     expect(screen.getAllByRole("button", { name: /운영 체계 안내/ }).length).toBeGreaterThan(0);
   });
 
+  it("reuses the existing gradient primary action for the system administrator console", () => {
+    auth.state = { user: user("SYSTEM_ADMIN", true), ready: true };
+    render(<LandingPage />);
+
+    const action = screen.getByRole("link", { name: /관리 콘솔 열기/ });
+    expect(action).toHaveAttribute("href", "/admin");
+    expect(action).toHaveClass("stage-primary");
+    expect(screen.queryByRole("link", { name: /실시간 관제 보기/ })).not.toBeInTheDocument();
+    expect(screen.getByText("시스템 관리자 모드")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /운영 체계 안내/ }).at(-1)).not.toHaveClass("stage-primary");
+  });
+
   it.each([
-    ["SYSTEM_ADMIN without permission", user("SYSTEM_ADMIN", false)],
     ["RESPONDER", user("RESPONDER", false)],
     ["GENERAL_USER", user("GENERAL_USER", false)],
   ] as const)("shows only the primary guide CTA for %s", (_label, authenticatedUser) => {

@@ -109,6 +109,7 @@ describe("notifications page audience layout", () => {
 
   it("shows the briefing only after a controller explicitly selects an alert", () => {
     mocks.roles = ["CONTROLLER"];
+    mocks.primaryRole = "CONTROLLER";
     mocks.items = [item("operation", "운영 사건 알림", false)];
     render(<NotificationsPage />);
 
@@ -136,6 +137,8 @@ describe("notifications page audience layout", () => {
 
   it("renders five alerts per bundle and clears detail without marking read when navigating",()=>{
     mocks.roles=["CONTROLLER"];
+    mocks.primaryRole="CONTROLLER";
+    mocks.primaryRole="CONTROLLER";
     mocks.items=Array.from({length:7},(_,index)=>item(`operation-${index}`,`업무 ${index+1}`,false,new Date(Date.UTC(2026,6,22,7-index)).toISOString()));
     render(<NotificationsPage/>);
 
@@ -155,6 +158,7 @@ describe("notifications page audience layout", () => {
 
   it("keeps an older bundle stable and offers a new-alert return notice",async()=>{
     mocks.roles=["CONTROLLER"];
+    mocks.primaryRole="CONTROLLER";
     mocks.items=Array.from({length:7},(_,index)=>item(`stable-${index}`,`기존 업무 ${index+1}`,false,new Date(Date.UTC(2026,6,22,7-index)).toISOString()));
     const {rerender}=render(<NotificationsPage/>);
     fireEvent.click(screen.getByRole("button",{name:"이전 알림"}));
@@ -172,6 +176,7 @@ describe("notifications page audience layout", () => {
 
   it("uses one full snapshot across older pages after a new alert arrives",async()=>{
     mocks.roles=["CONTROLLER"];
+    mocks.primaryRole="CONTROLLER";
     mocks.primaryRole="CONTROLLER";
     mocks.items=Array.from({length:15},(_,index)=>item(
       `snapshot-${index+1}`,
@@ -207,6 +212,7 @@ describe("notifications page audience layout", () => {
   it("removes an item from an older unread snapshot after it is read",async()=>{
     mocks.roles=["CONTROLLER"];
     mocks.primaryRole="CONTROLLER";
+    mocks.primaryRole="CONTROLLER";
     mocks.items=Array.from({length:6},(_,index)=>item(`unread-${index}`,`새 업무 ${index+1}`,false,new Date(Date.UTC(2026,6,22,7-index)).toISOString()));
     const {rerender}=render(<NotificationsPage/>);
     fireEvent.click(screen.getByRole("tab",{name:/새 알림 6/}));
@@ -223,6 +229,7 @@ describe("notifications page audience layout", () => {
 
   it("keeps the selected detail open after an unread alert becomes read",async()=>{
     mocks.roles=["CONTROLLER"];
+    mocks.primaryRole="CONTROLLER";
     mocks.primaryRole="CONTROLLER";
     mocks.items=[item("selected-unread","선택한 새 업무",false)];
     const {rerender}=render(<NotificationsPage/>);
@@ -243,6 +250,7 @@ describe("notifications page audience layout", () => {
 
   it("keeps detail open when reading the last item clamps an older unread page",async()=>{
     mocks.roles=["CONTROLLER"];
+    mocks.primaryRole="CONTROLLER";
     mocks.primaryRole="CONTROLLER";
     mocks.items=Array.from({length:6},(_,index)=>item(`clamp-${index}`,`페이지 업무 ${index+1}`,false,new Date(Date.UTC(2026,6,22,7-index)).toISOString()));
     const {rerender}=render(<NotificationsPage/>);
@@ -276,6 +284,7 @@ describe("notifications page audience layout", () => {
   it("keeps detail selected when markRead does not update the item",async()=>{
     mocks.roles=["CONTROLLER"];
     mocks.primaryRole="CONTROLLER";
+    mocks.primaryRole="CONTROLLER";
     mocks.markRead.mockResolvedValueOnce(false);
     mocks.items=[item("read-failed","읽음 실패 업무",false)];
     render(<NotificationsPage/>);
@@ -287,6 +296,7 @@ describe("notifications page audience layout", () => {
 
   it("closes selected detail only when the item is deleted from current data",async()=>{
     mocks.roles=["CONTROLLER"];
+    mocks.primaryRole="CONTROLLER";
     mocks.primaryRole="CONTROLLER";
     mocks.items=[item("deleted-selection","삭제될 업무",false)];
     const {rerender}=render(<NotificationsPage/>);
@@ -303,6 +313,7 @@ describe("notifications page audience layout", () => {
   it("still closes selected detail on an explicit filter change",()=>{
     mocks.roles=["CONTROLLER"];
     mocks.primaryRole="CONTROLLER";
+    mocks.primaryRole="CONTROLLER";
     mocks.items=[item("filter-selection","필터 변경 업무",false)];
     render(<NotificationsPage/>);
     fireEvent.click(screen.getByText("필터 변경 업무"));
@@ -313,6 +324,7 @@ describe("notifications page audience layout", () => {
 
   it("clears an older unread snapshot after all alerts are marked read",async()=>{
     mocks.roles=["CONTROLLER"];
+    mocks.primaryRole="CONTROLLER";
     mocks.primaryRole="CONTROLLER";
     mocks.items=Array.from({length:6},(_,index)=>item(`all-read-${index}`,`미열람 업무 ${index+1}`,false,new Date(Date.UTC(2026,6,22,7-index)).toISOString()));
     const {rerender}=render(<NotificationsPage/>);
@@ -329,6 +341,7 @@ describe("notifications page audience layout", () => {
 
   it("counts only new alerts matching the active filters",async()=>{
     mocks.roles=["CONTROLLER"];
+    mocks.primaryRole="CONTROLLER";
     mocks.primaryRole="CONTROLLER";
     mocks.items=Array.from({length:6},(_,index)=>({
       ...item(`critical-${index}`,`긴급 업무 ${index+1}`,false,new Date(Date.UTC(2026,6,22,7-index)).toISOString()),
@@ -356,6 +369,7 @@ describe("notifications page audience layout", () => {
   it("renders a CONTROL_MANAGER management queue without changing the shared page", () => {
     mocks.roles=["CONTROL_MANAGER"];
     mocks.primaryRole="CONTROL_MANAGER";
+    mocks.primaryRole="CONTROL_MANAGER";
     const immediate={...item("manager-new","신규 위험 사건",false),notification_type:"INCIDENT_CREATED" as const,severity:"HIGH" as const,reason:"INCIDENT_UNACKNOWLEDGED" as const};
     const action={...item("manager-rejected","출동 요청 거절",false),notification_type:"DISPATCH_REJECTED" as const,severity:"WARNING" as const,reason:"DISPATCH_REASSIGNMENT_REQUIRED" as const};
     const complete={...item("manager-complete","현장 조치 완료",true),notification_type:"ACTION_COMPLETED" as const,reason:"ACTION_REVIEW_REQUIRED" as const};
@@ -375,6 +389,7 @@ describe("notifications page audience layout", () => {
   it("shows neutral detail guidance for a processed manager notification",()=>{
     mocks.roles=["CONTROL_MANAGER"];
     mocks.primaryRole="CONTROL_MANAGER";
+    mocks.primaryRole="CONTROL_MANAGER";
     mocks.items=[{
       ...item("processed-detail","처리 완료 사건",true),
       notification_type:"INCIDENT_CREATED",
@@ -391,6 +406,7 @@ describe("notifications page audience layout", () => {
   it("excludes processed notifications from the manager queue and keeps counts aligned",()=>{
     mocks.roles=["CONTROL_MANAGER"];
     mocks.primaryRole="CONTROL_MANAGER";
+    mocks.primaryRole="CONTROL_MANAGER";
     mocks.items=[
       {...item("actionable","조치 필요 신규 사건",false),notification_type:"INCIDENT_CREATED",reason:"INCIDENT_UNACKNOWLEDGED"},
       {...item("processed","처리된 신규 사건",true),notification_type:"INCIDENT_CREATED",action_required:false,reason:"INCIDENT_PROCESSED"},
@@ -406,6 +422,7 @@ describe("notifications page audience layout", () => {
 
   it("counts only actionable new alerts in an older manager queue bundle",async()=>{
     mocks.roles=["CONTROL_MANAGER"];
+    mocks.primaryRole="CONTROL_MANAGER";
     mocks.primaryRole="CONTROL_MANAGER";
     mocks.items=Array.from({length:6},(_,index)=>({
       ...item(`manager-queue-${index}`,`관리 업무 ${index+1}`,false,new Date(Date.UTC(2026,6,22,7-index)).toISOString()),
@@ -439,6 +456,7 @@ describe("notifications page audience layout", () => {
   it("removes a processed item from an older manager queue snapshot",async()=>{
     mocks.roles=["CONTROL_MANAGER"];
     mocks.primaryRole="CONTROL_MANAGER";
+    mocks.primaryRole="CONTROL_MANAGER";
     mocks.items=Array.from({length:6},(_,index)=>({
       ...item(`queue-state-${index}`,`대기 업무 ${index+1}`,false,new Date(Date.UTC(2026,6,22,7-index)).toISOString()),
       notification_type:"INCIDENT_CREATED" as const,
@@ -461,6 +479,7 @@ describe("notifications page audience layout", () => {
 
   it("keeps tab=unread compatible as the manager center inbox filter",()=>{
     mocks.roles=["CONTROL_MANAGER"];
+    mocks.primaryRole="CONTROL_MANAGER";
     mocks.items=[item("manager-read","읽은 센터 알림",true),item("manager-unread","읽지 않은 센터 알림",false)];
     searchParams.set("tab","unread");
     render(<NotificationsPage/>);
@@ -470,19 +489,18 @@ describe("notifications page audience layout", () => {
     expect(screen.getByText("읽지 않은 센터 알림")).toBeInTheDocument();
   });
 
-  it("keeps a GENERAL_USER and CONTROLLER multi-role account on operations UI", () => {
+  it("uses the primary GENERAL_USER role even when another role is present", () => {
     mocks.roles = ["GENERAL_USER", "CONTROLLER"];
     mocks.primaryRole = "GENERAL_USER";
     render(<NotificationsPage />);
-    expect(screen.getByText("알림 목록")).toBeInTheDocument();
-    expect(screen.getByText("사건과 출동 관련 업무 알림을 확인합니다.")).toBeInTheDocument();
-    expect(screen.getByLabelText("알림 정렬")).toBeInTheDocument();
+    expect(screen.getByRole("heading",{name:"알림"})).toBeInTheDocument();
+    expect(screen.queryByLabelText("알림 정렬")).not.toBeInTheDocument();
   });
 
   it.each([
     [["CONTROL_MANAGER"],"CONTROL_MANAGER",true],
-    [["SYSTEM_ADMIN","CONTROL_MANAGER"],"SYSTEM_ADMIN",true],
-    [["GENERAL_USER","CONTROL_MANAGER"],"GENERAL_USER",true],
+    [["SYSTEM_ADMIN","CONTROL_MANAGER"],"SYSTEM_ADMIN",false],
+    [["GENERAL_USER","CONTROL_MANAGER"],"GENERAL_USER",false],
     [["SYSTEM_ADMIN"],"SYSTEM_ADMIN",false],
     [["CONTROLLER"],"CONTROLLER",false],
     [["RESPONDER"],"RESPONDER",false],
@@ -491,5 +509,17 @@ describe("notifications page audience layout", () => {
     mocks.primaryRole=primaryRole;
     render(<NotificationsPage/>);
     expect(Boolean(screen.queryByRole("tab",{name:/관리 대기열/}))).toBe(expected);
+  });
+
+  it("renders a dedicated system administrator operations inbox",()=>{
+    mocks.roles=["SYSTEM_ADMIN","CONTROL_MANAGER"];
+    mocks.primaryRole="SYSTEM_ADMIN";
+    mocks.items=[{...item("admin-system","인증 서비스 연결 장애",false),notification_type:"SYSTEM_STATUS",admin_category:"SYSTEM",resource:{resource_type:"SYSTEM",resource_public_id:"mock-system",resource_label:"인증 서비스"},resource_label:"인증 서비스",target_path:null,action_required:false,action_label:null,evidence:null}];
+    render(<NotificationsPage/>);
+    expect(screen.getByRole("heading",{name:"운영 알림",level:1})).toBeInTheDocument();
+    expect(screen.getByText("운영 알림 목록")).toBeInTheDocument();
+    expect(screen.getByRole("tab",{name:/시스템 상태/})).toBeInTheDocument();
+    expect(screen.queryByRole("tab",{name:/관리 대기열/})).not.toBeInTheDocument();
+    expect(screen.queryByText(/사건과 출동 관련/)).not.toBeInTheDocument();
   });
 });
