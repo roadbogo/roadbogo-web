@@ -2,7 +2,7 @@
 
 import "@testing-library/jest-dom/vitest";
 import React from "react";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthenticatedUser } from "@/components/auth/AuthContext";
 import type { NotificationViewModel } from "@/features/notifications/notificationTypes";
@@ -513,6 +513,32 @@ describe("notifications page audience layout", () => {
     mocks.primaryRole=primaryRole;
     render(<NotificationsPage/>);
     expect(Boolean(screen.queryByRole("heading",{name:"센터 업무 알림",level:1}))).toBe(expected);
+  });
+
+  it("keeps mobile entry in the list until the user selects and closes an alert",async()=>{
+    window.matchMedia=vi.fn().mockReturnValue({matches:true,addEventListener:vi.fn(),removeEventListener:vi.fn()}) as unknown as typeof window.matchMedia;
+    mocks.roles=["SYSTEM_ADMIN"];mocks.primaryRole="SYSTEM_ADMIN";mocks.items=[{...item("mobile-alert","인증 서비스 연결 장애",false),notification_type:"SYSTEM_STATUS",severity:"CRITICAL",admin_category:"SYSTEM"}];
+    render(<NotificationsPage/>);
+    await act(async()=>{});
+    expect(mocks.replace).not.toHaveBeenCalled();
+    fireEvent.click(within(screen.getByRole("option")).getByRole("button"));
+    expect(mocks.push).toHaveBeenLastCalledWith("/notifications?notification=mobile-alert",{scroll:false});
+    searchParams.set("notification","mobile-alert");cleanup();render(<NotificationsPage/>);
+    expect(screen.getByRole("heading",{name:"인증 서비스 연결 장애",level:2})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button",{name:/알림 목록/}));
+    expect(mocks.push).toHaveBeenLastCalledWith("/notifications",{scroll:false});
+    searchParams.delete("notification");cleanup();mocks.replace.mockClear();render(<NotificationsPage/>);await act(async()=>{});
+    expect(mocks.replace).not.toHaveBeenCalled();
+  });
+
+  it("auto-selects once after a mobile viewport becomes desktop",async()=>{
+    let matches=true;let listener:(()=>void)|undefined;
+    window.matchMedia=vi.fn().mockReturnValue({get matches(){return matches},addEventListener:vi.fn((_event,callback)=>{listener=callback}),removeEventListener:vi.fn()}) as unknown as typeof window.matchMedia;
+    mocks.roles=["SYSTEM_ADMIN"];mocks.primaryRole="SYSTEM_ADMIN";mocks.items=[{...item("responsive-alert","인증 서비스 연결 장애",false),notification_type:"SYSTEM_STATUS",severity:"CRITICAL",admin_category:"SYSTEM"}];
+    render(<NotificationsPage/>);await act(async()=>{});expect(mocks.replace).not.toHaveBeenCalled();
+    matches=false;act(()=>listener?.());
+    await waitFor(()=>expect(mocks.replace).toHaveBeenCalledTimes(1));
+    expect(mocks.replace).toHaveBeenCalledWith("/notifications?notification=responsive-alert",{scroll:false});
   });
 
   it("renders a dedicated system administrator operations inbox",()=>{

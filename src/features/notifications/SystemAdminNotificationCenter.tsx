@@ -69,11 +69,12 @@ export function SystemAdminNotificationCenter() {
   const [lastRefresh, setLastRefresh] = useState(() => new Date());
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [mobile,setMobile]=useState(false);
+  const [viewportReady,setViewportReady]=useState(false);
   const selectedTrigger = useRef<HTMLButtonElement | null>(null);
   const implicitSelection = useRef<string | null>(null);
   const attemptedReads = useRef(new Set<string>());
   const pendingReads=useRef(new Set<string>());
-  useEffect(()=>{if(typeof window.matchMedia!=="function")return;const media=window.matchMedia("(max-width: 768px)");const sync=()=>setMobile(media.matches);sync();media.addEventListener("change",sync);return()=>media.removeEventListener("change",sync)},[]);
+  useEffect(()=>{if(typeof window.matchMedia!=="function"){setViewportReady(true);return}const media=window.matchMedia("(max-width: 768px)");const sync=()=>{setMobile(media.matches);setViewportReady(true)};sync();media.addEventListener("change",sync);return()=>media.removeEventListener("change",sync)},[]);
 
   const setQuery = useCallback((updates: Record<string, string | null>, push = true) => {
     const next = new URLSearchParams(params.toString());
@@ -102,10 +103,10 @@ export function SystemAdminNotificationCenter() {
   useEffect(()=>{if(!requestedItem)return;const requestedTab=systemAdminQueue(requestedItem)==="change"?"history":"pending";if(requestedTab!==tab)setQuery({tab:requestedTab,type:null,notification:requestedItem.public_id},false)},[requestedItem,setQuery,tab]);
 
   useEffect(() => {
-    if (mobile || loading || error || requestedId || visible.length === 0 || selected) return;
+    if (!viewportReady || mobile || loading || error || requestedId || visible.length === 0 || selected) return;
     implicitSelection.current = visible[0].public_id;
     setQuery({ tab, type: filter, notification: visible[0].public_id }, false);
-  }, [error, filter, loading, mobile, requestedId, selected, setQuery, tab, visible]);
+  }, [error, filter, loading, mobile, requestedId, selected, setQuery, tab, viewportReady, visible]);
   useEffect(() => {
     if (!requestedId || selected || requestedItem) return;
     implicitSelection.current = null;
