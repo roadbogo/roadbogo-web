@@ -24,6 +24,19 @@ const operationRecords: NotificationRecord[] = [
   { public_id: "10000000-0000-4000-8000-000000000008", notification_type: "DISPATCH_CANCELLED", severity: "INFO", title: "출동 요청 취소", body: "관제센터에서 출동 요청을 취소했습니다.", resource: resource("DISPATCH", "DSP-20260718-0021"), target_path: "/dispatch", delivery_status: "DELIVERED", read: true, delivered_at: ago(1460), read_at: ago(1455), created_at: ago(1460) },
 ];
 const records: NotificationRecord[] = [...operationRecords, ...mockSystemAdminNotifications];
+const managerCopy:Partial<Record<NotificationRecord["notification_type"],Pick<NotificationRecord,"title"|"body">>>={
+  INCIDENT_CREATED:{title:"긴급 위험 사건이 접수되었습니다.",body:"센터 구간에서 위험 객체가 탐지되었습니다. 현재 담당 관제자를 확인해 주세요."},
+  INCIDENT_STATUS_CHANGED:{title:"사건 처리 상태가 변경되었습니다.",body:"센터 사건의 처리 상태와 담당 관제자 변경 내용을 확인해 주세요."},
+  DISPATCH_ACCEPTED:{title:"출동 요청이 수락되었습니다.",body:"출동 담당자가 요청을 수락했습니다."},
+  DISPATCH_REJECTED:{title:"출동 요청이 거절되었습니다.",body:"출동 담당자가 요청을 거절했습니다. 재확인이 필요합니다."},
+  DISPATCH_CANCELLED:{title:"출동 요청이 취소되었습니다.",body:"출동 요청이 취소되어 사건 대응 상태를 확인해야 합니다."},
+  DISPATCH_ARRIVED:{title:"출동 담당자가 현장에 도착했습니다.",body:"출동 담당자가 사건 현장 도착을 등록했습니다."},
+  ACTION_COMPLETED:{title:"현장 조치가 완료되었습니다.",body:"현장 조치 결과가 등록되었습니다. 사건 종료 확인이 필요합니다."},
+};
+const managerRecords=operationRecords
+  .filter(item=>item.notification_type!=="DISPATCH_ASSIGNED")
+  .map(item=>managerCopy[item.notification_type]?{...item,...managerCopy[item.notification_type]}:item);
+const recordsFor=(user:AuthenticatedUser)=>user.role==="CONTROL_MANAGER"?managerRecords:records;
 
 const states: Record<string, LinkedResourceState> = {
   [mockIncidentPublicIds["INC-20260719-0012"]]: { resource_type: "INCIDENT", public_id: mockIncidentPublicIds["INC-20260719-0012"], status: "NEW", active_dispatch: false },
@@ -74,7 +87,7 @@ export const mockNotificationAdapter: NotificationAdapter = {
     await Promise.resolve();
     const readOverrides = readOverridesFor(user);
     if (!readOverrides) return { items: [], pagination: { page: 1, size: 20, total: 0, has_next: false }, unread_count: 0 };
-    const unique = [...new Map(records.map(item => [item.public_id, item])).values()]
+    const unique = [...new Map(recordsFor(user).map(item => [item.public_id, item])).values()]
       .map(item => readOverrides.has(item.public_id) ? { ...item, read: true, read_at: new Date().toISOString() } : item)
       .filter(item => belongsToAudience(item, user) && canReceiveNotification(item, getMockResourceState(item.resource.resource_public_id, user), user))
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -83,7 +96,7 @@ export const mockNotificationAdapter: NotificationAdapter = {
   async markRead(user, publicId) {
     const readOverrides = readOverridesFor(user);
     if (!readOverrides) throw new Error("사용자 식별 정보가 없어 읽음 상태를 저장할 수 없습니다.");
-    const visible = records.some(item => item.public_id === publicId && belongsToAudience(item, user)
+    const visible = recordsFor(user).some(item => item.public_id === publicId && belongsToAudience(item, user)
       && canReceiveNotification(item, getMockResourceState(item.resource.resource_public_id, user), user));
     if (!visible) throw new Error("현재 사용자에게 전달된 알림이 아닙니다.");
     readOverrides.add(publicId);
@@ -91,7 +104,7 @@ export const mockNotificationAdapter: NotificationAdapter = {
   async markAllRead(user) {
     const readOverrides = readOverridesFor(user);
     if (!readOverrides) throw new Error("사용자 식별 정보가 없어 읽음 상태를 저장할 수 없습니다.");
-    records
+    recordsFor(user)
       .filter(item => belongsToAudience(item, user) && canReceiveNotification(item, getMockResourceState(item.resource.resource_public_id, user), user))
       .forEach(item => readOverrides.add(item.public_id));
   },

@@ -1,5 +1,5 @@
 import type { AuthenticatedUser } from "@/components/auth/AuthContext";
-import type { LinkedResourceState, NotificationActionState, NotificationPresentation, NotificationRecord, NotificationSeverity, NotificationTargetPath, NotificationType, NotificationViewModel } from "./notificationTypes";
+import type { LinkedResourceState, NotificationActionState, NotificationPresentation, NotificationRecord, NotificationSeverity, NotificationTargetPath, NotificationType, NotificationViewModel, NotificationVisualTone } from "./notificationTypes";
 
 export const notificationPresentation: Record<NotificationType, NotificationPresentation> = {
   INCIDENT_CREATED: { label: "신규 위험 사건", icon: "incident", category: "ACTION_REQUIRED", tone: "critical" },
@@ -17,6 +17,56 @@ export const notificationPresentation: Record<NotificationType, NotificationPres
 };
 
 export const severityLabels: Record<NotificationSeverity, string> = { INFO: "일반", WARNING: "주의", HIGH: "주의", CRITICAL: "긴급" };
+export const notificationVisualToneLabels:Record<NotificationVisualTone,string>={
+  URGENT:"긴급",
+  CAUTION:"주의",
+  SECURITY:"보안",
+  CHANGE:"변경",
+  SUCCESS:"완료",
+  INFO:"정보",
+};
+
+export function resolveNotificationVisualTone(notification:Pick<NotificationRecord,"severity"|"notification_type"|"resource"|"title"|"body">):NotificationVisualTone{
+  if(notification.severity==="CRITICAL")return"URGENT";
+  if(notification.notification_type==="ROLE_CHANGED"||notification.resource.resource_type==="ROLE")return"CHANGE";
+  if(/(정상|복구|완료|해소)/.test(`${notification.title} ${notification.body}`))return"SUCCESS";
+  const securityType=["ACCOUNT_CHANGED","ROLE_CHANGED"].includes(notification.notification_type)
+    || ["ACCOUNT","ROLE"].includes(notification.resource.resource_type);
+  const securityCopy=/(인증|계정|로그인|권한|보안)/.test(`${notification.title} ${notification.body}`);
+  if(securityType||securityCopy)return"SECURITY";
+  if(notification.severity==="HIGH"||notification.severity==="WARNING")return"CAUTION";
+  return"INFO";
+}
+
+export type SystemAdminQueue="immediate"|"attention"|"change";
+export const systemAdminQueuePresentation:Record<SystemAdminQueue,{label:string;description:string}>={
+  immediate:{label:"즉시 확인",description:"장애와 주요 보안 이벤트를 먼저 확인합니다."},
+  attention:{label:"확인 필요",description:"주의가 필요한 운영·계정 변경을 점검합니다."},
+  change:{label:"변경 기록",description:"처리된 정보와 운영 변경 이력을 확인합니다."},
+};
+export function systemAdminQueue(item:Pick<NotificationViewModel,"severity"|"notification_type"|"resource"|"title"|"body">):SystemAdminQueue{
+  const copy=`${item.title} ${item.body}`;
+  const completed=/(정상\s*복구|복구\s*완료|해결|해소|처리\s*완료|검토\s*완료|정책\s*검토\s*완료|계정\s*(생성|등록)|비활성화\s*완료)/.test(copy);
+  if(completed||item.notification_type==="AUDIT_RECORDED"||item.resource.resource_type==="AUDIT")return"change";
+
+  if(item.notification_type==="SYSTEM_STATUS"||item.resource.resource_type==="SYSTEM"){
+    if(["CRITICAL","HIGH"].includes(item.severity))return"immediate";
+    if(["WARNING"].includes(item.severity))return/(지연|장애|오류|실패|중단|연결)/.test(copy)?"immediate":"attention";
+    return"change";
+  }
+
+  if(item.notification_type==="ACCOUNT_CHANGED"||item.resource.resource_type==="ACCOUNT"){
+    return["CRITICAL","HIGH"].includes(item.severity)?"immediate":item.severity==="WARNING"?"attention":"change";
+  }
+
+  if(item.notification_type==="ROLE_CHANGED"||item.resource.resource_type==="ROLE"){
+    return["CRITICAL","HIGH","WARNING"].includes(item.severity)?"attention":"change";
+  }
+
+  if(item.severity==="CRITICAL")return"immediate";
+  if(item.severity==="HIGH"||item.severity==="WARNING")return"attention";
+  return"change";
+}
 
 const controlUser = (user: AuthenticatedUser) =>
   user.roles.some(role => ["SYSTEM_ADMIN", "CONTROL_MANAGER", "CONTROLLER"].includes(role))
@@ -61,12 +111,14 @@ export function safeNotificationTarget(path: string | null, user: AuthenticatedU
 }
 
 export function resolveNotificationTarget(notification: NotificationRecord, user: AuthenticatedUser): NotificationTargetPath | null {
+  const apiTarget = safeNotificationTarget(notification.target_path, user);
+  if (apiTarget) return apiTarget;
   if (notification.resource.resource_type === "INCIDENT" && controlUser(user)) {
     const publicId = notification.resource.resource_public_id;
-    return incidentPublicIdPattern.test(publicId) ? `/control/incidents/${publicId}` : null;
+    if (incidentPublicIdPattern.test(publicId)) return `/control/incidents/${publicId}`;
   }
   if (notification.resource.resource_type === "DISPATCH" && responder(user)) return "/dispatch";
-  return safeNotificationTarget(notification.target_path, user);
+  return `/notifications?notification=${encodeURIComponent(notification.public_id)}` as NotificationTargetPath;
 }
 
 export function formatRelativeTime(value: string, now = Date.now()) {

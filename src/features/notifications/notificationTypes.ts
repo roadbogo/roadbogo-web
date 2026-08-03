@@ -6,9 +6,15 @@ export type NotificationType =
   | "DISPATCH_CANCELLED" | "DISPATCH_ARRIVED" | "ACTION_COMPLETED"
   | "SYSTEM_STATUS" | "ACCOUNT_CHANGED" | "ROLE_CHANGED" | "AUDIT_RECORDED";
 export type NotificationSeverity = "INFO" | "WARNING" | "HIGH" | "CRITICAL";
+export type NotificationVisualTone = "URGENT" | "CAUTION" | "SECURITY" | "CHANGE" | "SUCCESS" | "INFO";
 export type NotificationResourceType = "INCIDENT" | "DISPATCH" | "SYSTEM" | "ACCOUNT" | "ROLE" | "AUDIT";
 export type SystemAdminNotificationCategory = "SYSTEM" | "ACCOUNT" | "ROLE" | "AUDIT";
-export type NotificationTargetPath = "/control" | `/control/incidents/${string}` | "/dispatch";
+export type NotificationTargetPath =
+  | "/control"
+  | `/control/incidents/${string}`
+  | "/dispatch"
+  | `/notifications?selected=${string}`
+  | `/notifications?notification=${string}`;
 
 export type NotificationRecord = {
   public_id: string;

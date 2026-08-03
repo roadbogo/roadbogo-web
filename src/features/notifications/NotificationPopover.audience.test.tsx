@@ -11,6 +11,7 @@ const state = vi.hoisted(() => ({
   items: [] as NotificationViewModel[],
   push: vi.fn(),
   markRead: vi.fn(async () => true),
+  markAllRead: vi.fn(async () => true),
 }));
 vi.mock("next/link", () => ({ default: ({ href, children, ...props }: { href: string; children: React.ReactNode }) => <a href={href} {...props}>{children}</a> }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/", useRouter: () => ({ push: state.push }) }));
@@ -25,7 +26,8 @@ vi.mock("./NotificationContext", () => ({
     realtimeStatus: "unavailable",
     refresh: vi.fn(async () => undefined),
     markRead: state.markRead,
-    targetFor: () => null,
+    markAllRead: state.markAllRead,
+    targetFor: (item:NotificationViewModel) => item.target_path,
   }),
 }));
 
@@ -57,7 +59,7 @@ beforeEach(() => {
   state.roles = ["GENERAL_USER"];
   state.items = Array.from({ length: 7 }, (_, index) => item(index + 1));
 });
-afterEach(() => { cleanup(); state.push.mockClear(); state.markRead.mockClear(); });
+afterEach(() => { cleanup(); state.push.mockClear(); state.markRead.mockClear(); state.markAllRead.mockClear(); });
 const open = () => { render(<NotificationPopover />); fireEvent.click(screen.getByRole("button", { name: /알림/ })); };
 
 describe("NotificationPopover audiences", () => {
@@ -94,7 +96,7 @@ describe("NotificationPopover audiences", () => {
     expect(screen.queryByText("INC-001 · 확인 필요")).not.toBeInTheDocument();
   });
 
-  it("shows only response-required notifications in the system administrator inbox", () => {
+  it("uses the same administrator feed and unread count as the shared notification state", () => {
     state.roles = ["SYSTEM_ADMIN"];
     state.items = [
       {...item(1), public_id:"system", notification_type:"SYSTEM_STATUS", admin_category:"SYSTEM", resource:{resource_type:"SYSTEM",resource_public_id:"system",resource_label:"인증 서비스"},resource_label:"인증 서비스",title:"인증 서비스 연결 장애"},
@@ -103,16 +105,17 @@ describe("NotificationPopover audiences", () => {
     open();
 
     expect(screen.getByRole("heading", { name: "운영 알림" })).toBeInTheDocument();
-    expect(screen.getAllByRole("tab").map(tab=>tab.textContent)).toEqual(["전체","미확인","긴급","계정","시스템"]);
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.getByText("우선 확인")).toBeInTheDocument();
+    expect(screen.getByText("최근 알림")).toBeInTheDocument();
     expect(screen.getByText("인증 서비스 연결 장애")).toBeInTheDocument();
-    expect(screen.queryByText("사용자 정보 변경 기록")).not.toBeInTheDocument();
+    expect(screen.getByText("사용자 정보 변경 기록")).toBeInTheDocument();
     expect(screen.getByText("미확인 1건")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "전체 알림 보기" })).toHaveAttribute("href", "/notifications");
-    expect(screen.queryByText("미확인", {selector:"em"})).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "모든 알림 보기" })).toHaveAttribute("href", "/notifications");
     expect(screen.getByRole("button",{name:/긴급 알림, 인증 서비스 연결 장애/})).toBeInTheDocument();
   });
 
-  it("marks only unread response notifications when confirming all", () => {
+  it("uses the shared mark-all action once from the header", () => {
     state.roles = ["SYSTEM_ADMIN"];
     state.items = [
       {...item(1), public_id:"system", notification_type:"SYSTEM_STATUS", admin_category:"SYSTEM", resource:{resource_type:"SYSTEM",resource_public_id:"system",resource_label:"인증 서비스"},resource_label:"인증 서비스"},
@@ -121,29 +124,34 @@ describe("NotificationPopover audiences", () => {
     open();
     fireEvent.click(screen.getByRole("button", { name: "모두 읽음" }));
 
-    expect(state.markRead).toHaveBeenCalledWith("system");
-    expect(state.markRead).not.toHaveBeenCalledWith("audit");
+    expect(state.markAllRead).toHaveBeenCalledTimes(1);
+    expect(state.markRead).not.toHaveBeenCalled();
   });
 
-  it("filters compact administrator alerts by account and system category",()=>{
+  it("shows one priority alert and at most three recent alerts without popover filters",()=>{
     state.roles=["SYSTEM_ADMIN"];
     state.items=[
       {...item(1),public_id:"system",notification_type:"SYSTEM_STATUS",admin_category:"SYSTEM",resource:{resource_type:"SYSTEM",resource_public_id:"system",resource_label:"인증 서비스"},resource_label:"인증 서비스",title:"인증 서비스 연결 장애"},
       {...item(3),public_id:"account",notification_type:"ACCOUNT_CHANGED",admin_category:"ACCOUNT",severity:"WARNING",resource:{resource_type:"ACCOUNT",resource_public_id:"account",resource_label:"운영 계정"},resource_label:"운영 계정",title:"비활성 계정 로그인 시도"},
+      {...item(4),public_id:"audit",notification_type:"AUDIT_RECORDED",admin_category:"AUDIT",severity:"INFO",resource:{resource_type:"AUDIT",resource_public_id:"audit",resource_label:"감사 기록"},resource_label:"감사 기록",title:"감사 기록 생성"},
+      {...item(5),public_id:"role",notification_type:"ROLE_CHANGED",admin_category:"ROLE",severity:"WARNING",resource:{resource_type:"ROLE",resource_public_id:"role",resource_label:"역할 정책"},resource_label:"역할 정책",title:"시스템 관리자 권한 변경"},
     ];
     open();
-    fireEvent.click(screen.getByRole("tab",{name:"계정"}));
-    expect(screen.getByText("비활성 계정 로그인 시도")).toBeInTheDocument();
-    expect(screen.queryByText("인증 서비스 연결 장애")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab",{name:"시스템"}));
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
     expect(screen.getByText("인증 서비스 연결 장애")).toBeInTheDocument();
+    expect(screen.getByText("시스템 관리자 권한 변경")).toBeInTheDocument();
+    expect(screen.getByText("비활성 계정 로그인 시도")).toBeInTheDocument();
+    expect(screen.getByText("감사 기록 생성")).toBeInTheDocument();
+    expect(screen.getAllByRole("button",{name:/알림,/})).toHaveLength(4);
   });
 
-  it("uses the whole inbox row to confirm an unread administrator alert",()=>{
+  it("closes and navigates immediately while saving unread state asynchronously",()=>{
     state.roles=["SYSTEM_ADMIN"];
     state.items=[{...item(1),public_id:"system",notification_type:"SYSTEM_STATUS",admin_category:"SYSTEM",resource:{resource_type:"SYSTEM",resource_public_id:"system",resource_label:"인증 서비스"},resource_label:"인증 서비스",title:"인증 서비스 연결 장애"}];
     open();
     fireEvent.click(screen.getByRole("button",{name:/긴급 알림, 인증 서비스 연결 장애/}));
     expect(state.markRead).toHaveBeenCalledWith("system");
+    expect(state.push).toHaveBeenCalledWith("/notifications?notification=system");
+    expect(screen.queryByRole("dialog",{name:"운영 알림"})).not.toBeInTheDocument();
   });
 });
