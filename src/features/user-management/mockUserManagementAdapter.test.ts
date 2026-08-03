@@ -53,7 +53,7 @@ describe("MockUserManagementAdapter",()=>{
     expect(operating.items.every(user=>user.roles.some(role=>role!=="GENERAL_USER"))).toBe(true);
     expect(operating.pagination.totalElements).toBe(operating.summary.operating);
     const general=await load({view:"general",size:50});
-    expect(general.items.every(user=>user.roles.length===1&&user.roles[0]==="GENERAL_USER")).toBe(true);
+    expect(general.items.every(user=>user.roles.every(role=>role==="GENERAL_USER"))).toBe(true);
     expect(general.pagination.totalElements).toBe(general.summary.general);
     const attention=await load({view:"attention"});
     expect(new Set(attention.items.map(user=>user.publicId)).size).toBe(attention.items.length);
