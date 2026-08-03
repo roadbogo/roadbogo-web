@@ -39,6 +39,19 @@ describe("AuditLogWorkspace detail selection",()=>{
   expect(screen.getByRole("dialog",{name:"감사 이벤트 상세"})).toBeTruthy();
  });
 
+ it("keeps mobile event title, actor, target, and result in readable regions",async()=>{
+  desktop=false;
+  render(<AuditLogWorkspace/>);
+  const row=(await screen.findAllByRole("row"))[0];
+  expect(row.getAttribute("tabindex")).toBe("0");
+  expect(row.querySelector('[class*="eventTitle"] strong')?.textContent).toBeTruthy();
+  expect(row.querySelector('[class*="actorTarget"] strong')?.textContent).toBeTruthy();
+  expect(row.querySelector('[class*="actorTarget"] span')?.textContent).toBeTruthy();
+  expect(row.textContent).toMatch(/성공|실패|접근 거부/);
+  fireEvent.click(row);
+  expect(navigation.push).toHaveBeenCalledWith(expect.stringContaining("selected="),{scroll:false});
+ });
+
  it("keeps the list open after the user returns from detail",async()=>{
   const view=await openInitialDetail();
   fireEvent.click(screen.getByRole("button",{name:"감사 기록으로 돌아가기"}));
