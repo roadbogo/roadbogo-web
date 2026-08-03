@@ -9,8 +9,8 @@ describe("post login routing",()=>{
  it("does not allow a general user into control",()=>{const general={publicId:"g",accountStatus:"ACTIVE",roles:["GENERAL_USER"]as const,apiPermissions:[]};expect(resolvePostLoginDestination({user:general,returnTo:"/control"}).path).toBe("/")});
  it("uses permission-aware defaults",()=>{
   expect(getRoleDefaultRoute(controller)).toBe("/control");
-  expect(getRoleDefaultRoute({...controller,roles:["CONTROL_MANAGER"]})).toBe("/control");
-  expect(getRoleDefaultRoute({...controller,roles:["RESPONDER"],apiPermissions:["DISPATCH.READ_OWN"]})).toBe("/dispatch");
+  expect(getRoleDefaultRoute({...controller,roles:["CONTROL_MANAGER"]})).toBe("/");
+ expect(getRoleDefaultRoute({...controller,roles:["RESPONDER"],apiPermissions:["DISPATCH.READ_OWN"]})).toBe("/dispatch");
   expect(getRoleDefaultRoute({...controller,roles:["SYSTEM_ADMIN"],apiPermissions:["USER.READ_ALL"]})).toBe("/admin");
   expect(getRoleDefaultRoute({...controller,roles:["SYSTEM_ADMIN"],apiPermissions:["USER.READ_ALL","INCIDENT.READ_ALL"]})).toBe("/admin");
  expect(getRoleDefaultRoute({...controller,roles:["SYSTEM_ADMIN"],apiPermissions:["INCIDENT.READ_ALL"]})).toBe("/control");

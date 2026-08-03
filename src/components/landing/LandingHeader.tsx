@@ -22,6 +22,8 @@ const RailIcon = ({ type }: { type: SidebarIconName }) => {
     flow: <><circle cx="5" cy="12" r="2" /><circle cx="19" cy="6" r="2" /><circle cx="19" cy="18" r="2" /><path d="M7 12h4a4 4 0 0 0 4-4M11 12a4 4 0 0 1 4 4" /></>,
     login: <><path d="M10 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5"/><path d="m14 8 4 4-4 4M18 12H8"/></>,
     profile: <><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></>,
+    dashboard: <><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></>,
+    cctv: <><path d="m4 7 13-3 2 8-13 3z"/><path d="m8 14-2 6m9-8 4 5M4 20h8"/><circle cx="15.5" cy="7.5" r="1.4"/></>,
     monitor: <><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 22h8M12 18v4M8 9l2.5 2.5L16 7"/></>,
     incidents: <><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></>,
     bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></>,
@@ -98,6 +100,7 @@ export function LandingHeader({ showSections = true }: { showSections?: boolean 
   const showPublicDrawer = showPublicSidebar && compactNavigation;
   const role = (["SYSTEM_ADMIN","CONTROL_MANAGER","CONTROLLER","RESPONDER","GENERAL_USER"] as UserRole[]).includes(user?.role as UserRole) ? user?.role as UserRole : "GENERAL_USER";
   const isSystemAdmin = user?.role === "SYSTEM_ADMIN";
+  const isControlManager = user?.role === "CONTROL_MANAGER";
   const sidebarMenus = useMemo(() => {
     return user ? getAuthenticatedSidebarMenus(user) : getLandingSidebarMenus(role, false);
   }, [role, user]);
@@ -121,7 +124,7 @@ export function LandingHeader({ showSections = true }: { showSections?: boolean 
   }, [compactNavigation, pathname, sidebarMenus, sidebarOpen]);
 
   return <>
-    {showPublicSidebar && <aside ref={sidebarRef} id="landing-sidebar" className={`landing-sidebar landing-public-drawer${isPublicHome ? " is-home-sidebar" : ""}${isSystemAdmin ? " is-system-admin" : ""} ${sidebarOpen ? "is-open" : "is-collapsed"}`} aria-label="주요 메뉴" onKeyDown={(event)=>{if(!compactNavigation||event.key!=="Tab")return;const focusable=sidebarRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]),a[href]');if(!focusable?.length)return;const first=focusable[0],last=focusable[focusable.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}}}>
+    {showPublicSidebar && <aside ref={sidebarRef} id="landing-sidebar" className={`landing-sidebar landing-public-drawer${isPublicHome ? " is-home-sidebar" : ""}${isSystemAdmin ? " is-system-admin" : ""}${isControlManager ? " is-control-manager" : ""} ${sidebarOpen ? "is-open" : "is-collapsed"}`} aria-label="주요 메뉴" onKeyDown={(event)=>{if(!compactNavigation||event.key!=="Tab")return;const focusable=sidebarRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]),a[href]');if(!focusable?.length)return;const first=focusable[0],last=focusable[focusable.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}}}>
       <div className="landing-sidebar__frame">
         <div className="landing-sidebar__header"><button ref={sidebarToggleRef} type="button" className="landing-sidebar__toggle" aria-label={compactNavigation?(sidebarOpen?"메뉴 닫기":"메뉴 열기"):(sidebarOpen?"메뉴 접기":"메뉴 펼치기")} aria-expanded={sidebarOpen} aria-controls="landing-sidebar-nav" onClick={() => compactNavigation && sidebarOpen ? close(true) : setSidebarOpen((value) => !value)}><MenuIcon /><span>운영 메뉴</span></button></div>
         <nav id="landing-sidebar-nav" className="landing-sidebar__navigation" aria-label="페이지 바로가기">

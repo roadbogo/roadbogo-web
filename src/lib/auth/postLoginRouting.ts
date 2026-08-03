@@ -24,6 +24,9 @@ function hasControlAccess(user:RoutingUser){
   return (user.roles.some(role=>role==="CONTROLLER"||role==="CONTROL_MANAGER")||user.roles.includes("SYSTEM_ADMIN"))
     && hasAny(user.apiPermissions,controlPermissions);
 }
+function hasControlManagerAccess(user:RoutingUser){
+  return user.roles.includes("CONTROL_MANAGER")&&user.apiPermissions.includes("INCIDENT.READ_ALL");
+}
 function hasDispatchAccess(user:RoutingUser){
   return user.roles.includes("RESPONDER")&&hasAny(user.apiPermissions,dispatchPermissions);
 }
@@ -59,7 +62,8 @@ export function canAccessInternalRoute(user:RoutingUser,path:string){
   const pathname=new URL(safe,"https://roadbogo.local").pathname;
   if(pathname==="/")return true;
   if(pathname==="/mypage"||pathname==="/mypage/edit"||pathname==="/notifications")return true;
-  if(pathname==="/control"||/^\/control\/incidents\/[A-Za-z0-9-]+$/.test(pathname))return hasControlAccess(user);
+  if(pathname==="/control/manager")return hasControlManagerAccess(user);
+  if(pathname==="/control"||pathname==="/control/incidents"||/^\/control\/incidents\/[A-Za-z0-9-]+$/.test(pathname))return hasControlAccess(user);
   if(pathname==="/dispatch")return hasDispatchAccess(user);
   if(pathname==="/admin")return hasAdminAccess(user);
   return false;
@@ -68,6 +72,7 @@ export function canAccessInternalRoute(user:RoutingUser,path:string){
 export function getRoleDefaultRoute(user:RoutingUser){
   if(user.accountStatus&&user.accountStatus!=="ACTIVE")return "/mypage";
   if(hasAdminAccess(user))return "/admin";
+  if(hasControlManagerAccess(user))return "/";
   if(hasControlAccess(user))return "/control";
   if(hasDispatchAccess(user))return "/dispatch";
   if(user.roles.includes("GENERAL_USER"))return "/";
@@ -79,7 +84,7 @@ export function saveRecentWork(user:RoutingUser,path:string,now=Date.now()){
   const safe=sanitizeInternalReturnTo(path);
   if(!safe)return;
   const pathname=new URL(safe,"https://roadbogo.local").pathname;
-  const normalized=pathname.startsWith("/control")&&hasControlAccess(user)?"/control":pathname==="/dispatch"&&hasDispatchAccess(user)?"/dispatch":null;
+  const normalized=pathname.startsWith("/control")&&hasControlManagerAccess(user)?"/control/manager":pathname.startsWith("/control")&&hasControlAccess(user)?"/control":pathname==="/dispatch"&&hasDispatchAccess(user)?"/dispatch":null;
   if(!normalized)return;
   const recent:RecentWork={userPublicId:user.publicId,path:normalized,savedAt:now,type:normalized==="/control"?"CONTROL":"DISPATCH"};
   try{sessionStorage.setItem(RECENT_WORK_KEY,JSON.stringify(recent))}catch{/* Storage is an optional optimization. */}

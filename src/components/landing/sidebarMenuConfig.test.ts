@@ -20,7 +20,7 @@ function user(role:UserRole,apiPermissions:string[],roles:UserRole[]=[role]){
 }
 
 describe("authenticated sidebar menus",()=>{
-  it.each(["SYSTEM_ADMIN","CONTROL_MANAGER","CONTROLLER","RESPONDER","GENERAL_USER"] as UserRole[])("keeps common destinations for %s",role=>{
+  it.each(["SYSTEM_ADMIN","CONTROLLER","RESPONDER","GENERAL_USER"] as UserRole[])("keeps common destinations for %s",role=>{
     const items=getAuthenticatedSidebarMenus(user(role,[]));
     expect(items.find(item=>item.id==="home")?.href).toBe("/");
     expect(items.find(item=>item.id==="mypage")?.href).toBe("/mypage");
@@ -28,10 +28,17 @@ describe("authenticated sidebar menus",()=>{
 
   it("filters fixed-order work menus by API permission and an existing protected route",()=>{
     expect(getAuthenticatedSidebarMenus(user("SYSTEM_ADMIN",["USER.READ_ALL","ROLE.MANAGE","NOTIFICATION.READ_OWN"])).map(item=>item.id)).toEqual(["home","admin","notifications","mypage"]);
-    expect(getAuthenticatedSidebarMenus(user("CONTROL_MANAGER",["CCTV.READ","INCIDENT.READ_ALL","DISPATCH.ASSIGN","NOTIFICATION.READ_OWN"])).map(item=>item.id)).toEqual(["home","control","incidents","notifications","mypage"]);
+    expect(getAuthenticatedSidebarMenus(user("CONTROL_MANAGER",["CCTV.READ","INCIDENT.READ_ALL","DISPATCH.ASSIGN","NOTIFICATION.READ_OWN"])).map(item=>item.id)).toEqual(["home","manager","control","incidents","notifications","mypage"]);
     expect(getAuthenticatedSidebarMenus(user("CONTROLLER",["CCTV.READ","INCIDENT.READ_ALL","DISPATCH.ASSIGN","NOTIFICATION.READ_OWN"])).map(item=>item.id)).toEqual(["home","control","incidents","notifications","mypage"]);
     expect(getAuthenticatedSidebarMenus(user("RESPONDER",["DISPATCH.READ_OWN","DISPATCH.UPDATE_OWN","NOTIFICATION.READ_OWN"])).map(item=>item.id)).toEqual(["home","dispatch","notifications","mypage"]);
     expect(getAuthenticatedSidebarMenus(user("GENERAL_USER",["NOTIFICATION.READ_OWN"])).map(item=>item.id)).toEqual(["home","mypage"]);
+  });
+
+  it("keeps home first and exposes the CONTROL_MANAGER center operations dashboard",()=>{
+    const items=getAuthenticatedSidebarMenus(user("CONTROL_MANAGER",["CCTV.READ","INCIDENT.READ_ALL","NOTIFICATION.READ_OWN"]));
+    expect(items[0]).toMatchObject({id:"home",label:"홈",href:"/"});
+    expect(items[1]).toMatchObject({id:"manager",label:"센터 운영",href:"/control/manager"});
+    expect(getActiveSidebarMenuId(items,"/control/manager")).toBe("manager");
   });
 
   it("uses the union of multi-role permissions without duplicating menu ids",()=>{
