@@ -32,7 +32,7 @@ export class MockUserManagementAdapter implements UserManagementAdapter{
     const keyword=query.keyword.toLocaleLowerCase("ko-KR");
     const users=readUsers();
     const isOperating=(user:ManagedUser)=>user.roles.some(role=>role!=="GENERAL_USER");
-    const isGeneral=(user:ManagedUser)=>!isOperating(user);
+    const isGeneral=(user:ManagedUser)=>user.roles.length===1&&user.roles[0]==="GENERAL_USER";
     const unassigned=(user:ManagedUser)=>user.accountStatus==="ACTIVE"&&user.roles.length===0;
     const neverLoggedIn=(user:ManagedUser)=>isOperating(user)&&user.lastLoginAt===null;
     const withoutOrganization=(user:ManagedUser)=>isOperating(user)&&!user.organization;
