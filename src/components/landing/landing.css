@@ -2039,12 +2039,18 @@ button:focus-visible,a:focus-visible,.incident-stage:focus-visible,.service-flow
     overflow:visible;
   }
 }
-@media(min-width:768px) and (max-width:1699px){
+@media(min-width:768px) and (max-width:1279px){
   .landing-page:has(.landing-sidebar.is-open) .command-stage{
     grid-template-columns:minmax(0,1fr);
     gap:36px;
   }
   .landing-page:has(.landing-sidebar.is-open) .stage-copy{max-width:720px}
+}
+@media(min-width:1280px) and (max-width:1699px){
+  .landing-page:has(.landing-sidebar.is-open) .command-stage{
+    grid-template-columns:minmax(360px,40%) minmax(0,60%);
+    gap:clamp(28px,2.5vw,42px);
+  }
 }
 @media(prefers-reduced-motion:reduce){
   .landing-page main,.landing-page .stage-footer{transition:none}
@@ -2853,6 +2859,18 @@ button:focus-visible,a:focus-visible,.incident-stage:focus-visible,.service-flow
   overflow-wrap:break-word;
   word-break:keep-all;
 }
+.platform-carousel .service-flow{
+  grid-template-columns:minmax(0,1fr);
+}
+.platform-carousel .service-flow__header{
+  width:100%;
+  justify-content:flex-start;
+  text-align:left;
+}
+.platform-carousel .response-showcase{
+  width:100%;
+  min-width:0;
+}
 .stage-actions a,
 .stage-actions button{
   min-width:0;
@@ -3022,8 +3040,8 @@ button:focus-visible,a:focus-visible,.incident-stage:focus-visible,.service-flow
     padding-top:12px;
   }
   .platform-carousel .operational-overview__copy h2{
-    max-width:520px;
-    font-size:clamp(38px,2.45vw,46px);
+    max-width:550px;
+    font-size:clamp(41px,2.8vw,49px);
     line-height:1.14;
   }
   .platform-carousel .operational-overview__flow{
@@ -3432,5 +3450,32 @@ button:focus-visible,a:focus-visible,.incident-stage:focus-visible,.service-flow
   .platform-carousel .operational-overview__copy{
     align-self:center;
     padding-top:0;
+  }
+}
+
+/* Present the operational overview heading above the full-width system view. */
+.platform-carousel .operational-overview{
+  grid-template-columns:minmax(0,1fr);
+  align-items:start;
+}
+.platform-carousel .operational-overview__copy{
+  width:100%;
+  max-width:900px;
+  align-self:start;
+  margin-bottom:0;
+  padding-top:0;
+}
+.platform-carousel .operational-overview__copy h2{
+  width:100%;
+  max-width:900px;
+}
+.platform-carousel .operation-system{
+  width:100%;
+  min-width:0;
+}
+@media(min-width:1181px){
+  .platform-carousel .operational-overview__copy h2{
+    font-size:clamp(44px,4vw,60px)!important;
+    line-height:1.16;
   }
 }

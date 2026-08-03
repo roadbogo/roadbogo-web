@@ -83,7 +83,44 @@
 html,
 body {
   margin: 0;
+  width: 100%;
+  max-width: 100%;
   min-height: 100%;
+  overflow-x: clip;
+}
+
+/* Shared layout stability: allow grid/flex descendants to shrink inside the viewport. */
+body,
+body > div,
+main,
+section,
+article,
+aside,
+header,
+footer,
+nav {
+  min-width: 0;
+}
+
+img,
+video,
+canvas {
+  max-width: 100%;
+}
+
+input,
+select,
+textarea,
+button {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@supports not (overflow: clip) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
 }
 
 .access-denied{min-height:calc(100vh - 80px);display:grid;place-content:center;justify-items:center;gap:10px;padding:32px;background:var(--page-background,#eef2f0);color:var(--text-primary,#142a37);text-align:center}

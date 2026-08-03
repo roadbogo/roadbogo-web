@@ -10,8 +10,9 @@ import { PlatformOperationsCarousel } from "./PlatformOperationsCarousel";
 export function LandingPage(){
  const{user,ready}=useAuth();
  const isSystemAdmin=ready&&user?.role==="SYSTEM_ADMIN";
+ const isResponder=ready&&Boolean(user?.roles.includes("RESPONDER")&&user.apiPermissions.includes("DISPATCH.READ_OWN"));
  const showControlCta=ready&&(!user||canAccessControl(user));
- const primaryAction=isSystemAdmin?{label:"관리 콘솔 열기",href:"/admin"}:showControlCta?{label:"실시간 관제 보기",href:"/control"}:null;
+ const primaryAction=isSystemAdmin?{label:"관리 콘솔 열기",href:"/admin"}:isResponder?{label:"내 출동 요청",href:"/dispatch"}:showControlCta?{label:"실시간 관제 보기",href:"/control"}:null;
  const showFlow=useCallback(()=>{const section=document.getElementById("platform-operations");if(!section)return;window.dispatchEvent(new CustomEvent("roadbogo:platform-slide",{detail:{key:"flow"}}));section.scrollIntoView({behavior:"smooth",block:"start"});window.setTimeout(()=>section.focus({preventScroll:true}),450)},[]);
  return <div className="landing-page"><LandingHeader/><main>
   <section id="home" className="command-stage"><div className="stage-copy"><p className="stage-eyebrow"><span/> ROAD FLOW INTELLIGENCE</p><h1 className="stage-title"><span>도로 위 위험을</span><span className="stage-title__accent">AI가 먼저 발견하고,</span><span>대응까지 연결합니다</span></h1><p className="stage-description"><span>AI가 도로 위 위험 요소를 실시간으로 감지하고,</span><span>관제 판단부터 현장 대응까지 하나의 흐름으로 연결합니다.</span></p>{isSystemAdmin&&<div className="stage-role-context"><strong>시스템 관리자 모드</strong><span>사용자 계정과 역할, CCTV 정보와 관리자 변경 이력을 관리합니다.</span></div>}<div className="stage-actions">{primaryAction&&<Link href={primaryAction.href} className="stage-primary">{primaryAction.label} <span>→</span></Link>}<button className={primaryAction?undefined:"stage-primary"} type="button" onClick={showFlow}>운영 체계 안내 <span>↓</span></button></div></div><LandingCarousel/></section>

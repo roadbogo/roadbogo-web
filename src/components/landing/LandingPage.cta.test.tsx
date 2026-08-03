@@ -57,10 +57,18 @@ describe("LandingPage permission-aware CTAs", () => {
     expect(screen.getAllByRole("button", { name: /운영 체계 안내/ }).at(-1)).not.toHaveClass("stage-primary");
   });
 
-  it.each([
-    ["RESPONDER", user("RESPONDER", false)],
-    ["GENERAL_USER", user("GENERAL_USER", false)],
-  ] as const)("shows only the primary guide CTA for %s", (_label, authenticatedUser) => {
+  it("shows the responder dispatch action before the operations guide",()=>{
+    auth.state = { user: user("RESPONDER", false), ready: true };
+    render(<LandingPage />);
+
+    const actions=screen.getByRole("link",{name:/내 출동 요청/}).parentElement!;
+    expect(screen.getByRole("link",{name:/내 출동 요청/})).toHaveAttribute("href","/dispatch");
+    expect(actions.children[0]).toHaveTextContent("내 출동 요청");
+    expect(actions.children[1]).toHaveTextContent("운영 체계 안내");
+  });
+
+  it("shows only the primary guide CTA for GENERAL_USER", () => {
+    const authenticatedUser=user("GENERAL_USER", false);
     auth.state = { user: authenticatedUser, ready: true };
     render(<LandingPage />);
 
