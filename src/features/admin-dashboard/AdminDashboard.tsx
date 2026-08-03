@@ -46,7 +46,7 @@ export function AdminDashboard({classNames:styles}:{classNames:Styles}){
         <Link href="/admin/users?view=attention" data-tone="warning"><span>확인 필요</span><b>{summary.attentionCount}건</b><small>우선 검토</small></Link>
         <Link href="/admin/users?account_status=ACTIVE" data-tone="active"><span>활성 계정</span><b>{summary.activeUsers} / {summary.totalUsers}명</b><small>운영 중</small></Link>
         <Link href="/admin/users?view=inactive" data-tone="neutral"><span>비활성 계정</span><b>{summary.inactiveUsers}명</b><small>상태 확인</small></Link>
-        <Link href="/admin/audit-logs" data-tone="change"><span>오늘 변경</span><b>{summary.todayChangeCount}건</b><small>최근 활동</small></Link>
+        <Link href="/admin/audit-logs?range=today" data-tone="change"><span>오늘 변경</span><b>{summary.todayChangeCount}건</b><small>최근 활동</small></Link>
       </>}
     </section>
 

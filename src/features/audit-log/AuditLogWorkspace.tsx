@@ -58,7 +58,7 @@ export function AuditLogWorkspace(){
  useEffect(()=>{void load()},[load]);
  useEffect(()=>{const previous=previousAuditId.current;if(previous&&!query.auditId)detailDismissed.current=true;if(query.auditId)initialSelectionHandled.current=true;previousAuditId.current=query.auditId},[query.auditId]);
  useEffect(()=>{if(!query.auditId){setSelected(null);setTrace([]);return}void adminAuditLogRepository.getRecord(query.auditId).then(async record=>{if(!record){setSelected(null);setTrace([]);return}setSelected(record);setTrace(record.traceId?await adminAuditLogRepository.getTraceRecords(record.traceId):[])})},[query.auditId]);
- useEffect(()=>{if(loading||initialSelectionHandled.current||detailDismissed.current)return;initialSelectionHandled.current=true;if(records.length&&window.matchMedia("(min-width: 1024px)").matches)update({auditId:records[0].publicId})},[loading,records,update]);
+ useEffect(()=>{if(loading||initialSelectionHandled.current||detailDismissed.current)return;initialSelectionHandled.current=true;if(records.length&&window.matchMedia("(min-width: 1201px)").matches)update({auditId:records[0].publicId})},[loading,records,update]);
  const choose=(record:AuditRecord,target:HTMLElement)=>{detailDismissed.current=false;setRowRef(target);update({auditId:record.publicId},"push")};
  const close=()=>{detailDismissed.current=true;update({auditId:null});requestAnimationFrame(()=>rowRef?.focus())};
  const clear=()=>router.replace(pathname,{scroll:false});

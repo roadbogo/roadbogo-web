@@ -41,6 +41,7 @@ describe("AdminDashboard workbench",()=>{
     expect(screen.queryByRole("link",{name:"운영 계정 추가"})).toBeNull();
     expect(screen.queryByRole("heading",{name:"계정 상태"})).toBeNull();
     expect(screen.queryByRole("heading",{name:"역할 구성"})).toBeNull();
+    expect(screen.getByRole("link",{name:/오늘 변경.*2건/}).getAttribute("href")).toBe("/admin/audit-logs?range=today");
     expect(screen.getByRole("link",{name:/전체 감사 로그 보기/}).getAttribute("href")).toBe("/admin/audit-logs");
     expect(screen.getByRole("heading",{name:"운영 상태"})).toBeTruthy();
     expect(screen.getByRole("link",{name:/활성 계정.*9 \/ 12명/}).getAttribute("href")).toBe("/admin/users?account_status=ACTIVE");

@@ -11,17 +11,17 @@ vi.mock("next/navigation",()=>({
 
 import {AuditLogWorkspace} from "./AuditLogWorkspace";
 
-let desktop=true;
+let viewportWidth=1201;
 const applyUrl=(url:string)=>{navigation.params=new URL(url,"http://localhost").searchParams};
 
 beforeEach(()=>{
- desktop=true;
+ viewportWidth=1201;
  navigation.params=new URLSearchParams();
  navigation.replace.mockReset();
  navigation.push.mockReset();
  navigation.replace.mockImplementation(applyUrl);
  navigation.push.mockImplementation(applyUrl);
- vi.stubGlobal("matchMedia",vi.fn((query:string)=>({matches:query.includes("min-width")?desktop:!desktop,media:query,onchange:null,addListener:vi.fn(),removeListener:vi.fn(),addEventListener:vi.fn(),removeEventListener:vi.fn(),dispatchEvent:vi.fn()})));
+ vi.stubGlobal("matchMedia",vi.fn((query:string)=>({matches:query==="(min-width: 1201px)"&&viewportWidth>=1201,media:query,onchange:null,addListener:vi.fn(),removeListener:vi.fn(),addEventListener:vi.fn(),removeEventListener:vi.fn(),dispatchEvent:vi.fn()})));
 });
 afterEach(()=>{cleanup();vi.unstubAllGlobals()});
 
@@ -39,9 +39,17 @@ describe("AuditLogWorkspace detail selection",()=>{
   expect(screen.getByRole("dialog",{name:"감사 이벤트 상세"})).toBeTruthy();
  });
 
- it("keeps mobile event title, actor, target, and result in readable regions",async()=>{
-  desktop=false;
+ it("keeps the list open on the initial 1200px entry",async()=>{
+  viewportWidth=1200;
   render(<AuditLogWorkspace/>);
+  await screen.findAllByRole("row");
+  await waitFor(()=>expect(navigation.replace).not.toHaveBeenCalledWith(expect.stringContaining("selected="),expect.anything()));
+  expect(screen.queryByRole("dialog",{name:"감사 이벤트 상세"})).toBeNull();
+ });
+
+ it("keeps mobile event title, actor, target, and result in readable regions",async()=>{
+  viewportWidth=1200;
+  const view=render(<AuditLogWorkspace/>);
   const row=(await screen.findAllByRole("row"))[0];
   expect(row.getAttribute("tabindex")).toBe("0");
   expect(row.querySelector('[class*="eventTitle"] strong')?.textContent).toBeTruthy();
@@ -50,6 +58,8 @@ describe("AuditLogWorkspace detail selection",()=>{
   expect(row.textContent).toMatch(/성공|실패|접근 거부/);
   fireEvent.click(row);
   expect(navigation.push).toHaveBeenCalledWith(expect.stringContaining("selected="),{scroll:false});
+  view.rerender(<AuditLogWorkspace/>);
+  expect(await screen.findByRole("dialog",{name:"감사 이벤트 상세"})).toBeTruthy();
  });
 
  it("keeps the list open after the user returns from detail",async()=>{
@@ -62,12 +72,12 @@ describe("AuditLogWorkspace detail selection",()=>{
 
  it("does not reopen detail when the viewport changes from tablet to desktop",async()=>{
   const view=await openInitialDetail();
-  desktop=false;
+  viewportWidth=1200;
   fireEvent.click(screen.getByRole("button",{name:"감사 기록으로 돌아가기"}));
   view.rerender(<AuditLogWorkspace/>);
   await waitFor(()=>expect(screen.queryByRole("dialog",{name:"감사 이벤트 상세"})).toBeNull());
   navigation.replace.mockClear();
-  desktop=true;
+  viewportWidth=1201;
   navigation.params=new URLSearchParams("sort=oldest");
   view.rerender(<AuditLogWorkspace/>);
   await screen.findByText("오래된순");
