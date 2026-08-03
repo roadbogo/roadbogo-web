@@ -27,7 +27,7 @@ export function AdminDashboard({classNames:styles}:{classNames:Styles}){
   const adapter=useMemo(()=>createAdminDashboardAdapter(),[]);
   const[data,setData]=useState<AdminDashboardSnapshot|null>(null),[loading,setLoading]=useState(true),[failed,setFailed]=useState(false),[announcement,setAnnouncement]=useState("관리 현황을 확인하고 있습니다.");
   const inFlight=useRef(false),abort=useRef<AbortController|null>(null);
-  const load=useCallback(async()=>{if(inFlight.current)return;inFlight.current=true;setLoading(true);setFailed(false);setAnnouncement("관리 현황을 갱신하고 있습니다.");abort.current?.abort();const next=new AbortController();abort.current=next;try{const snapshot=await adapter.load(next.signal);setData(snapshot);setAnnouncement(`관리 현황을 ${time(snapshot.generatedAt)}에 갱신했습니다.`)}catch(error){if(!(error instanceof DOMException&&error.name==="AbortError")){setFailed(true);setAnnouncement("관리 현황을 갱신하지 못했습니다.")}}finally{inFlight.current=false;setLoading(false)}},[adapter]);
+  const load=useCallback(async()=>{if(inFlight.current)return;inFlight.current=true;setLoading(true);setFailed(false);setAnnouncement("관리 현황을 갱신하고 있습니다.");abort.current?.abort();const next=new AbortController();abort.current=next;try{const snapshot=await adapter.load(next.signal);setData(snapshot);setAnnouncement(snapshot.systemHealth.status==="unavailable"||snapshot.partialErrors.length?"관리 현황 일부를 확인하지 못했습니다.":`관리 현황을 ${time(snapshot.generatedAt)}에 갱신했습니다.`)}catch(error){if(!(error instanceof DOMException&&error.name==="AbortError")){setFailed(true);setAnnouncement("관리 현황을 갱신하지 못했습니다.")}}finally{inFlight.current=false;setLoading(false)}},[adapter]);
   useEffect(()=>{const timer=setTimeout(()=>void load(),0);return()=>{clearTimeout(timer);abort.current?.abort()}},[load]);
   const view=useMemo(()=>data?createAdminConsoleViewModel(data):null,[data]),summary=view?.accountSummary,overall=view?.health.overall;
 
@@ -35,11 +35,12 @@ export function AdminDashboard({classNames:styles}:{classNames:Styles}){
     <header className={styles.heading}>
       <div className={styles.headingCopy}><h1>관리 콘솔</h1><p>계정과 권한 운영에서 확인이 필요한 작업을 관리합니다.</p></div>
       <div className={styles.headingActions}>
-        <span className={styles.connection} data-status={overall}><i/><span><b>{overall==="healthy"?"전체 서비스 정상":overall==="warning"?"일부 서비스 경고":overall==="offline"?"서비스 연결 장애":"상태 확인 중"}</b>{view&&<small>마지막 확인 {time(view.checkedAt)} KST</small>}</span></span>
+        <span className={styles.connection} data-status={overall}><i/><span><b>{overall==="healthy"?"전체 서비스 정상":overall==="warning"?"일부 서비스 경고":overall==="offline"?"서비스 연결 장애":overall==="unavailable"?"상태 확인 불가":"상태 확인 중"}</b>{view&&<small>마지막 확인 {time(view.checkedAt)} KST</small>}</span></span>
         <button type="button" className={styles.refreshAction} onClick={()=>void load()} disabled={loading}><RefreshIcon/>{loading?"갱신 중":"새로고침"}</button>
       </div>
     </header>
     {failed&&!data&&<div className={styles.error} role="alert">관리 현황을 불러오지 못했습니다. <button type="button" onClick={()=>void load()}>다시 확인</button></div>}
+    {data&&data.partialErrors.length>0&&<div className={styles.error} role="alert">{data.systemHealth.status==="unavailable"?"운영 상태를 확인하지 못했습니다.":"일부 관리 정보를 확인하지 못했습니다."}</div>}
 
     <section className={styles.operationSummary} aria-label="운영 요약">
       {!summary?<Skeleton styles={styles} rows={1}/>:<>

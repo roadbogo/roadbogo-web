@@ -11,8 +11,11 @@ export const mockAuditRecords:AuditRecord[]=[
  {publicId:"audit-cctv",traceId:null,occurredAt:day(221),actorType:"DEVICE",actorPublicId:null,actorLabel:"RPI-DEVICE-014",actionCode:"CCTV.STATUS_SYNC",actionLabel:"CCTV 상태 동기화",actionGroup:"CCTV_SYSTEM",resourceType:"CCTV",resourcePublicId:"cctv-014",resourceLabel:"CAM 014",result:"SUCCESS",reasonText:null,summary:"연결 상태를 정상으로 반영",before:{status:"WARNING"},after:{status:"ACTIVE"},requestIpHash:null},
 ];
 const resultRank:Record<AuditResult,number>={SUCCESS:1,DENIED:2,FAILURE:3};
+const KST_OFFSET=9*60*60*1000;
+export const startOfKstDay=(now=Date.now())=>{const kst=new Date(now+KST_OFFSET);return Date.UTC(kst.getUTCFullYear(),kst.getUTCMonth(),kst.getUTCDate())-KST_OFFSET};
+export const isWithinAuditPeriod=(occurredAt:string,period:AuditQuery["period"],now=Date.now())=>{const occurred=Date.parse(occurredAt);if(period==="today")return occurred>=startOfKstDay(now)&&occurred<=now;const days=period==="7d"?7:30;return now-occurred<=days*86400000};
 const applies=(record:AuditRecord,q:AuditQuery)=>{
- const days=q.period==="today"?1:q.period==="7d"?7:30;if(Date.now()-Date.parse(record.occurredAt)>days*86400000)return false;
+ if(!isWithinAuditPeriod(record.occurredAt,q.period))return false;
  if(q.quick==="FAILED"&&!["FAILURE","DENIED"].includes(record.result))return false;
  if(q.quick==="ACCOUNT"&&!["AUTH","ACCOUNT","ROLE_PERMISSION"].includes(record.actionGroup))return false;
  if(q.quick==="OPERATIONS"&&record.actionGroup!=="INCIDENT_DISPATCH")return false;
