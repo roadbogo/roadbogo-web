@@ -54,6 +54,29 @@ describe("LandingHeader mobile navigation",()=>{
     expect(container.querySelector("#landing-sidebar")).toHaveClass("is-collapsed");
   });
 
+  it("toggles closed from the header trigger and keeps backdrop closing intact",async()=>{
+    const{container}=render(<LandingHeader showSections={false}/>);
+    await screen.findAllByRole("button",{name:"메뉴 열기"});
+    const trigger=container.querySelector<HTMLButtonElement>(".mobile-menu-trigger")!;
+
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAccessibleName("메뉴 닫기");
+    expect(trigger).toHaveAttribute("aria-expanded","true");
+    expect(container.querySelector("#landing-sidebar")).toHaveClass("is-open");
+
+    fireEvent.click(trigger);
+    await waitFor(()=>expect(trigger).toHaveFocus());
+    expect(trigger).toHaveAccessibleName("메뉴 열기");
+    expect(trigger).toHaveAttribute("aria-expanded","false");
+    expect(container.querySelector("#landing-sidebar")).toHaveClass("is-collapsed");
+
+    fireEvent.click(trigger);
+    fireEvent.click(container.querySelector<HTMLButtonElement>(".landing-sidebar-backdrop")!);
+    await waitFor(()=>expect(trigger).toHaveFocus());
+    expect(trigger).toHaveAccessibleName("메뉴 열기");
+    expect(container.querySelector("#landing-sidebar")).toHaveClass("is-collapsed");
+  });
+
   it("keeps the signed-out mobile trigger and account actions together in the header",async()=>{
     headerState.pathname="/";
     headerState.user=null;
