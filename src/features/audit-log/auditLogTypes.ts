@@ -9,7 +9,8 @@ export type AuditRecord={
 };
 export type AuditMode="trace"|"record";
 export type AuditQuickFilter="ALL"|"FAILED"|"ACCOUNT"|"OPERATIONS"|"SYSTEM";
-export type AuditQuery={mode:AuditMode;quick:AuditQuickFilter;period:"today"|"7d"|"30d";actorType:"ALL"|AuditActorType;actionGroup:"ALL"|AuditActionGroup;resourceType:"ALL"|AuditResourceType;result:"ALL"|AuditResult;keyword:string;page:number;size:10|20|50;traceId:string|null;auditId:string|null};
+export type AuditSort="latest"|"oldest"|"failure"|"denied";
+export type AuditQuery={mode:AuditMode;quick:AuditQuickFilter;period:"today"|"7d"|"30d";actorType:"ALL"|AuditActorType;actionGroup:"ALL"|AuditActionGroup;resourceType:"ALL"|AuditResourceType;result:"ALL"|AuditResult;keyword:string;sort:AuditSort;page:number;size:10|20|50;traceId:string|null;auditId:string|null};
 export type AuditFlow={id:string;traceId:string|null;occurredAt:string;actorLabel:string;actorType:AuditActorType;actionLabel:string;resourceLabel:string;resourceType:AuditResourceType;summary:string;recordCount:number;result:AuditResult;records:AuditRecord[]};
 export type AuditSummary={total:number;success:number;failure:number;denied:number};
 export type AuditListResult<T>={items:T[];total:number;page:number;size:number;summary:AuditSummary};

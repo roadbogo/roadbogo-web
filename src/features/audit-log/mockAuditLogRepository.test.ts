@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {MockAdminAuditLogRepository} from "./mockAuditLogRepository";
+import {MockAdminAuditLogRepository,mockAuditRecords} from "./mockAuditLogRepository";
 import type {AuditQuery} from "./auditLogTypes";
 
 const query:AuditQuery={
@@ -11,6 +11,7 @@ const query:AuditQuery={
   resourceType:"ALL",
   result:"ALL",
   keyword:"",
+  sort:"latest",
   page:1,
   size:20,
   traceId:null,
@@ -45,5 +46,17 @@ describe("MockAdminAuditLogRepository",()=>{
     const byAction=await repository.getRecords({...query,mode:"record",keyword:"USER.DEACTIVATE"});
     expect(byResource.items[0]?.publicId).toBe("audit-dispatch-fail");
     expect(byAction.items[0]?.publicId).toBe("audit-disable");
+  });
+
+  it.each(["latest","oldest","failure","denied"] as const)("sorts the full result before paginating for %s",async sort=>{
+    const repository=new MockAdminAuditLogRepository();
+    const originalLength=mockAuditRecords.length;
+    mockAuditRecords.push(...mockAuditRecords.slice(0,4).map((record,index)=>({...record,publicId:`extra-${index}`,occurredAt:new Date(Date.parse(record.occurredAt)-86400000).toISOString()})));
+    const first=await repository.getRecords({...query,mode:"record",sort,size:10,page:1});
+    const second=await repository.getRecords({...query,mode:"record",sort,size:10,page:2});
+    const combined=[...first.items,...second.items];mockAuditRecords.splice(originalLength);
+    const newest=(a:typeof combined[number],b:typeof combined[number])=>Date.parse(b.occurredAt)-Date.parse(a.occurredAt);
+    const expected=[...combined].sort((a,b)=>sort==="oldest"?-newest(a,b):sort==="failure"?Number(b.result==="FAILURE")-Number(a.result==="FAILURE")||newest(a,b):sort==="denied"?Number(b.result==="DENIED")-Number(a.result==="DENIED")||newest(a,b):newest(a,b));
+    expect(combined.map(item=>item.publicId)).toEqual(expected.map(item=>item.publicId));
   });
 });
