@@ -72,8 +72,8 @@ export function LandingHeader({ showSections = true }: { showSections?: boolean 
     if (!compactNavigation || !sidebarOpen) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    window.requestAnimationFrame(() => sidebarToggleRef.current?.focus());
-    return () => { document.body.style.overflow = previousOverflow; };
+    const focusFrame = window.requestAnimationFrame(() => sidebarToggleRef.current?.focus());
+    return () => { window.cancelAnimationFrame(focusFrame); document.body.style.overflow = previousOverflow; };
   }, [compactNavigation, sidebarOpen]);
 
   useEffect(() => {

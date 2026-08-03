@@ -3093,7 +3093,9 @@ button:focus-visible,a:focus-visible,.incident-stage:focus-visible,.service-flow
 }
 
 @media(max-width:767px){
-  .main-header__right.main-header__right--authenticated{display:flex}
+  .main-header__inner:has(.main-header__right--authenticated){grid-template-columns:minmax(0,1fr) auto auto}
+  .main-header__right.main-header__right--authenticated{display:flex;grid-column:3;grid-row:1}
+  .main-header__inner .mobile-menu-trigger{position:static;grid-column:2;grid-row:1;align-self:center;justify-self:end;margin:0;transform:none}
 }
 
 /* Shared work-shell dimensions. Sidebar width and content gutter stay separate. */
