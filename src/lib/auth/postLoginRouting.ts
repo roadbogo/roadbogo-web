@@ -72,7 +72,7 @@ export function canAccessInternalRoute(user:RoutingUser,path:string){
 export function getRoleDefaultRoute(user:RoutingUser){
   if(user.accountStatus&&user.accountStatus!=="ACTIVE")return "/mypage";
   if(hasAdminAccess(user))return "/admin";
-  if(hasControlManagerAccess(user))return "/";
+  if(hasControlManagerAccess(user))return "/control/manager";
   if(hasControlAccess(user))return "/control";
   if(hasDispatchAccess(user))return "/dispatch";
   if(user.roles.includes("GENERAL_USER"))return "/";
@@ -114,8 +114,6 @@ export function clearPostLoginRoutingState(){
 }
 
 export function resolvePostLoginDestination({user,returnTo,recentWork}:{user:RoutingUser;returnTo?:string|null;recentWork?:string|null}):PostLoginDestination{
-  const responderDefault=hasDispatchAccess(user)&&!hasAdminAccess(user)&&!hasControlAccess(user);
-  if(responderDefault)return{path:"/dispatch",reason:"ROLE_DEFAULT"};
   const safeReturn=sanitizeInternalReturnTo(returnTo);
   if(safeReturn&&canAccessInternalRoute(user,safeReturn))return{path:safeReturn,reason:"RETURN_TO"};
   if(recentWork&&canAccessInternalRoute(user,recentWork))return{path:recentWork,reason:"RECENT_WORK"};

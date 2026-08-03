@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getPrimaryRole } from "./roleRedirect";
+import { getPrimaryRole, getRoleRedirect } from "./roleRedirect";
 import type { UserRole } from "@/types/auth";
 
 describe("getPrimaryRole", () => {
@@ -17,5 +17,9 @@ describe("getPrimaryRole", () => {
   it("does not depend on the API role order", () => {
     expect(getPrimaryRole(["GENERAL_USER", "CONTROL_MANAGER", "CONTROLLER"])).toBe("CONTROL_MANAGER");
     expect(getPrimaryRole(["CONTROLLER", "GENERAL_USER", "CONTROL_MANAGER"])).toBe("CONTROL_MANAGER");
+  });
+
+  it("routes control managers to their operations workspace", () => {
+    expect(getRoleRedirect(["CONTROL_MANAGER"])).toBe("/control/manager");
   });
 });
