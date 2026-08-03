@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {MockAdminAuditLogRepository,mockAuditRecords} from "./mockAuditLogRepository";
+import {isWithinAuditPeriod,MockAdminAuditLogRepository,mockAuditRecords,startOfKstDay} from "./mockAuditLogRepository";
 import type {AuditQuery} from "./auditLogTypes";
 
 const query:AuditQuery={
@@ -19,6 +19,22 @@ const query:AuditQuery={
 };
 
 describe("MockAdminAuditLogRepository",()=>{
+  it("uses the Asia/Seoul calendar boundary for today",()=>{
+    const now=Date.parse("2026-08-03T15:30:00.000Z");
+    expect(startOfKstDay(now)).toBe(Date.parse("2026-08-03T15:00:00.000Z"));
+    expect(isWithinAuditPeriod("2026-08-03T15:00:00.000Z","today",now)).toBe(true);
+    expect(isWithinAuditPeriod("2026-08-03T14:59:59.999Z","today",now)).toBe(false);
+    expect(isWithinAuditPeriod("2026-08-03T15:31:00.000Z","today",now)).toBe(false);
+  });
+
+  it("preserves the rolling 7-day and 30-day period filters",()=>{
+    const now=Date.parse("2026-08-03T15:30:00.000Z");
+    expect(isWithinAuditPeriod(new Date(now-7*86400000).toISOString(),"7d",now)).toBe(true);
+    expect(isWithinAuditPeriod(new Date(now-7*86400000-1).toISOString(),"7d",now)).toBe(false);
+    expect(isWithinAuditPeriod(new Date(now-30*86400000).toISOString(),"30d",now)).toBe(true);
+    expect(isWithinAuditPeriod(new Date(now-30*86400000-1).toISOString(),"30d",now)).toBe(false);
+  });
+
   it("groups records with the same trace and preserves trace-less records independently",async()=>{
     const repository=new MockAdminAuditLogRepository();
     const result=await repository.getFlows(query);
