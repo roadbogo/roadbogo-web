@@ -13,7 +13,11 @@ describe("post login routing",()=>{
   expect(getRoleDefaultRoute({...controller,roles:["RESPONDER"],apiPermissions:["DISPATCH.READ_OWN"]})).toBe("/dispatch");
   expect(getRoleDefaultRoute({...controller,roles:["SYSTEM_ADMIN"],apiPermissions:["USER.READ_ALL"]})).toBe("/admin");
   expect(getRoleDefaultRoute({...controller,roles:["SYSTEM_ADMIN"],apiPermissions:["USER.READ_ALL","INCIDENT.READ_ALL"]})).toBe("/admin");
-  expect(getRoleDefaultRoute({...controller,roles:["SYSTEM_ADMIN"],apiPermissions:["INCIDENT.READ_ALL"]})).toBe("/control");
+ expect(getRoleDefaultRoute({...controller,roles:["SYSTEM_ADMIN"],apiPermissions:["INCIDENT.READ_ALL"]})).toBe("/control");
+ });
+ it("always opens the assigned dispatch screen for a responder-only login",()=>{
+  const responder={publicId:"r",accountStatus:"ACTIVE",roles:["RESPONDER"]as const,apiPermissions:["DISPATCH.READ_OWN"]};
+  expect(resolvePostLoginDestination({user:responder,returnTo:"/",recentWork:"/"})).toEqual({path:"/dispatch",reason:"ROLE_DEFAULT"});
  });
  it("uses permissions instead of the first role in a multi-role account",()=>expect(getRoleDefaultRoute({...controller,roles:["SYSTEM_ADMIN","CONTROLLER"],apiPermissions:["INCIDENT.READ_ALL"]})).toBe("/control"));
  it("restores only a matching recent work item within the TTL",()=>{

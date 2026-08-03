@@ -109,6 +109,8 @@ export function clearPostLoginRoutingState(){
 }
 
 export function resolvePostLoginDestination({user,returnTo,recentWork}:{user:RoutingUser;returnTo?:string|null;recentWork?:string|null}):PostLoginDestination{
+  const responderDefault=hasDispatchAccess(user)&&!hasAdminAccess(user)&&!hasControlAccess(user);
+  if(responderDefault)return{path:"/dispatch",reason:"ROLE_DEFAULT"};
   const safeReturn=sanitizeInternalReturnTo(returnTo);
   if(safeReturn&&canAccessInternalRoute(user,safeReturn))return{path:safeReturn,reason:"RETURN_TO"};
   if(recentWork&&canAccessInternalRoute(user,recentWork))return{path:recentWork,reason:"RECENT_WORK"};
