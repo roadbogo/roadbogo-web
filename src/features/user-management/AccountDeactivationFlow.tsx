@@ -4,9 +4,8 @@ import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {getRoleLabel} from "@/lib/auth/roleLabels";
 import type {DeactivationCheckResult,ManagedUser,UserManagementAdapter,UserManagementError} from "./userManagementTypes";
 import styles from "./AccountDeactivationFlow.module.css";
-import {AdminCompactSelect} from "./AdminCompactSelect";
 
-export const DEACTIVATION_REASON_TYPES=["퇴사 또는 계약 종료","담당 업무 변경","장기 미사용","보안 조치","중복 계정","기타"] as const;
+export const DEACTIVATION_REASON_TYPES=["퇴사·계약 종료","업무 변경","장기 미사용","보안 조치","기타"] as const;
 export function buildDeactivationReason(type:string,detail:string){const trimmed=detail.trim();return trimmed?`${type} - ${trimmed}`:type}
 export function validateDeactivationReason(type:string,detail:string){
   if(!type)return"사유 유형을 선택해 주세요.";
@@ -67,16 +66,16 @@ export function AccountDeactivationFlow({user,actorPublicId,adapter,onClose,onSu
   };
   const block=check&&!check.allowed?blockedCopy(check):null;
   return <div className={styles.panel} aria-busy={submitting}>
-    <header className={styles.head}><div><h2>계정 비활성화 검토</h2><p>대상 계정과 적용 영향을 확인한 뒤 비활성화 사유를 입력합니다.</p></div><button type="button" className={styles.mobileClose} aria-label="계정 비활성화 검토 닫기" onClick={requestClose}>×</button></header>
+    <header className={styles.head}><div><h2>계정 비활성화</h2><p>대상 계정과 적용 영향을 확인한 뒤 비활성화 사유를 입력합니다.</p></div><button type="button" className={styles.mobileClose} aria-label="계정 비활성화 닫기" onClick={requestClose}>×</button></header>
     <div className={styles.body}>
       <section className={styles.account} aria-labelledby="deactivation-account-title"><div><span>대상 계정</span><h3 id="deactivation-account-title">{user.userName}</h3><p>{user.email}</p></div><em data-active={user.accountStatus==="ACTIVE"}>● {user.accountStatus==="ACTIVE"?"활성":"비활성"}</em><dl><div><dt>현재 역할</dt><dd>{user.roles.map(getRoleLabel).join(", ")||"역할 미지정"}</dd></div><div><dt>소속</dt><dd>{user.organization?.name??"소속 미지정"}</dd></div></dl></section>
       <section className={styles.preflight}><h3>실행 전 확인</h3>{eligibility==="checking"?<p className={styles.checking}><i/> 계정 상태와 진행 중 업무를 확인하고 있습니다.</p>:eligibility==="error"?<div className={styles.blocked} role="alert"><strong>실행 가능 여부를 확인하지 못했습니다.</strong><p>{error}</p><button type="button" onClick={()=>void verify()}>다시 확인</button></div>:block?<div className={styles.blocked} role="alert"><strong>{block.title}</strong><p>{block.description}</p></div>:<ul><li><i/>관리자 본인의 계정이 아닙니다.</li><li><i/>현재 활성 상태인 계정입니다.</li><li><i/>진행 중인 사건·출동 업무가 없습니다.</li></ul>}<small>최종 실행 직전에 계정 상태와 진행 중 업무를 다시 확인합니다.</small></section>
       {allowed&&<><section className={styles.comparison}><h3>계정 상태 변경</h3><div><article><span>변경 전</span><strong>활성</strong><p>로그인 가능</p><p>세션 유지</p></article><article><span>변경 후</span><strong>비활성</strong><p>신규 로그인 차단</p><p>활성 세션 종료</p></article></div></section>
-      <section className={styles.reason}><h3>비활성화 사유 *</h3><AdminCompactSelect label="사유 유형" value={reasonType as typeof DEACTIVATION_REASON_TYPES[number]|""} placeholder="사유 유형을 선택해 주세요." options={DEACTIVATION_REASON_TYPES.map(reason=>({value:reason,label:reason}))} onChange={value=>{setReasonType(value);setConfirmed(false)}}/><label htmlFor="deactivation-reason-detail">상세 사유<textarea id="deactivation-reason-detail" maxLength={260} value={detail} placeholder="비활성화 사유를 구체적으로 입력해 주세요." aria-describedby="deactivation-detail-help deactivation-reason-error" onChange={event=>{setDetail(event.target.value);setConfirmed(false)}}/><small id="deactivation-detail-help">{detail.length} / 260자 · 비밀번호나 민감정보를 입력하지 마세요.</small></label>{reasonError&&(reasonType||detail)&&<p id="deactivation-reason-error" className={styles.fieldError}>{reasonError}</p>}</section>
+      <section className={styles.reason}><h3>비활성화 사유 *</h3><div className={styles.reasonChips} aria-label="비활성화 사유 유형">{DEACTIVATION_REASON_TYPES.map(reason=><button type="button" key={reason} aria-pressed={reasonType===reason} onClick={()=>{setReasonType(reason);setConfirmed(false)}}>{reason}</button>)}</div><label htmlFor="deactivation-reason-detail">상세 사유<textarea id="deactivation-reason-detail" maxLength={260} value={detail} placeholder="비활성화 사유를 구체적으로 입력해 주세요." aria-describedby="deactivation-detail-help deactivation-reason-error" onChange={event=>{setDetail(event.target.value);setConfirmed(false)}}/><small id="deactivation-detail-help">{detail.length} / 260자 · 비밀번호나 민감정보를 입력하지 마세요.</small></label>{reasonError&&(reasonType||detail)&&<p id="deactivation-reason-error" className={styles.fieldError}>{reasonError}</p>}</section>
       <section className={styles.impact}><h3>적용되는 영향</h3><div><article><strong>즉시 적용</strong><ul><li>신규 로그인 차단</li><li>현재 활성 세션 전체 종료</li><li>계정 상태를 비활성으로 변경</li></ul></article><article><strong>유지되는 정보</strong><ul><li>기존 사건·출동 업무 이력</li><li>감사 및 책임 추적 기록</li><li>사용자 계정 정보</li></ul></article></div><p>계정 정보와 기존 업무 이력은 삭제되지 않습니다.</p></section>
       <label className={styles.confirm}><input type="checkbox" checked={confirmed} disabled={Boolean(reasonError)} onChange={event=>setConfirmed(event.target.checked)}/><span>대상 계정과 비활성화 영향을 확인했습니다.</span></label></>}
       {error&&eligibility!=="error"&&<p className={styles.error} role="alert">{error}</p>}
     </div>
-    <footer className={styles.foot}><button ref={returnButton} type="button" disabled={submitting} onClick={requestClose}>사용자 정보</button>{allowed&&<button type="button" className={styles.danger} disabled={!canSubmit} onClick={()=>void submit()}>{submitting?"처리 중…":"계정 비활성화"}</button>}</footer>
+    <footer className={styles.foot}><button ref={returnButton} type="button" disabled={submitting} onClick={requestClose}>취소</button>{allowed&&<button type="button" className={styles.danger} disabled={!canSubmit} onClick={()=>void submit()}>{submitting?"처리 중…":"계정 비활성화"}</button>}</footer>
   </div>;
 }

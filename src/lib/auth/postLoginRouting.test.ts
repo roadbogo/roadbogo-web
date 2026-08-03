@@ -9,11 +9,16 @@ describe("post login routing",()=>{
  it("does not allow a general user into control",()=>{const general={publicId:"g",accountStatus:"ACTIVE",roles:["GENERAL_USER"]as const,apiPermissions:[]};expect(resolvePostLoginDestination({user:general,returnTo:"/control"}).path).toBe("/")});
  it("uses permission-aware defaults",()=>{
   expect(getRoleDefaultRoute(controller)).toBe("/control");
-  expect(getRoleDefaultRoute({...controller,roles:["CONTROL_MANAGER"]})).toBe("/control");
-  expect(getRoleDefaultRoute({...controller,roles:["RESPONDER"],apiPermissions:["DISPATCH.READ_OWN"]})).toBe("/dispatch");
+  expect(getRoleDefaultRoute({...controller,roles:["CONTROL_MANAGER"]})).toBe("/control/manager");
+ expect(getRoleDefaultRoute({...controller,roles:["RESPONDER"],apiPermissions:["DISPATCH.READ_OWN"]})).toBe("/dispatch");
   expect(getRoleDefaultRoute({...controller,roles:["SYSTEM_ADMIN"],apiPermissions:["USER.READ_ALL"]})).toBe("/admin");
   expect(getRoleDefaultRoute({...controller,roles:["SYSTEM_ADMIN"],apiPermissions:["USER.READ_ALL","INCIDENT.READ_ALL"]})).toBe("/admin");
-  expect(getRoleDefaultRoute({...controller,roles:["SYSTEM_ADMIN"],apiPermissions:["INCIDENT.READ_ALL"]})).toBe("/control");
+ expect(getRoleDefaultRoute({...controller,roles:["SYSTEM_ADMIN"],apiPermissions:["INCIDENT.READ_ALL"]})).toBe("/control");
+ });
+ it("restores safe destinations before the responder default",()=>{
+  const responder={publicId:"r",accountStatus:"ACTIVE",roles:["RESPONDER"]as const,apiPermissions:["DISPATCH.READ_OWN"]};
+  for(const returnTo of ["/notifications","/mypage","/dispatch"]){expect(resolvePostLoginDestination({user:responder,returnTo})).toEqual({path:returnTo,reason:"RETURN_TO"})}
+  for(const returnTo of ["/control","/admin"]){expect(resolvePostLoginDestination({user:responder,returnTo})).toEqual({path:"/dispatch",reason:"ROLE_DEFAULT"})}
  });
  it("uses permissions instead of the first role in a multi-role account",()=>expect(getRoleDefaultRoute({...controller,roles:["SYSTEM_ADMIN","CONTROLLER"],apiPermissions:["INCIDENT.READ_ALL"]})).toBe("/control"));
  it("restores only a matching recent work item within the TTL",()=>{

@@ -23,6 +23,7 @@ describe("AdminLocalNavigation",()=>{
     expect(html).toContain('aria-current="page" href="/admin/users"');
     expect(html).toContain('href="/admin/roles"');
     expect(html).toContain('href="/admin/cctvs"');
+    expect(html).toContain("CCTV 조회");
   });
 
   it("shows and activates audit logs only with AUDIT.READ",()=>{
@@ -31,5 +32,12 @@ describe("AdminLocalNavigation",()=>{
     const html=renderToStaticMarkup(<AdminLocalNavigation/>);
     expect(html).toContain('aria-current="page" href="/admin/audit-logs"');
     expect(html).toContain("감사 로그");
+  });
+
+  it("uses a round key icon for roles without the shield check path",()=>{
+    apiPermissions=["ROLE.MANAGE"];
+    const html=renderToStaticMarkup(<AdminLocalNavigation/>);
+    expect(html).toContain('<circle cx="8" cy="12" r="4"');
+    expect(html).not.toContain("m9.5 12 1.7 1.7");
   });
 });

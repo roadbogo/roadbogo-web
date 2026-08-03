@@ -1,6 +1,9 @@
 .preview {
   display: grid;
   gap: 16px;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 20px 22px 26px;
 }
 
 .preview > header,
@@ -9,6 +12,10 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+}
+
+.preview > header > div {
+  min-width: 0;
 }
 
 .preview h3,
@@ -23,6 +30,7 @@
   margin: 4px 0 0;
   color: #6b7f8d;
   font-size: 13px;
+  line-height: 1.45;
 }
 
 .expandButton,
@@ -37,11 +45,22 @@
 }
 
 .expandButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex: none;
   min-height: 38px;
   padding: 0 12px;
   border-radius: 9px;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.expandButton svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
 }
 
 .plane {
@@ -165,6 +184,10 @@
   font-size: 13px;
   font-weight: 650;
   overflow-wrap: anywhere;
+}
+
+.details > div:first-child dd {
+  line-height: 1.45;
 }
 
 .coordinateValue {
@@ -382,6 +405,10 @@
 }
 
 @media (max-width: 520px) {
+  .preview {
+    padding: 16px;
+  }
+
   .preview > header {
     align-items: stretch;
     flex-direction: column;

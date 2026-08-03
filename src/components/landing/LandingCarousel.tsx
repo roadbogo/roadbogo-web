@@ -199,13 +199,13 @@ export function LandingCarousel() {
       <section className="camera-visual-stage" aria-label={`CAM 07 ${scenario.label} AI 탐지 화면`}>
         <div className="camera-ambient" aria-hidden="true" />
         <div ref={roadSceneRef} className="road-scene camera-frame-plane"><span className="road-line road-line--one" /><span className="road-line road-line--two" /><DetectionOverlay key={`hazard-${transitionKey}`} objectType={scenario.id} variant="hazard" visualVariant={getDetectionVisualVariant({objectCategory:scenario.objectCategory,classCode:scenario.classCode})} label={scenario.label} confidence={scenario.score} className={`hazard-detection hazard-detection--${scenario.position}`}><Image src={scenario.image} alt={scenario.label} width={92} height={72} /></DetectionOverlay>{vehicleDetections.map(detection=><DetectionOverlay key={`${transitionKey}-${detection.id}`} objectType="vehicle" variant="tracking" visualVariant={getDetectionVisualVariant({objectCategory:"VEHICLE",classCode:"VEHICLE"})} label={detection.label} confidence={detection.confidence} labelPosition={detection.id==="vehicle-03"?"end":"start"} className={`vehicle-detection vehicle-detection--${detection.id}`} style={vehiclePositions[detection.id]}/>)}
-          <span className="camera-label">AI TRACKING · Objects 12 · Risk 01</span>
+          <span className="camera-label">AI TRACKING · Objects 3 · Risk 01</span>
         </div>
       </section>
       <section className="camera-evidence-hud" aria-label="AI 탐지 근거 요약">
         <div><span>대표 객체</span><strong>{scenario.label}</strong></div>
         <div><span>신뢰도</span><strong>{scenario.score}%</strong></div>
-        <div><span>탐지 객체</span><strong>12</strong></div>
+        <div><span>탐지 객체</span><strong>3</strong></div>
         <div><span>위험 후보</span><strong className="is-risk">1</strong></div>
       </section>
     </div><article className="incident-card response-panel scenario-fade" key={`card-${scenario.id}`}>

@@ -36,17 +36,17 @@ export class MockUserManagementAdapter implements UserManagementAdapter{
     const unassigned=(user:ManagedUser)=>user.accountStatus==="ACTIVE"&&user.roles.length===0;
     const neverLoggedIn=(user:ManagedUser)=>isOperating(user)&&user.lastLoginAt===null;
     const withoutOrganization=(user:ManagedUser)=>isOperating(user)&&!user.organization;
-    const needsAttention=(user:ManagedUser)=>unassigned(user)||neverLoggedIn(user)||withoutOrganization(user);
+    const needsAttention=(user:ManagedUser)=>unassigned(user)||neverLoggedIn(user)||withoutOrganization(user)||user.accountStatus==="INACTIVE"||(user.activeAssignments??0)>0;
     const summary={total:users.length,operating:users.filter(isOperating).length,general:users.filter(isGeneral).length,active:users.filter(user=>user.accountStatus==="ACTIVE").length,attention:users.filter(needsAttention).length,unassigned:users.filter(unassigned).length,inactive:users.filter(user=>user.accountStatus==="INACTIVE").length,neverLoggedIn:users.filter(neverLoggedIn).length,withoutOrganization:users.filter(withoutOrganization).length};
     const filtered=users.filter(user=>
-      (!keyword||user.userName.toLocaleLowerCase("ko-KR").includes(keyword)||user.email.toLowerCase().includes(keyword))&&
+      (!keyword||user.userName.toLocaleLowerCase("ko-KR").includes(keyword)||user.email.toLowerCase().includes(keyword)||user.organization?.name.toLocaleLowerCase("ko-KR").includes(keyword)||user.roles.some(role=>ROLE_PRESENTATIONS[role].label.toLocaleLowerCase("ko-KR").includes(keyword)))&&
       (query.view==="all"||query.view==="operating"&&isOperating(user)||query.view==="general"&&isGeneral(user)||query.view==="attention"&&needsAttention(user)||query.view==="inactive"&&user.accountStatus==="INACTIVE")&&
       (!query.attentionReason||query.attentionReason==="unassigned"&&unassigned(user)||query.attentionReason==="never-logged-in"&&neverLoggedIn(user)||query.attentionReason==="no-organization"&&withoutOrganization(user))&&
       (!query.role||user.roles.includes(query.role))&&
       (!query.accountStatus||user.accountStatus===query.accountStatus)&&
       (!query.organizationPublicId||user.organization?.publicId===query.organizationPublicId)
       &&(!query.organizationUnassigned||!user.organization)
-    ).sort((a,b)=>(query.sort==="created_at,desc"?-1:1)*(a.createdAt.localeCompare(b.createdAt)));
+    ).sort((a,b)=>query.sort==="name,asc"?a.userName.localeCompare(b.userName,"ko-KR"):query.sort==="last_login,desc"?(b.lastLoginAt??"").localeCompare(a.lastLoginAt??""):(query.sort==="created_at,desc"?-1:1)*(a.createdAt.localeCompare(b.createdAt)));
     const start=(query.page-1)*query.size;
     return{items:structuredClone(filtered.slice(start,start+query.size)),summary,pagination:{page:query.page,size:query.size,totalElements:filtered.length,totalPages:Math.ceil(filtered.length/query.size)}};
   }

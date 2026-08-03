@@ -67,8 +67,9 @@ export function filterAndSortIncidents(items: IncidentManagementItem[], query: I
     const status = statusForIncidentTab(query.tab, query.status);
     const statusMatch = status === "ALL" || statusGroups[status].includes(item.status);
     const riskMatch = query.risk === "ALL" || item.current_risk_grade === query.risk;
+    const quickMatch=query.quick==="ALL"||query.quick==="IMMEDIATE"&&item.current_risk_grade==="CRITICAL"||query.quick==="UNASSIGNED"&&!item.assigned_controller||query.quick==="REVIEW"&&item.status==="UNDER_REVIEW"||query.quick==="DISPATCH"&&["DISPATCH_REQUESTED","DISPATCHED","ON_SCENE","ACTION_IN_PROGRESS"].includes(item.status);
     const detected = safeTime(item.first_detected_at);
-    return tabMatch && keywordMatch && statusMatch && riskMatch && detected >= from && detected <= to;
+    return tabMatch && keywordMatch && statusMatch && riskMatch && quickMatch && detected >= from && detected <= to;
   });
   const priority = (item: IncidentManagementItem) => ({ CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 }[item.current_risk_grade] * 1_000_000 + item.current_risk_score);
   return [...filtered].sort((a, b) => {
@@ -86,6 +87,7 @@ const validTabs = new Set<IncidentListTab>(["active", "closed", "archived"]);
 const validSorts = new Set<IncidentSort>(sortOptions.map(option => option.value));
 const validStatuses = new Set<StatusFilter>(["ALL", "OPEN", "REVIEW", "DISPATCH", "DONE"]);
 const validRisks = new Set<RiskFilter>(["ALL", "CRITICAL", "HIGH", "MEDIUM", "LOW"]);
+const validQuick=new Set(["ALL","IMMEDIATE","UNASSIGNED","REVIEW","DISPATCH"] as const);
 
 export function queryFromSearchParams(params: URLSearchParams): IncidentListQuery {
   const tab = params.get("tab") as IncidentListTab;
@@ -102,6 +104,7 @@ export function queryFromSearchParams(params: URLSearchParams): IncidentListQuer
     sort: validSorts.has(sort) ? sort : "priority,desc",
     status: statusForIncidentTab(validTab, validStatus),
     risk: validRisks.has(risk) ? risk : "ALL",
+    quick:validQuick.has(params.get("quick") as never)?params.get("quick") as IncidentListQuery["quick"]:"ALL",
     from: params.get("from") || undefined,
     to: params.get("to") || undefined,
   };
@@ -116,6 +119,7 @@ export function queryToSearchParams(query: IncidentListQuery) {
   if (query.keyword) params.set("keyword", query.keyword);
   if (status !== "ALL") params.set("status", status);
   if (query.risk !== "ALL") params.set("risk", query.risk);
+  if(query.quick!=="ALL")params.set("quick",query.quick);
   if (query.from) params.set("from", query.from);
   if (query.to) params.set("to", query.to);
   if (query.sort !== "priority,desc") params.set("sort", query.sort);

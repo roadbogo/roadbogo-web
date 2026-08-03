@@ -14,11 +14,13 @@ import {
   hasNewUnreadNotification,
   notificationPresentation,
   notificationStateCopy,
+  notificationVisualToneLabels,
+  resolveNotificationVisualTone,
   severityLabels,
   sortNotificationQueue,
+  systemAdminQueue,
 } from "./notificationDomain";
 import { NotificationRow, NotificationTypeIcon } from "./NotificationRow";
-import { adminActionNotifications } from "./adminNotificationPresentation";
 import type { NotificationViewModel } from "./notificationTypes";
 import styles from "./notifications.module.css";
 
@@ -35,6 +37,7 @@ function DefaultNotificationPopover() {
   const{user}=useAuth();
   const { items, unreadCount, actionCount, loading, error, realtimeStatus, markRead, targetFor } = useNotifications();
   const audience=useMemo(()=>resolveNotificationAudience(user),[user]);
+  const manager=user?.role==="CONTROL_MANAGER";
   const operations=audience.kind==="operations";
   const [open, setOpen] = useState(false);
   const [ringing, setRinging] = useState(false);
@@ -50,6 +53,16 @@ function DefaultNotificationPopover() {
   const actionItems = useMemo(() => items.filter(item => item.action_required).sort(compareNotificationPriority), [items]);
   const updates = useMemo(() => items.filter(item => !item.action_required).sort(compareNotificationPriority), [items]);
   const generalItems = useMemo(() => sortNotificationQueue(items, "newest"), [items]);
+  const managerItems=useMemo(()=>[...items].sort((a,b)=>{
+    const rank=(item:NotificationViewModel)=>{
+      if(!item.read&&item.notification_type==="INCIDENT_CREATED"&&["HIGH","CRITICAL"].includes(item.severity))return 0;
+      if(item.notification_type==="DISPATCH_REJECTED")return 1;
+      if(item.notification_type==="INCIDENT_STATUS_CHANGED")return 2;
+      if(item.notification_type==="ACTION_COMPLETED")return 3;
+      return 4;
+    };
+    return rank(a)-rank(b)||Date.parse(b.created_at)-Date.parse(a.created_at);
+  }).slice(0,5),[items]);
   const priorityItem = actionItems[0] ?? null;
   const unreadIds = useMemo(() => items.filter(item => !item.read).map(item => item.public_id), [items]);
 
@@ -78,15 +91,17 @@ function DefaultNotificationPopover() {
   }, [open]);
 
   const close = () => { setOpen(false); triggerRef.current?.focus(); };
-  const openItem = async (item: NotificationViewModel) => {
+  const openItem = (item: NotificationViewModel) => {
     if (pendingOpen.current.has(item.public_id)) return;
     pendingOpen.current.add(item.public_id);
-    const success = await markRead(item.public_id);
-    if (!success) { pendingOpen.current.delete(item.public_id); return; }
     const target = targetFor(item);
     setOpen(false);
     if (target) router.push(target);
-    pendingOpen.current.delete(item.public_id);
+    if (!item.read) {
+      void markRead(item.public_id).finally(() => pendingOpen.current.delete(item.public_id));
+    } else {
+      pendingOpen.current.delete(item.public_id);
+    }
   };
   const onTabKey = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
@@ -121,11 +136,11 @@ function DefaultNotificationPopover() {
     {open && <><button type="button" className={styles.mobileBackdrop} aria-label={`${audience.pageTitle} 닫기`} onClick={close} />
       <section ref={panelRef} id="notification-popover" className={styles.popover} role="dialog" aria-modal="false" aria-labelledby="notification-popover-title">
         <header>
-          <div><h2 id="notification-popover-title">{audience.pageTitle}</h2>{operations&&<p>{tab === "action" ? `처리가 필요한 업무 ${actionCount}건` : `읽지 않은 알림 ${unreadCount}건`}</p>}</div>
-          <Link href="/notifications" onClick={() => setOpen(false)}>전체 알림 보기</Link>
+          <div><h2 id="notification-popover-title">{audience.pageTitle}</h2>{manager?<p>확인이 필요한 사건과 출동 변동입니다.</p>:operations&&<p>{tab === "action" ? `처리가 필요한 업무 ${actionCount}건` : `읽지 않은 알림 ${unreadCount}건`}</p>}</div>
+          <Link href="/notifications" onClick={() => setOpen(false)}>{manager?"모든 업무 알림 보기":"전체 알림 보기"}</Link>
           <button type="button" className={styles.mobileClose} aria-label={`${audience.pageTitle} 닫기`} onClick={close}><CloseIcon /></button>
         </header>
-        {operations&&<div className={styles.popoverTabs} role="tablist" aria-label="업무 알림 분류">
+        {operations&&!manager&&<div className={styles.popoverTabs} role="tablist" aria-label="업무 알림 분류">
           <button id="notification-popover-tab-action" type="button" role="tab" aria-selected={tab === "action"} aria-controls="notification-popover-panel-action" tabIndex={tab === "action" ? 0 : -1} onClick={() => setTab("action")} onKeyDown={onTabKey}>처리 필요 <b>{actionCount}</b></button>
           <button id="notification-popover-tab-updates" type="button" role="tab" aria-selected={tab === "updates"} aria-controls="notification-popover-panel-updates" tabIndex={tab === "updates" ? 0 : -1} onClick={() => setTab("updates")} onKeyDown={onTabKey}>최근 업데이트</button>
         </div>}
@@ -133,6 +148,7 @@ function DefaultNotificationPopover() {
           {loading ? <div className={styles.skeleton} aria-label="알림을 불러오는 중"><i /><i /><i /></div>
             : error ? <div className={styles.popoverEmpty}><strong>알림을 불러오지 못했습니다</strong><span>{error}</span></div>
               : items.length === 0 ? <div className={styles.popoverEmpty}><strong>{audience.emptyTitle}</strong><span>{audience.emptyDescription}</span></div>
+                : manager?<section className={styles.popoverGroup}>{managerItems.map(item=><NotificationRow key={item.public_id} item={item} onOpen={openItem} compact />)}</section>
                 : !operations?<section className={styles.popoverGroup}>{generalItems.slice(0,6).map(item=><NotificationRow key={item.public_id} item={item} onOpen={openItem} compact showOperationsMetadata={false}/>)}</section>
                 : tab === "action" ? actionItems.length === 0
                   ? <div className={styles.popoverEmpty}><strong>현재 처리할 업무가 없습니다</strong><span>최근 업데이트에서 진행 상황을 확인할 수 있습니다</span></div>
@@ -167,30 +183,49 @@ function PriorityNotification({ item, onOpen }: { item: NotificationViewModel; o
   </section>;
 }
 
-type AdminFilter="all"|"unread"|"urgent"|"account"|"system";
-const adminFilters:{value:AdminFilter;label:string}[]=[{value:"all",label:"전체"},{value:"unread",label:"미확인"},{value:"urgent",label:"긴급"},{value:"account",label:"계정"},{value:"system",label:"시스템"}];
+function systemAdminPriorityRank(item:NotificationViewModel){
+  if(item.read)return Number.POSITIVE_INFINITY;
+  if(item.notification_type==="SYSTEM_STATUS"&&["HIGH","CRITICAL"].includes(item.severity))return 0;
+  if(item.notification_type==="ACCOUNT_CHANGED"&&(["HIGH","CRITICAL"].includes(item.severity)||/접근|로그인|비활성|보안/.test(`${item.title} ${item.body}`)))return 1;
+  if(item.notification_type==="ROLE_CHANGED")return 2;
+  if(["URGENT","CAUTION"].includes(resolveNotificationVisualTone(item)))return 3;
+  return Number.POSITIVE_INFINITY;
+}
+
+export function selectSystemAdminPopoverItems(items:NotificationViewModel[]){
+  const indexed=items.map((item,index)=>({item,index}));
+  const priority=indexed
+    .filter(({item})=>Number.isFinite(systemAdminPriorityRank(item)))
+    .sort((a,b)=>systemAdminPriorityRank(a.item)-systemAdminPriorityRank(b.item)||Date.parse(b.item.created_at)-Date.parse(a.item.created_at)||a.index-b.index)[0]?.item??null;
+  const recent=indexed
+    .filter(({item})=>item.public_id!==priority?.public_id)
+    .sort((a,b)=>Number(a.item.read)-Number(b.item.read)||Date.parse(b.item.created_at)-Date.parse(a.item.created_at)||a.index-b.index)
+    .slice(0,3)
+    .map(({item})=>item);
+  return {priority,recent};
+}
 
 function SystemAdminNotificationPopover() {
-  const { items, loading, error, refresh, markRead, targetFor } = useNotifications();
+  const { items, unreadCount, loading, error, refresh, markRead, markAllRead, targetFor } = useNotifications();
   const [open, setOpen] = useState(false);
   const [closing,setClosing]=useState(false);
-  const [markingAll, setMarkingAll] = useState(false);
-  const [filter,setFilter]=useState<AdminFilter>("all");
+  const [markingAll,setMarkingAll]=useState(false);
   const [ringing,setRinging]=useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLElement>(null);
-  const listRef=useRef<HTMLDivElement>(null);
   const pending = useRef(new Set<string>());
   const ringTimer=useRef<number|null>(null);
   const closeTimer=useRef<number|null>(null);
   const router = useRouter();
   const pathname = usePathname();
-  const actionItems = useMemo(() => adminActionNotifications(items), [items]);
-  const unreadItems = useMemo(() => actionItems.filter(item => !item.read), [actionItems]);
-  const unreadCount = unreadItems.length;
-  const hasUrgent=actionItems.some(item=>!item.read&&(item.severity==="CRITICAL"||item.severity==="HIGH"));
-  const filteredItems=useMemo(()=>actionItems.filter(item=>filter==="all"||filter==="unread"&&!item.read||filter==="urgent"&&["CRITICAL","HIGH"].includes(item.severity)||filter==="account"&&(item.admin_category==="ACCOUNT"||item.resource.resource_type==="ACCOUNT"||item.resource.resource_type==="ROLE")||filter==="system"&&(item.admin_category==="SYSTEM"||item.resource.resource_type==="SYSTEM")).slice(0,5),[actionItems,filter]);
+  const adminItems = useMemo(() => sortNotificationQueue(items, "newest"), [items]);
+  const adminFeed=useMemo(()=>selectSystemAdminPopoverItems(adminItems),[adminItems]);
+  const hasUrgent=adminItems.some(item=>!item.read&&resolveNotificationVisualTone(item)==="URGENT");
+  const highestUnreadTone=useMemo(()=>{
+    const rank={URGENT:0,CAUTION:1,SECURITY:1,CHANGE:2,SUCCESS:3,INFO:4} as const;
+    return adminItems.filter(item=>!item.read).map(resolveNotificationVisualTone).sort((a,b)=>rank[a]-rank[b])[0]??null;
+  },[adminItems]);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -222,58 +257,53 @@ function SystemAdminNotificationPopover() {
     if(ringTimer.current!==null||window.matchMedia("(prefers-reduced-motion: reduce)").matches)return;
     setRinging(true);ringTimer.current=window.setTimeout(()=>{setRinging(false);ringTimer.current=null},620);
   },[]);
-  const changeFilter=(next:AdminFilter)=>{setFilter(next);if(listRef.current)listRef.current.scrollTop=0};
-  const onFilterKey=(event:KeyboardEvent<HTMLButtonElement>,index:number)=>{
-    if(!["ArrowLeft","ArrowRight","Home","End"].includes(event.key))return;
-    event.preventDefault();const nextIndex=event.key==="Home"?0:event.key==="End"?adminFilters.length-1:(index+(event.key==="ArrowRight"?1:-1)+adminFilters.length)%adminFilters.length;
-    changeFilter(adminFilters[nextIndex].value);requestAnimationFrame(()=>document.getElementById(`admin-alert-filter-${adminFilters[nextIndex].value}`)?.focus());
-  };
-
-  const confirmItem = async (item: NotificationViewModel) => {
+  const confirmItem = (item: NotificationViewModel) => {
     if (pending.current.has(item.public_id)) return;
     pending.current.add(item.public_id);
-    const success = item.read || await markRead(item.public_id);
-    pending.current.delete(item.public_id);
-    if (!success) return;
-    const target = targetFor(item);
-    if (target) {
-      setOpen(false);
-      router.push(target);
+    const target = item.admin_category
+      ? `/notifications?${systemAdminQueue(item)==="change"?"tab=history&":""}notification=${encodeURIComponent(item.public_id)}`
+      : targetFor(item)??`/notifications?notification=${encodeURIComponent(item.public_id)}`;
+    if(closeTimer.current!==null)window.clearTimeout(closeTimer.current);
+    setOpen(false);
+    setClosing(false);
+    router.push(target);
+    if (!item.read) {
+      void markRead(item.public_id).then(saved=>{if(!saved)return refresh()}).finally(() => pending.current.delete(item.public_id));
+    } else {
+      pending.current.delete(item.public_id);
     }
   };
-
-  const confirmAll = async () => {
-    if (!unreadItems.length || markingAll) return;
+  const confirmAll=async()=>{
+    if(markingAll||unreadCount===0)return;
     setMarkingAll(true);
-    for (const item of unreadItems) await markRead(item.public_id);
-    setMarkingAll(false);
+    try{await markAllRead()}finally{setMarkingAll(false)}
   };
 
   const badge = formatUnreadCount(unreadCount);
-  const bellLabel = unreadCount ? `운영 알림 열기, 미확인 알림 ${unreadCount}개` : "운영 알림 열기, 미확인 알림 없음";
+  const bellLabel = unreadCount ? `운영 알림 열기, 읽지 않음 ${unreadCount}개` : "운영 알림 열기, 읽지 않음 없음";
 
   return <div ref={rootRef} className={styles.popoverRoot}>
-    <button ref={triggerRef} type="button" className={`header-bell ${styles.bell} ${styles.adminBell} ${unreadCount ? styles.hasUnread : ""} ${ringing?styles.ringing:""} ${hasUrgent?styles.hasUrgent:""}`} aria-label={bellLabel} aria-expanded={open} aria-haspopup="dialog" aria-controls="admin-notification-popover" onPointerEnter={event=>{if(event.pointerType==="mouse")ringOnce()}} onFocus={event=>{if(event.currentTarget.matches(":focus-visible"))ringOnce()}} onClick={() => {if(open)close();else{if(closeTimer.current!==null)window.clearTimeout(closeTimer.current);setClosing(false);setOpen(true)}}}>
+    <button ref={triggerRef} type="button" className={`header-bell ${styles.bell} ${styles.adminBell} ${unreadCount ? styles.hasUnread : ""} ${ringing?styles.ringing:""} ${hasUrgent?styles.hasUrgent:""} ${highestUnreadTone?styles[`adminBellTone${highestUnreadTone}`]:""}`} aria-label={bellLabel} aria-expanded={open} aria-haspopup="dialog" aria-controls="admin-notification-popover" onPointerEnter={event=>{if(event.pointerType==="mouse")ringOnce()}} onFocus={event=>{if(event.currentTarget.matches(":focus-visible"))ringOnce()}} onClick={() => {if(open)close();else{if(closeTimer.current!==null)window.clearTimeout(closeTimer.current);setClosing(false);setOpen(true)}}}>
       <BellIcon />{unreadCount > 0 && <b aria-hidden="true">{badge}</b>}
     </button>
     {(open||closing) && <>
       <button type="button" className={styles.mobileBackdrop} aria-label="운영 알림 닫기" onClick={close} />
       <section ref={panelRef} id="admin-notification-popover" data-state={closing?"closing":"open"} className={`${styles.popover} ${styles.adminResponder}`} role="dialog" aria-modal="false" aria-labelledby="admin-notification-title" onKeyDown={event=>{if(event.key!=="Tab")return;const nodes=panelRef.current?.querySelectorAll<HTMLElement>("button:not([disabled]),a[href]");if(!nodes?.length)return;const first=nodes[0],last=nodes[nodes.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}}}>
         <header className={styles.adminResponderHeader}>
-          <div><span><h2 id="admin-notification-title">운영 알림</h2><b>미확인 {unreadCount}건</b></span><p>확인이 필요한 운영·보안 알림을 모았습니다.</p></div>
+          <div><span><h2 id="admin-notification-title">운영 알림</h2><b>미확인 {unreadCount}건</b><button type="button" disabled={unreadCount===0||markingAll} onClick={()=>void confirmAll()}>{markingAll?"처리 중":"모두 읽음"}</button></span><p>확인이 필요한 운영 및 보안 알림입니다.</p></div>
           <button type="button" className={styles.mobileClose} aria-label="운영 알림 닫기" onClick={close}><CloseIcon /></button>
         </header>
-        <div className={styles.adminFilterTabs} role="tablist" aria-label="운영 알림 필터">{adminFilters.map((item,index)=><button id={`admin-alert-filter-${item.value}`} type="button" role="tab" aria-selected={filter===item.value} tabIndex={filter===item.value?0:-1} key={item.value} onClick={()=>changeFilter(item.value)} onKeyDown={event=>onFilterKey(event,index)}>{item.label}</button>)}</div>
-        <div key={filter} ref={listRef} className={styles.adminResponderScroll} role="tabpanel" aria-label={`${adminFilters.find(item=>item.value===filter)?.label} 운영 알림`}>
+        <div className={styles.adminResponderScroll} aria-label="운영 알림 피드">
           {loading && items.length === 0 ? <div className={styles.adminSkeleton} aria-label="관리 알림을 불러오는 중"><i /><i /><i /></div>
             : error && items.length === 0 ? <div className={styles.adminResponderEmpty} role="alert"><strong>운영 알림을 불러오지 못했습니다.</strong><p>잠시 후 다시 확인해 주세요.</p><button type="button" onClick={() => void refresh()}>다시 확인</button></div>
-              : actionItems.length === 0 ? <div className={styles.adminResponderEmpty}><strong>새로운 운영 알림이 없습니다</strong><p>확인이 필요한 알림이 생기면 이곳에 표시됩니다.</p></div>
-                : filteredItems.length===0?<div className={styles.adminResponderEmpty}><strong>선택한 조건에 해당하는 알림이 없습니다</strong><p>다른 필터에서 운영 알림을 확인해 주세요.</p></div>
-                : <div className={styles.adminCompactList}>{filteredItems.map(item => <AdminCompactItem key={item.public_id} item={item} onConfirm={confirmItem} />)}</div>}
+              : adminItems.length === 0 ? <div className={styles.adminResponderEmpty}><strong>현재 확인이 필요한 운영 알림이 없습니다.</strong><p>새로운 운영·보안 변경이 발생하면 이곳에 표시됩니다.</p></div>
+                : <div className={styles.adminPriorityFeed}>
+                    {adminFeed.priority&&<section className={`${styles.adminFeedGroup} ${styles.adminPriorityFeedGroup}`}><h3><span aria-hidden="true">!</span> 우선 확인 <b>1건</b></h3><div className={styles.adminCompactList}><AdminCompactItem item={adminFeed.priority} onConfirm={confirmItem}/></div></section>}
+                    {adminFeed.recent.length>0&&<section className={styles.adminFeedGroup}><h3>최근 알림</h3><div className={styles.adminCompactList}>{adminFeed.recent.map(item=><AdminCompactItem key={item.public_id} item={item} onConfirm={confirmItem}/>)}</div></section>}
+                  </div>}
         </div>
         <footer className={styles.adminResponderFooter}>
-          <button type="button" onClick={() => void confirmAll()} disabled={!unreadCount || markingAll}>{markingAll ? "처리 중…" : "모두 읽음"}</button>
-          <Link href="/notifications" onClick={() => setOpen(false)}>전체 알림 보기 <span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg></span></Link>
+          <Link href="/notifications" onClick={() => setOpen(false)}><span aria-hidden="true">☷</span> 모든 알림 보기</Link>
         </footer>
       </section>
     </>}
@@ -288,16 +318,17 @@ function AdminNotificationTypeIcon({item}:{item:NotificationViewModel}){
 }
 
 function AdminCompactItem({ item, onConfirm }: { item: NotificationViewModel; onConfirm: (item: NotificationViewModel) => void }) {
-  const severityLabel=item.severity==="CRITICAL"||item.severity==="HIGH"?"긴급":item.severity==="WARNING"?"주의":"정보";
-  return <article className={`${styles.adminCompactItem} ${styles[`adminSeverity${item.severity}`]} ${!item.read ? styles.adminUnread : ""}`}>
-    <button type="button" className={styles.adminInboxRow} aria-label={`${severityLabel} 알림, ${item.title}, ${formatRelativeTime(item.created_at)}${item.read?"":", 미확인"}`} onClick={() => void onConfirm(item)}>
-      <span className={styles.adminSeverityIcon} role="img" aria-label={severityLabel}>
+  const visualTone=resolveNotificationVisualTone(item);
+  const toneLabel=notificationVisualToneLabels[visualTone];
+  return <article data-tone={visualTone} className={`${styles.adminCompactItem} ${!item.read ? styles.adminUnread : ""}`}>
+    <button type="button" className={styles.adminInboxRow} aria-label={`${toneLabel} 알림, ${item.title}, ${formatRelativeTime(item.created_at)}${item.read?"":", 읽지 않음"}`} onClick={() => void onConfirm(item)}>
+      <span className={styles.adminSeverityIcon} role="img" aria-label={toneLabel}>
         <AdminNotificationTypeIcon item={item}/>
       </span>
       <span className={styles.adminInboxContent}>
         <span className={styles.adminInboxTitle}><strong>{item.title}</strong><time dateTime={item.created_at} title={formatExactKst(item.created_at)}>{formatRelativeTime(item.created_at)}</time>{!item.read&&<i aria-hidden="true"/>}</span>
         <span className={styles.adminInboxBody}>{item.body}</span>
-        <span className={styles.adminInboxTarget}>{item.resource_label}<b aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg></b></span>
+        <span className={styles.adminInboxTarget}><span><em>{toneLabel}</em>{item.resource_label}</span><b aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg></b></span>
       </span>
     </button>
   </article>;

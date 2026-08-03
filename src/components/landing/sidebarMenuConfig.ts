@@ -2,7 +2,7 @@ import type { UserRole } from "@/types/auth";
 import type { AppPermission, AppRole } from "@/components/navigation/navigationConfig";
 import { canAccessControl } from "@/lib/auth/controlAccess";
 
-export type SidebarIconName = "home" | "flow" | "login" | "profile" | "monitor" | "incidents" | "bell" | "dispatch" | "admin";
+export type SidebarIconName = "home" | "flow" | "login" | "profile" | "dashboard" | "cctv" | "monitor" | "incidents" | "bell" | "dispatch" | "admin";
 
 export type SidebarMenuItem = {
   id: string;
@@ -81,13 +81,24 @@ export function getAuthenticatedSidebarMenus(user: NavigationUser): SidebarMenuI
     const menus: SidebarMenuItem[] = [authenticatedHome];
     if(hasAny("USER.READ_ALL","ROLE.MANAGE","CCTV.READ","AUDIT.READ")) menus.push({id:"admin",label:"시스템 관리",description:"계정·권한·서비스 운영",href:"/admin",activePaths:["/admin"],icon:"admin",roles:["SYSTEM_ADMIN"],section:"운영 메뉴"});
     if (hasAny("NOTIFICATION.READ_OWN")) menus.push({ id:"notifications",label:"운영 알림",description:"시스템·계정 운영 알림",href:"/notifications",activePaths:["/notifications"],icon:"bell",roles:["SYSTEM_ADMIN"],section:"시스템 운영" });
-    if (canAccessControl(user)) menus.push({ id:"control",label:"관제 현황",description:"CCTV와 진행 사건 현황",href:"/control",activePaths:["/control"],icon:"monitor",roles:["SYSTEM_ADMIN"],section:"운영 조회" });
+    if (canAccessControl(user)) menus.push({ id:"control",label:"관제 현황",description:"CCTV와 진행 사건 현황",href:"/control",activePaths:["/control"],icon:"cctv",roles:["SYSTEM_ADMIN"],section:"운영 조회" });
     if (canAccessControl(user)&&hasAny("INCIDENT.READ_ALL","INCIDENT.CLAIM","INCIDENT.DECIDE")) menus.push({ id:"incidents",label:"사건 조회",description:"사건 목록·처리 현황",href:"/control/incidents",activePaths:["/control/incidents"],icon:"incidents",roles:["SYSTEM_ADMIN"],section:"운영 조회" });
     menus.push(authenticatedAccount);
     return menus;
   }
+  if(user.role==="CONTROL_MANAGER"){
+    const menus:SidebarMenuItem[]=[
+      authenticatedHome,
+      {id:"manager",label:"센터 운영",description:"전체 사건·관제 대응 관리",href:"/control/manager",activePaths:["/control/manager"],icon:"dashboard",roles:["CONTROL_MANAGER"],section:"운영 메뉴"},
+      {id:"control",label:"CCTV 관제",description:"CCTV와 실시간 사건 확인",href:"/control",activePaths:["/control"],icon:"cctv",roles:["CONTROL_MANAGER"],section:"운영 메뉴"},
+    ];
+    if(hasAny("INCIDENT.READ_ALL","INCIDENT.CLAIM","INCIDENT.DECIDE"))menus.push({id:"incidents",label:"사건 관리",description:"사건 목록과 처리 현황",href:"/control/incidents",activePaths:["/control/incidents"],icon:"incidents",roles:["CONTROL_MANAGER"],section:"운영 메뉴"});
+    if(hasAny("NOTIFICATION.READ_OWN"))menus.push({id:"notifications",label:"업무 알림",description:"사건과 출동 알림",href:"/notifications",activePaths:["/notifications"],icon:"bell",roles:["CONTROL_MANAGER"],section:"운영 메뉴"});
+    menus.push(authenticatedAccount);
+    return menus;
+  }
   const menus: SidebarMenuItem[] = [authenticatedHome];
-  if (canAccessControl(user)) menus.push({ id:"control",label:"실시간 관제",description:"CCTV와 우선 대응 사건",href:"/control",activePaths:["/control"],icon:"monitor",roles:allSidebarRoles,section:"운영 메뉴" });
+  if (canAccessControl(user)) menus.push({ id:"control",label:"실시간 관제",description:"CCTV와 우선 대응 사건",href:"/control",activePaths:["/control"],icon:"cctv",roles:allSidebarRoles,section:"운영 메뉴" });
   if (canAccessControl(user)&&hasAny("INCIDENT.READ_ALL","INCIDENT.CLAIM","INCIDENT.DECIDE")) menus.push({ id:"incidents",label:"사건 관리",description:"사건 목록과 처리 현황",href:"/control/incidents",activePaths:["/control/incidents"],icon:"incidents",roles:allSidebarRoles,section:"운영 메뉴" });
   if (user.roles.includes("RESPONDER")&&hasAny("DISPATCH.READ_OWN")) menus.push({ id:"dispatch",label:"내 출동 요청",description:"배정된 출동 업무 확인",href:"/dispatch",activePaths:["/dispatch"],icon:"dispatch",roles:allSidebarRoles,section:"운영 메뉴" });
   if (user.roles.some(role=>role!=="GENERAL_USER")&&hasAny("NOTIFICATION.READ_OWN")) menus.push({ id:"notifications",label:"업무 알림",description:"사건과 출동 알림",href:"/notifications",activePaths:["/notifications"],icon:"bell",roles:allSidebarRoles,section:"운영 메뉴" });

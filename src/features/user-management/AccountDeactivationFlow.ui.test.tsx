@@ -19,14 +19,13 @@ describe("AccountDeactivationFlow inspector mode",()=>{
     expect(await screen.findByText("진행 중인 사건·출동 업무가 없습니다.")).toBeTruthy();
     const submit=screen.getByRole("button",{name:"계정 비활성화"});
     expect((submit as HTMLButtonElement).disabled).toBe(true);
-    const reasonTrigger=screen.getByRole("button",{name:"사유 유형"});
-    fireEvent.click(reasonTrigger);
-    fireEvent.click(screen.getByRole("option",{name:"담당 업무 변경"}));
-    expect(reasonTrigger.textContent).toContain("담당 업무 변경");
+    const reasonButton=screen.getByRole("button",{name:"업무 변경"});
+    fireEvent.click(reasonButton);
+    expect(reasonButton.getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(screen.getByLabelText("대상 계정과 비활성화 영향을 확인했습니다."));
     expect((submit as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(submit);
-    await waitFor(()=>expect(service.deactivateUser).toHaveBeenCalledWith("target-user",{reason:"담당 업무 변경"}));
+    await waitFor(()=>expect(service.deactivateUser).toHaveBeenCalledWith("target-user",{reason:"업무 변경"}));
     expect(onSuccess).toHaveBeenCalledWith(expect.objectContaining({accountStatus:"INACTIVE"}));
   });
 

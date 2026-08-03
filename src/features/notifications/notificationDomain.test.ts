@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { AuthenticatedUser } from "@/components/auth/AuthContext";
-import { canReceiveNotification, compareNotificationPriority, deriveNotificationActionState, formatUnreadCount, hasNewUnreadNotification, managerGuidance, managerQueueGroup, managerTaskCopy, notificationNavigationLabel, notificationPresentation, notificationQueueGroup, notificationStateCopy, notificationTaskCopy, resolveNotificationTarget, safeNotificationTarget, severityLabels, sortNotificationQueue } from "./notificationDomain";
+import { canReceiveNotification, compareNotificationPriority, deriveNotificationActionState, formatUnreadCount, hasNewUnreadNotification, managerGuidance, managerQueueGroup, managerTaskCopy, notificationNavigationLabel, notificationPresentation, notificationQueueGroup, notificationStateCopy, notificationTaskCopy, resolveNotificationTarget, resolveNotificationVisualTone, safeNotificationTarget, severityLabels, sortNotificationQueue, systemAdminQueue } from "./notificationDomain";
 import type { LinkedResourceState, NotificationRecord, NotificationViewModel } from "./notificationTypes";
 import { mockDispatchPublicIds, mockIncidentPublicIds } from "@/features/mocks/mockResourceIds";
+import { mockSystemAdminNotifications } from "./mockSystemAdminNotifications";
 
 const user = (role: AuthenticatedUser["role"], publicId = "user-1"): AuthenticatedUser => ({
   publicId, name: "테스트 사용자", role, roles: [role], email: "test@example.com",
@@ -18,6 +19,48 @@ const notification = (type: NotificationRecord["notification_type"], resourceTyp
 describe("notification bell state",()=>{
   it("uses the unified label for HIGH without changing the severity code",()=>{expect(severityLabels.HIGH).toBe("주의");expect(notification("INCIDENT_CREATED").severity).toBe("HIGH")});
   it("detects only newly visible unread notification IDs",()=>{expect(hasNewUnreadNotification(["visible-1"],new Set())).toBe(true);expect(hasNewUnreadNotification(["visible-1"],new Set(["visible-1"]))).toBe(false);expect(hasNewUnreadNotification([],new Set(["visible-1"]))).toBe(false)});
+});
+
+describe("notification visual tone",()=>{
+  it("prioritizes critical, security, caution, and neutral information semantics",()=>{
+    expect(resolveNotificationVisualTone({...notification("INCIDENT_CREATED"),severity:"CRITICAL"})).toBe("URGENT");
+    expect(resolveNotificationVisualTone({...notification("ACCOUNT_CHANGED"),severity:"HIGH",resource:{resource_type:"ACCOUNT",resource_public_id:"account",resource_label:"계정"}})).toBe("SECURITY");
+    expect(resolveNotificationVisualTone({...notification("SYSTEM_STATUS"),severity:"WARNING",title:"전달 지연",body:"알림 전달이 지연됩니다."})).toBe("CAUTION");
+    expect(resolveNotificationVisualTone({...notification("SYSTEM_STATUS"),severity:"INFO",title:"서비스 복구",body:"정상 상태입니다."})).toBe("SUCCESS");
+  });
+});
+
+describe("system administrator operating inbox",()=>{
+  it("derives priority queues without adding an API field",()=>{
+    const critical={...notification("SYSTEM_STATUS","INCIDENT"),notification_type:"SYSTEM_STATUS" as const,severity:"CRITICAL" as const,resource:{resource_type:"SYSTEM" as const,resource_public_id:"system",resource_label:"인증 서비스"}};
+    const warning={...critical,public_id:"warning",notification_type:"ACCOUNT_CHANGED" as const,severity:"WARNING" as const,resource:{resource_type:"ACCOUNT" as const,resource_public_id:"account",resource_label:"운영 계정"}};
+    expect(systemAdminQueue({...critical,action_required:false,action_label:null,reason:"UPDATE_ONLY",state_label:"상태 업데이트",resource_label:"인증 서비스"} as NotificationViewModel)).toBe("immediate");
+    expect(systemAdminQueue({...warning,action_required:false,action_label:null,reason:"UPDATE_ONLY",state_label:"상태 업데이트",resource_label:"운영 계정"} as NotificationViewModel)).toBe("attention");
+    expect(systemAdminQueue({...warning,read:true,action_required:false,action_label:null,reason:"UPDATE_ONLY",state_label:"상태 업데이트",resource_label:"운영 계정"} as NotificationViewModel)).toBe("attention");
+  });
+  it("keeps read state independent from unresolved administrator work",()=>{
+    const unresolved=mockSystemAdminNotifications.slice(0,4).map(item=>{
+      const readItem={...item,read:true};
+      return systemAdminQueue(readItem);
+    });
+    expect(unresolved).toEqual(["immediate","attention","attention","immediate"]);
+  });
+  it("splits the seven administrator mocks into pending work and completed history",()=>{
+    const grouped=mockSystemAdminNotifications.map(item=>[item.public_id,systemAdminQueue(item)]);
+    expect(grouped).toEqual([
+      ["admin-notification-001","immediate"],
+      ["admin-notification-002","attention"],
+      ["admin-notification-003","attention"],
+      ["admin-notification-004","immediate"],
+      ["admin-notification-005","change"],
+      ["admin-notification-006","change"],
+      ["admin-notification-007","change"],
+    ]);
+  });
+  it("uses a distinct change tone for role notifications",()=>{
+    const role={...notification("ROLE_CHANGED"),resource:{resource_type:"ROLE" as const,resource_public_id:"role",resource_label:"역할 정책"}};
+    expect(resolveNotificationVisualTone(role)).toBe("CHANGE");
+  });
 });
 
 describe("manager notification queue",()=>{
@@ -90,13 +133,13 @@ describe("deriveNotificationActionState", () => {
   it("resolves only authorized, valid internal notification targets", () => {
     const controller = user("CONTROLLER");
     const responder = user("RESPONDER");
-    expect(resolveNotificationTarget(notification("INCIDENT_CREATED"), controller)).toBe(`/control/incidents/${mockIncidentPublicIds["INC-20260719-0012"]}`);
+    expect(resolveNotificationTarget(notification("INCIDENT_CREATED"), controller)).toBe("/control");
     expect(resolveNotificationTarget(notification("DISPATCH_ASSIGNED", "DISPATCH"), responder)).toBe("/dispatch");
-    expect(resolveNotificationTarget({ ...notification("INCIDENT_CREATED"), resource: { resource_type: "INCIDENT", resource_public_id: "12", resource_label: "INC-12" } }, controller)).toBeNull();
+    expect(resolveNotificationTarget({ ...notification("INCIDENT_CREATED"), target_path: null, resource: { resource_type: "INCIDENT", resource_public_id: "12", resource_label: "INC-12" } }, controller)).toBe("/notifications?notification=10000000-0000-4000-8000-000000000001");
     expect(safeNotificationTarget("//evil.example/path", controller)).toBeNull();
     expect(safeNotificationTarget("https://evil.example/path", controller)).toBeNull();
     expect(safeNotificationTarget("/control/incidents/INC-20260719-0012?next=https://evil.example", controller)).toBeNull();
-    expect(resolveNotificationTarget(notification("INCIDENT_CREATED"), user("GENERAL_USER"))).toBeNull();
+    expect(resolveNotificationTarget(notification("INCIDENT_CREATED"), user("GENERAL_USER"))).toBe("/notifications?notification=10000000-0000-4000-8000-000000000001");
   });
 
   it("caps the visible unread badge at 99+", () => {

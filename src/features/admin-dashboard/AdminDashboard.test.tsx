@@ -1,22 +1,65 @@
-import {renderToStaticMarkup} from "react-dom/server";
-import {describe,expect,it,vi} from "vitest";
-vi.mock("@/components/auth/AuthContext",()=>({useAuth:()=>({user:{apiPermissions:["USER.READ_ALL","USER.WRITE","ROLE.MANAGE","CCTV.READ"]}})}));
+// @vitest-environment jsdom
+import {cleanup, fireEvent, render, screen} from "@testing-library/react";
+import {afterEach, describe, expect, it, vi} from "vitest";
+
+vi.mock("@/components/auth/AuthContext",()=>({
+  useAuth:()=>({user:{apiPermissions:["USER.READ_ALL","USER.WRITE","ROLE.MANAGE","CCTV.READ","AUDIT.READ"]}}),
+}));
+vi.mock("./adminDashboardAdapter",()=>({
+  createAdminDashboardAdapter:()=>({load:vi.fn().mockResolvedValue({})}),
+}));
+vi.mock("./adminConsoleViewModel",()=>({
+  createAdminConsoleViewModel:()=>({
+    checkedAt:"2026-07-29T03:01:00.000Z",
+    health:{overall:"healthy",api:"healthy",database:"healthy"},
+    accountSummary:{totalUsers:12,activeUsers:9,inactiveUsers:3,usersWithoutRoles:1,multipleRoleUsers:1,attentionCount:3,todayChangeCount:2},
+    issues:[
+      {key:"ROLE_UNASSIGNED",title:"역할이 지정되지 않은 활성 계정",description:"운영 역할 지정이 필요합니다.",affectedUsers:[{name:"김관리"}],target:{href:"/admin/roles?view=unassigned"}},
+      {key:"NO_LOGIN_HISTORY",title:"로그인 기록이 없는 운영 계정",description:"실제 사용 여부를 확인해야 합니다.",affectedUsers:[{name:"이운영"}],target:{href:"/admin/users?issue=never-logged-in"}},
+      {key:"INACTIVE_ACCOUNT",title:"비활성 계정",description:"현재 상태를 확인해야 합니다.",affectedUsers:[{name:"박관제"}],target:{href:"/admin/users?view=inactive"}},
+    ],
+    recentChanges:[{id:"change-1",action:"역할 변경",target:"김관리",detail:"관제 담당자 → 관제센터 책임자",actor:"로컬 시스템 관리자",occurredAt:"2026-07-29T03:01:00.000Z"}],
+    roleCoverage:[
+      {roleCode:"SYSTEM_ADMIN",roleName:"시스템 관리자",assignedUserCount:2},
+      {roleCode:"CONTROL_CENTER_MANAGER",roleName:"관제센터 책임자",assignedUserCount:3},
+    ],
+  }),
+}));
+
 import {AdminDashboard} from "./AdminDashboard";
 
 const styles=new Proxy({} as Record<string,string>,{get:(_,key)=>String(key)});
+afterEach(cleanup);
 
-describe("AdminDashboard structure",()=>{
- it("uses briefing, exception list, and recent-change feed without selection UI",()=>{
-  const html=renderToStaticMarkup(<AdminDashboard classNames={styles}/>);
-  expect(html).toContain("관리 콘솔");
-  expect(html).toContain("지금 처리할 작업");
-  expect(html).toContain("최근 관리자 활동");
-  expect(html).toContain("운영 계정 추가");
-  expect(html).not.toContain("전체 사용자 보기");
-  expect(html).toContain("역할 구성 현황");
-  expect(html).not.toContain("선택 항목");
-  expect(html).not.toContain("aria-selected");
-  expect(html).not.toContain("→");
-  expect(html).not.toContain("↻");
- });
+describe("AdminDashboard workbench",()=>{
+  it("renders the compact workbench without directional arrows",async()=>{
+    const{container}=render(<AdminDashboard classNames={styles}/>);
+    await screen.findByText("역할이 지정되지 않은 활성 계정");
+    expect(screen.getByRole("heading",{name:"관리 콘솔"})).toBeTruthy();
+    expect(screen.getByRole("heading",{name:"처리 필요"})).toBeTruthy();
+    expect(screen.getByRole("heading",{name:"최근 변경"})).toBeTruthy();
+    expect(screen.queryByRole("link",{name:"운영 계정 추가"})).toBeNull();
+    expect(screen.queryByRole("heading",{name:"계정 상태"})).toBeNull();
+    expect(screen.queryByRole("heading",{name:"역할 구성"})).toBeNull();
+    expect(screen.getByRole("link",{name:"감사 로그"})).toBeTruthy();
+    expect(screen.getByRole("region",{name:"운영 요약"}).textContent).toContain("활성 계정 9 / 12명");
+    expect(screen.queryByText("오늘 확인할 항목")).toBeNull();
+    expect(screen.queryByText("기록됨")).toBeNull();
+    expect(container.textContent).not.toMatch(/[→←›‹]/);
+    expect(container.textContent).toContain("관제 담당자에서 관제센터 책임자로 변경");
+  });
+
+  it("keeps each task row keyboard accessible without filter chips",async()=>{
+    render(<AdminDashboard classNames={styles}/>);
+    const task=await screen.findByRole("link",{name:/역할이 지정되지 않은 활성 계정/});
+    const click=vi.spyOn(task,"click").mockImplementation(()=>undefined);
+    fireEvent.keyDown(task,{key:" "});
+    expect(click).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("navigation",{name:"검토 대기열 필터"})).toBeNull();
+    expect(screen.getByText("우선 확인")).toBeTruthy();
+    expect(screen.getByText("사용 검토")).toBeTruthy();
+    expect(screen.getByText("상태 확인")).toBeTruthy();
+    expect(screen.getByText("역할 및 권한")).toBeTruthy();
+    expect(screen.getAllByText("사용자 관리")).toHaveLength(2);
+  });
 });

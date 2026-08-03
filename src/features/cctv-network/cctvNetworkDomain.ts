@@ -5,7 +5,7 @@ export type CctvReviewReasonCode="OPERATION_FAULT"|"LOCATION_MISSING"|"STREAM_MI
 export type CctvReviewReason={code:CctvReviewReasonCode;label:string;description:string;severity:"critical"|"warning"|"info";priority:number};
 
 const reasons:Record<CctvReviewReasonCode,CctvReviewReason>={
- OPERATION_FAULT:{code:"OPERATION_FAULT",label:"운영 상태 장애",description:"운영 상태가 장애로 확인됩니다.",severity:"critical",priority:1},
+ OPERATION_FAULT:{code:"OPERATION_FAULT",label:"운영 상태 이상",description:"CCTV 운영 상태에서 이상이 확인되었습니다.",severity:"critical",priority:1},
  LOCATION_MISSING:{code:"LOCATION_MISSING",label:"필수 위치 정보 누락",description:"노선·구간 또는 설치 좌표를 확인해 주세요.",severity:"critical",priority:2},
  STREAM_MISSING:{code:"STREAM_MISSING",label:"활성 스트림 없음",description:"사용 가능한 활성 영상 스트림이 없습니다.",severity:"warning",priority:3},
  DIRECTION_UNKNOWN:{code:"DIRECTION_UNKNOWN",label:"방향 정보 미확인",description:"방향 정보가 등록되지 않았습니다.",severity:"warning",priority:4},
@@ -15,7 +15,7 @@ const reasons:Record<CctvReviewReasonCode,CctvReviewReason>={
 };
 
 export const REVIEW_REASON_ORDER=(Object.values(reasons) as CctvReviewReason[]).sort((a,b)=>a.priority-b.priority);
-export const statusLabel:Record<CctvDisplayStatus,string>={normal:"정상",attention:"확인 필요",fault:"장애",inactive:"비활성",unknown:"상태 미확인"};
+export const statusLabel:Record<CctvDisplayStatus,string>={normal:"정상",attention:"확인 필요",fault:"운영 이상",inactive:"비활성",unknown:"상태 미확인"};
 
 export function getCctvReviewReasons(cctv:NetworkCctv,snapshot?:Pick<CctvNetworkSnapshot,"roads"|"sections">|null):CctvReviewReason[]{
  const result:CctvReviewReason[]=[];

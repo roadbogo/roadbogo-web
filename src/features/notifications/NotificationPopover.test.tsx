@@ -101,6 +101,19 @@ describe("NotificationPopover", () => {
     expect(mocks.push).not.toHaveBeenCalled();
   });
 
+  it("navigates immediately without waiting for the read request", () => {
+    mocks.items = [item({ public_id: "slow-read" })];
+    mocks.targetFor.mockReturnValue("/notifications?selected=slow-read");
+    mocks.markRead.mockImplementationOnce(() => new Promise<boolean>(() => undefined));
+    const dialog = openPopover();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /읽지 않음/ }));
+
+    expect(mocks.markRead).toHaveBeenCalledWith("slow-read");
+    expect(mocks.push).toHaveBeenCalledWith("/notifications?selected=slow-read");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("keeps operations tabs and actionable notification UI for controllers", () => {
     mocks.role = "CONTROLLER";
     mocks.items = [item()];

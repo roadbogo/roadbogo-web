@@ -353,3 +353,41 @@
   overflow:visible!important;
 }
 .landing-sidebar.is-system-admin .landing-sidebar__footer{margin-top:auto!important}
+
+/* CONTROL_MANAGER has seven fixed destinations; keep them visible without an inner rail scroll. */
+.landing-sidebar.is-control-manager .landing-sidebar__frame{overflow:hidden}
+.landing-sidebar.is-control-manager .landing-sidebar__navigation{
+  overflow:hidden!important;
+  padding-top:4px!important;
+  padding-bottom:0!important;
+}
+.landing-sidebar.is-control-manager .landing-sidebar__group{gap:3px;margin-top:5px}
+.landing-sidebar.is-control-manager .landing-sidebar__navigation>.landing-sidebar__group:first-child{margin-top:0}
+.landing-sidebar.is-control-manager .landing-sidebar__menu>button,
+.landing-sidebar.is-control-manager.is-open .landing-sidebar__menu>button{min-height:44px;padding-block:4px}
+.landing-sidebar.is-control-manager .landing-sidebar__icon,
+.landing-sidebar.is-control-manager.is-open .landing-sidebar__icon{
+  width:24px;height:24px;display:grid;place-items:center;flex:0 0 24px;overflow:visible;
+}
+.landing-sidebar.is-control-manager .landing-sidebar__icon svg{
+  width:22px;height:22px;display:block;overflow:visible;flex:0 0 22px;
+}
+.landing-sidebar.is-control-manager .landing-sidebar__footer{
+  display:block!important;
+  margin-top:auto!important;
+  padding:4px 0 max(6px,env(safe-area-inset-bottom))!important;
+}
+.landing-sidebar.is-control-manager .landing-sidebar__health,
+.landing-sidebar.is-control-manager.is-open .landing-sidebar__health{min-height:38px}
+.landing-sidebar.is-control-manager .landing-sidebar__menu--mypage{display:block;visibility:visible}
+.landing-sidebar.is-control-manager .landing-sidebar__menu--mypage .landing-sidebar__icon{
+  display:grid!important;color:#e7f5f4!important;opacity:1!important;
+}
+.landing-sidebar.is-control-manager.is-open .landing-sidebar__menu--mypage .landing-sidebar__menu-text{display:grid}
+@media(max-height:760px){
+  .landing-sidebar.is-control-manager .landing-sidebar__menu>button,
+  .landing-sidebar.is-control-manager.is-open .landing-sidebar__menu>button{min-height:38px}
+  .landing-sidebar.is-control-manager .landing-sidebar__footer{padding-block:2px!important}
+  .landing-sidebar.is-control-manager .landing-sidebar__health,
+  .landing-sidebar.is-control-manager.is-open .landing-sidebar__health{min-height:36px}
+}

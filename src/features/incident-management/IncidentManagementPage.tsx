@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { incidentStatusLabel, riskLabel } from "@/features/control-dashboard/dashboardDomain";
 import { directionLabel, objectCategoryLabel } from "@/features/control-dashboard/dashboardMapper";
@@ -11,19 +11,19 @@ import {
   queryToSearchParams, sortOptions, statusForIncidentTab, utcBoundaryToKstDate, visibleIncidentPages,
 } from "./incidentManagementDomain";
 import type {
-  IncidentListQuery, IncidentListResult, IncidentListTab, IncidentManagementItem, RiskFilter, StatusFilter,
+  IncidentListQuery, IncidentListResult, IncidentListTab, IncidentManagementItem, IncidentSort, RiskFilter, StatusFilter,
 } from "./incidentManagementTypes";
 import "./incidentManagement.css";
 
 const repository = createIncidentManagementRepository();
-const statusOptions: { value: StatusFilter; label: string }[] = [
-  { value: "ALL", label: "전체 상태" }, { value: "OPEN", label: "확인·담당 지정" },
-  { value: "REVIEW", label: "관제 검토" }, { value: "DISPATCH", label: "출동·현장 조치" },
-  { value: "DONE", label: "완료·종료" },
+const statusOptions: { value: StatusFilter; label: string; description: string }[] = [
+  { value: "ALL", label: "전체 상태", description: "모든 처리 단계의 사건" }, { value: "OPEN", label: "확인·담당 지정", description: "미확인, 확인 완료, 담당 지정 사건" },
+  { value: "REVIEW", label: "관제 검토", description: "관제 판단이 진행 중인 사건" }, { value: "DISPATCH", label: "출동·현장 조치", description: "출동 요청부터 현장 조치까지" },
+  { value: "DONE", label: "완료·종료", description: "조치 완료 또는 종료된 사건" },
 ];
-const riskOptions: { value: RiskFilter; label: string }[] = [
-  { value: "ALL", label: "전체 위험도" }, { value: "CRITICAL", label: "긴급" },
-  { value: "HIGH", label: "높음" }, { value: "MEDIUM", label: "보통" }, { value: "LOW", label: "낮음" },
+const riskOptions: { value: RiskFilter; label: string; description: string; tone: string }[] = [
+  { value: "ALL", label: "전체 위험도", description: "모든 위험 등급", tone: "neutral" }, { value: "CRITICAL", label: "긴급", description: "즉시 확인이 필요한 사건", tone: "critical" },
+  { value: "HIGH", label: "높음", description: "우선 검토가 필요한 사건", tone: "warning" }, { value: "MEDIUM", label: "보통", description: "일반 위험 사건", tone: "medium" }, { value: "LOW", label: "낮음", description: "낮은 위험 사건", tone: "low" },
 ];
 const tabCopy: Record<IncidentListTab, { label: string; empty: string; description?: string }> = {
   active: { label: "운영 사건", empty: "현재 처리 중인 사건이 없습니다." },
@@ -54,7 +54,7 @@ function DateRangeLabel({ from, to }: { from: string; to: string }) {
   const compact = `${from.slice(5).replace("-", ".")} ~ ${to.slice(5).replace("-", ".")}`;
   return <><span className="date-range-full">{full}</span><span className="date-range-compact">{compact}</span></>;
 }
-function Icon({ name }: { name: "list" | "archive" | "restore" | "close" | "calendar" | "check" }) {
+function Icon({ name }: { name: "list" | "archive" | "restore" | "close" | "calendar" | "check" | "refresh" | "search" | "status" | "risk" | "sort" | "chevron" | "eraser" | "activity" }) {
   const paths = {
     list: <><path d="M9 6h11M9 12h11M9 18h11"/><path d="m3.5 6 1 1 2-2M3.5 12l1 1 2-2M3.5 18l1 1 2-2"/></>,
     archive: <><path d="M4 7h16v13H4zM3 3h18v4H3z"/><path d="M9 11h6"/></>,
@@ -62,8 +62,33 @@ function Icon({ name }: { name: "list" | "archive" | "restore" | "close" | "cale
     close: <path d="m6 6 12 12M18 6 6 18"/>,
     calendar: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></>,
     check: <path d="m5 12 4 4L19 6"/>,
+    refresh: <><path d="M20 7v5h-5M4 17v-5h5"/><path d="M18 10a7 7 0 0 0-12-3L4 9M6 14a7 7 0 0 0 12 3l2-2"/></>,
+    search: <><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></>,
+    status: <><path d="M4 7h16M4 12h10M4 17h7"/><circle cx="18" cy="12" r="2"/></>,
+    risk: <><path d="M12 3 5 6v5c0 4.5 2.8 8 7 10 4.2-2 7-5.5 7-10V6l-7-3Z"/><path d="M12 8v5M12 16h.01"/></>,
+    sort: <><path d="m8 4-4 4 4 4M4 8h12M16 20l4-4-4-4M20 16H8"/></>,
+    chevron: <path d="m7 10 5 5 5-5"/>,
+    eraser: <><path d="m4 15 8-8 6 6-7 7H6l-2-2a2 2 0 0 1 0-3Z"/><path d="m9 10 6 6"/></>,
+    activity: <path d="M3 12h4l2-5 4 10 2-5h6"/>,
   };
   return <svg aria-hidden="true" viewBox="0 0 24 24">{paths[name]}</svg>;
+}
+
+type MenuOption<T extends string>={value:T;label:string;description:string;tone?:string};
+function FilterPopover<T extends string>({label,value,options,icon,disabled=false,onChange}:{label:string;value:T;options:MenuOption<T>[];icon:"status"|"risk"|"sort";disabled?:boolean;onChange:(value:T)=>void}){
+  const[open,setOpen]=useState(false);
+  const rootRef=useRef<HTMLDivElement>(null);
+  const triggerRef=useRef<HTMLButtonElement>(null);
+  const selected=options.find(option=>option.value===value)??options[0];
+  const applied=value!==options[0].value;
+  useEffect(()=>{if(!open)return;const close=(event:MouseEvent)=>{if(!rootRef.current?.contains(event.target as Node))setOpen(false)};const key=(event:KeyboardEvent)=>{if(event.key==="Escape"){setOpen(false);triggerRef.current?.focus()}};document.addEventListener("mousedown",close);document.addEventListener("keydown",key);return()=>{document.removeEventListener("mousedown",close);document.removeEventListener("keydown",key)}},[open]);
+  const onMenuKey=(event:ReactKeyboardEvent<HTMLDivElement>)=>{if(!["ArrowDown","ArrowUp","Home","End"].includes(event.key))return;event.preventDefault();const buttons=[...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="option"]')];const index=buttons.indexOf(document.activeElement as HTMLButtonElement);const next=event.key==="Home"?0:event.key==="End"?buttons.length-1:event.key==="ArrowDown"?(index+1)%buttons.length:(index-1+buttons.length)%buttons.length;buttons[next]?.focus()};
+  return <div ref={rootRef} className={`incident-filter-popover ${open?"is-open":""} ${applied?"is-applied":""}`}>
+    <button ref={triggerRef} type="button" className="incident-filter-trigger" disabled={disabled} aria-label={label} aria-haspopup="listbox" aria-expanded={open} onClick={()=>setOpen(current=>!current)}>
+      <span className="incident-filter-trigger__icon"><Icon name={icon}/></span><span><small>{label}</small><strong>{selected.label}</strong></span><span className="incident-filter-trigger__chevron"><Icon name="chevron"/></span>
+    </button>
+    {open&&<div className="incident-filter-menu" role="listbox" aria-label={`${label} 선택`} onKeyDown={onMenuKey}><header><strong>{label}</strong></header>{options.map(option=><button type="button" role="option" aria-selected={option.value===value} data-tone={option.tone} key={option.value} onClick={()=>{onChange(option.value);setOpen(false);triggerRef.current?.focus()}}><i aria-hidden="true"/><span><strong>{option.label}</strong><small>{option.description}</small></span></button>)}</div>}
+  </div>;
 }
 
 export function ArchiveSuccessBar({count,onView,onDismiss}:{count:number;onView:()=>void;onDismiss:()=>void}) {
@@ -105,6 +130,8 @@ export function IncidentManagementPage() {
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState("");
   const [archiveSuccess,setArchiveSuccess]=useState<number|null>(null);
+  const [refreshing,setRefreshing]=useState(false);
+  const [lastRefresh,setLastRefresh]=useState(()=>new Date());
   const headerCheckbox = useRef<HTMLInputElement>(null);
   const dateTriggerRef = useRef<HTMLButtonElement>(null);
   const datePopoverRef = useRef<HTMLDivElement>(null);
@@ -160,11 +187,12 @@ export function IncidentManagementPage() {
     setSelected(new Set());
   };
   const items = useMemo(() => result?.items ?? [], [result?.items]);
-  const selectable = useMemo(() => items.filter(item => query.tab === "archived" || isArchiveEligible(item)), [items, query.tab]);
+  const quickCounts=result?.quickCounts??{IMMEDIATE:0,UNASSIGNED:0,REVIEW:0,DISPATCH:0};
+  const visibleItems=items;
+  const selectable = useMemo(() => visibleItems.filter(item => query.tab === "archived" || isArchiveEligible(item)), [query.tab,visibleItems]);
   const allSelected = selectable.length > 0 && selectable.every(item => selected.has(item.public_id));
   const someSelected = selectable.some(item => selected.has(item.public_id)) && !allSelected;
   useEffect(() => { if (headerCheckbox.current) headerCheckbox.current.indeterminate = someSelected; }, [someSelected]);
-  const sortLabel = sortOptions.find(option => option.value === query.sort)?.label ?? "우선순위순";
   const pageNumbers=useMemo(()=>visibleIncidentPages(query.page,result?.totalPages??0),[query.page,result?.totalPages]);
   const resultRange=result?incidentResultRange(query.page,result.size,result.totalElements):"0건";
   const returnTo=useMemo(()=>{
@@ -175,7 +203,7 @@ export function IncidentManagementPage() {
   const changeTab = (tab: IncidentListTab) => {
     historyMode.current="push";
     setQuery(current=>{tabPages.current[current.tab]=current.page;return{...current,tab,status:statusForIncidentTab(tab,current.status),page:tabPages.current[tab],size:INCIDENT_PAGE_SIZE}});
-    setManagement(false); setSelected(new Set()); setArchiveSuccess(null);
+    setQuery(current=>({...current,quick:"ALL"}));setManagement(false); setSelected(new Set()); setArchiveSuccess(null);
   };
   const changePage=(page:number)=>{
     if(loading||page===query.page)return;
@@ -273,8 +301,10 @@ export function IncidentManagementPage() {
   };
   const resetFilters = () => {
     setDateDraft({ from: "", to: "" }); setDateError("");
-    updateQuery({ keyword: "", status: "ALL", risk: "ALL", from: undefined, to: undefined, sort: "priority,desc" });
+    updateQuery({ keyword: "", status: "ALL", risk: "ALL",quick:"ALL", from: undefined, to: undefined, sort: "priority,desc" });
   };
+  const filtersApplied=Boolean(query.keyword||query.status!=="ALL"||query.risk!=="ALL"||query.from||query.to||query.sort!=="priority,desc"||query.quick!=="ALL");
+  const refreshList=async()=>{if(refreshing)return;setRefreshing(true);try{await load(query);setLastRefresh(new Date())}finally{setRefreshing(false)}};
   const submitBulk = async () => {
     if (!dialog || !selected.size || submitting) return;
     setSubmitting(true); setError("");
@@ -297,24 +327,31 @@ export function IncidentManagementPage() {
   };
 
   return <div className="incident-management-page"><LandingHeader showSections={false}/><main className="incident-management-shell">
-    <header className="incident-management-heading"><div><span>INCIDENT MANAGEMENT</span><h1>사건 관리</h1><p>전체 사건의 상태와 담당자, 위험도를 조회하고 상세 처리 화면으로 이동합니다.</p></div><button type="button" disabled={loading} onClick={() => void load(query)}>{loading ? "새로고침 중" : "목록 새로고침"}</button></header>
-    <section className="incident-management-summary" aria-label="사건 요약">
-      <article><span>조회 결과</span><strong>{result?.totalElements ?? 0}</strong></article>
-      <article><span>운영 사건</span><strong>{result?.counts.active ?? "—"}</strong></article>
-      <article><span>종료 사건</span><strong>{result?.counts.closed ?? "—"}</strong></article>
-      <article><span>보관 사건</span><strong>{result?.counts.archived ?? "—"}</strong></article>
-    </section>
+    <header className="incident-management-heading"><div><h1>사건 관리</h1><p>사건의 진행 상태와 담당 현황을 확인하고 후속 업무를 처리합니다.</p></div><div className="incident-heading-tools"><time dateTime={lastRefresh.toISOString()}>마지막 갱신 {lastRefresh.toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit",hour12:false})} KST</time><button type="button" aria-busy={refreshing} disabled={refreshing} onClick={() => void refreshList()}><Icon name="refresh"/>{refreshing ? "갱신 중" : "새로고침"}</button></div></header>
+    <nav className="incident-scope-ribbon" role="tablist" aria-label="사건 분류">{(["active","closed","archived"] as const).map(tab=>{
+      if(tab==="archived"&&!repository.capabilities.supportsArchivedIncidentList)return null;
+      const count=result?.counts[tab];
+      return <button type="button" role="tab" aria-selected={query.tab===tab} key={tab} onClick={()=>changeTab(tab)}><Icon name={tab==="active"?"activity":tab==="closed"?"check":"archive"}/><span>{tabCopy[tab].label}</span>{count!==undefined&&<b>{count}</b>}</button>;
+    })}</nav>
+    {query.tab==="active"&&<div className="incident-workflow-filters" aria-label="현재 업무 요약">
+      {([
+        ["IMMEDIATE","즉시 확인",quickCounts.IMMEDIATE,"critical"],
+        ["UNASSIGNED","담당 미지정",quickCounts.UNASSIGNED,"warning"],
+        ["REVIEW","관제 검토",quickCounts.REVIEW,"review"],
+        ["DISPATCH","출동 진행",quickCounts.DISPATCH,"dispatch"],
+      ] as const).map(([value,label,count,tone])=><button type="button" key={value} data-tone={tone} aria-pressed={query.quick===value} onClick={()=>updateQuery({quick:query.quick===value?"ALL":value,page:1})}><i aria-hidden="true"/><span>{label}</span><b>{count}</b></button>)}
+    </div>}
     <section className="incident-management-list">
-      <header className="incident-list-toolbar"><div><h2>{query.tab === "archived" ? "보관함" : "사건 목록"}</h2><span>총 {result?.totalElements ?? 0}건 · {sortLabel}</span>{query.tab === "archived" && <p>운영 목록에서 정리된 종료 사건입니다. 사건 기록은 삭제되지 않았으며 다시 복원할 수 있습니다.</p>}</div>
+      <header className="incident-list-toolbar"><div><h2>사건 목록</h2><span>{query.tab==="active"?"운영 중인":query.tab==="closed"?"종료된":"보관된"} 사건 {result?.totalElements??0}건</span>{query.tab === "archived" && <p>운영 목록에서 정리된 종료 사건입니다. 사건 기록은 삭제되지 않았으며 다시 복원할 수 있습니다.</p>}</div>
         <button type="button" className="management-toggle" onClick={() => management ? exitManagement() : enterManagement()}>
           <Icon name={management ? "close" : "list"}/>{management ? "관리 종료" : "목록 관리"}
         </button>
       </header>
       <div className="incident-management-filters">
-        <label className="incident-search"><span>사건 검색</span><input value={query.keyword} onChange={event => updateQuery({ keyword: event.target.value })} placeholder="사건 번호 또는 탐지 객체"/></label>
-        <label><span>처리 상태</span><select value={query.status} disabled={query.tab!=="active"} title={query.tab!=="active"?"종료·보관 목록은 전체 상태로 조회합니다.":undefined} onChange={event => updateQuery({ status: event.target.value as StatusFilter })}>{statusOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-        <label><span>위험도</span><select value={query.risk} onChange={event => updateQuery({ risk: event.target.value as RiskFilter })}>{riskOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-        <div className="date-filter"><span>발생 기간</span><button ref={dateTriggerRef} type="button" aria-expanded={dateOpen} aria-haspopup="dialog" onClick={() => dateOpen ? closeDatePopover() : openDatePopover()}><Icon name="calendar"/><DateRangeLabel from={appliedDate.from} to={appliedDate.to}/></button>
+        <label className="incident-search"><Icon name="search"/><input aria-label="사건 검색" value={query.keyword} onChange={event => updateQuery({ keyword: event.target.value })} placeholder="사건 번호 또는 탐지 객체"/>{query.keyword&&<button type="button" aria-label="검색어 지우기" onClick={()=>updateQuery({keyword:""})}><Icon name="close"/></button>}</label>
+        <FilterPopover label="처리 상태" icon="status" value={query.status} options={statusOptions} disabled={query.tab!=="active"} onChange={value=>updateQuery({status:value})}/>
+        <FilterPopover label="위험도" icon="risk" value={query.risk} options={riskOptions} onChange={value=>updateQuery({risk:value})}/>
+        <div className={`date-filter incident-filter-popover ${dateOpen?"is-open":""} ${query.from&&query.to?"is-applied":""}`}><button ref={dateTriggerRef} className="incident-filter-trigger" type="button" aria-label="발생 기간" aria-expanded={dateOpen} aria-haspopup="dialog" onClick={() => dateOpen ? closeDatePopover() : openDatePopover()}><span className="incident-filter-trigger__icon"><Icon name="calendar"/></span><span><small>발생 기간</small><strong><DateRangeLabel from={appliedDate.from} to={appliedDate.to}/></strong></span><span className="incident-filter-trigger__chevron"><Icon name="chevron"/></span></button>
           {dateOpen && <div ref={datePopoverRef} className="date-popover" role="dialog" aria-modal="true" aria-labelledby="date-popover-title" aria-describedby="date-popover-description">
             <div className="date-popover-heading"><strong id="date-popover-title">발생 기간</strong><button ref={dateCloseRef} type="button" className="date-popover-close" aria-label="발생 기간 필터 닫기" onClick={closeDatePopover}><Icon name="close"/></button></div>
             <p id="date-popover-description" className="date-popover-description">목록에서 조회할 사건의 발생 기간을 선택하세요.</p>
@@ -324,14 +361,9 @@ export function IncidentManagementPage() {
             <footer><button type="button" className="date-clear" disabled={!query.from && !query.to} onClick={clearAppliedDate}>기간 해제</button><div><button type="button" className="date-cancel" onClick={closeDatePopover}>취소</button><button type="button" className="date-submit" disabled={dateInvalid} onClick={applyDate}>조회</button></div></footer>
           </div>}
         </div>
-        <label><span>정렬</span><select value={query.sort} onChange={event => updateQuery({ sort: event.target.value as IncidentListQuery["sort"] })}>{sortOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-        <button className="filter-reset" type="button" onClick={resetFilters}>초기화</button>
+        <FilterPopover label="정렬" icon="sort" value={query.sort} options={sortOptions.map(option=>({...option,description:option.value==="priority,desc"?"미확인 긴급 사건을 먼저 표시합니다.":option.value==="first_detected_at,desc"?"최근 발생한 사건을 먼저 표시합니다.":option.value==="first_detected_at,asc"?"오래 대기한 사건을 먼저 표시합니다.":option.value==="risk_score,desc"?"위험도가 높은 사건을 먼저 표시합니다.":"최근 탐지된 사건을 먼저 표시합니다."})) as MenuOption<IncidentSort>[]} onChange={value=>updateQuery({sort:value})}/>
+        <button className="filter-reset" type="button" disabled={!filtersApplied} onClick={resetFilters}><Icon name="eraser"/>필터 초기화</button>
       </div>
-      <nav className="incident-tabs" aria-label="사건 분류">{(["active", "closed", "archived"] as const).map(tab => {
-        if (tab === "archived" && !repository.capabilities.supportsArchivedIncidentList) return null;
-        const count = result?.counts[tab];
-        return <button type="button" key={tab} aria-current={query.tab === tab ? "page" : undefined} onClick={() => changeTab(tab)}>{tabCopy[tab].label}{count === undefined ? "" : ` ${count}`}</button>;
-      })}</nav>
       {management && archiveSuccess!==null ? <ArchiveSuccessBar count={archiveSuccess} onDismiss={()=>setArchiveSuccess(null)} onView={()=>changeTab("archived")}/> : management && <><div className="bulk-toolbar" aria-live="polite"><strong>{selected.size}건 선택됨</strong><button type="button" disabled={!selectable.length} title={!selectable.length?"현재 페이지에 선택 가능한 사건이 없습니다":undefined} onClick={togglePage}>현재 페이지 전체 선택</button><button type="button" disabled={!selected.size} onClick={() => setSelected(new Set())}>선택 해제</button>{query.tab === "archived"
         ? <button type="button" disabled={!selected.size || !repository.capabilities.supportsBulkIncidentRestore} onClick={() => setDialog("restore")}><Icon name="restore"/>{selected.size}건 복원</button>
         : <button type="button" disabled={!selected.size || !repository.capabilities.supportsBulkIncidentArchive} onClick={() => setDialog("archive")}><Icon name="archive"/>{selected.size?`${selected.size}건 보관`:"보관함으로 이동"}</button>}<button type="button" onClick={exitManagement}><Icon name="close"/>관리 종료</button></div>
@@ -339,9 +371,9 @@ export function IncidentManagementPage() {
       {!repository.capabilities.supportsBulkIncidentArchive && management && <p className="capability-notice">사건 보관 기능은 백엔드 연동 후 사용할 수 있습니다.</p>}
       {error && <div className="incident-management-state" role="alert"><p>{error}</p><button type="button" onClick={() => void load(query)}>다시 시도</button></div>}
       {!error && loading && !result ? <div className="incident-management-state" role="status">사건 목록을 불러오는 중입니다.</div>
-      : !error && items.length ? <div ref={tableRef} className={`incident-management-table ${management ? "is-managing" : ""}`} role="table" aria-label="사건 관리 목록" aria-busy={loading}>
+      : !error && visibleItems.length ? <div ref={tableRef} className={`incident-management-table ${management ? "is-managing" : ""}`} role="table" aria-label="사건 관리 목록" aria-busy={loading}>
         <div className="incident-management-row is-header" role="row">{management && <span><input ref={headerCheckbox} type="checkbox" checked={allSelected} onChange={togglePage} aria-label="현재 페이지의 선택 가능한 사건 전체 선택"/></span>}<span>사건·객체</span><span>CCTV·위치</span><span>위험도</span><span>처리 상태</span><span>담당 관제자</span><span>발생 시각</span><span>{query.tab === "archived" ? "보관 시각" : "최근 업데이트"}</span><span/></div>
-        {items.map(item => <IncidentRow key={item.public_id} item={item} archived={query.tab === "archived"} management={management} selected={selected.has(item.public_id)} onToggle={() => toggleOne(item.public_id)} returnTo={returnTo}/>)}
+        {visibleItems.map(item => <IncidentRow key={item.public_id} item={item} archived={query.tab === "archived"} management={management} selected={selected.has(item.public_id)} onToggle={() => toggleOne(item.public_id)} returnTo={returnTo}/>)}
       </div> : !error && !loading && <div className="incident-management-state" role="status"><strong>{query.keyword || query.status !== "ALL" || query.risk !== "ALL" || query.from ? "선택한 조건에 해당하는 사건이 없습니다." : tabCopy[query.tab].empty}</strong>{tabCopy[query.tab].description && <p>{tabCopy[query.tab].description}</p>}</div>}
       {result && <nav className="incident-pagination" aria-label="사건 목록 페이지" aria-busy={loading}>
         <span className="incident-pagination__range" aria-live="polite">{resultRange}</span>

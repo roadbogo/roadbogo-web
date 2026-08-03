@@ -27,7 +27,6 @@ describe("notification audience presentation", () => {
 
   const operationRoles: AuthenticatedUser["role"][] = [
     "CONTROLLER",
-    "CONTROL_MANAGER",
     "RESPONDER",
   ];
   it.each(operationRoles)("keeps %s on the operations UI", role => {
@@ -43,6 +42,15 @@ describe("notification audience presentation", () => {
       detailTitle: "업무 상세",
     });
     expect(audience.views).toEqual(["action", "all", "unread"]);
+  });
+
+  it("uses center-level copy for the control manager",()=>{
+    expect(resolveNotificationAudience(user("CONTROL_MANAGER"))).toMatchObject({
+      kind:"operations",
+      pageTitle:"센터 업무 알림",
+      pageDescription:"확인이 필요한 사건과 출동 변동입니다.",
+      emptyTitle:"현재 확인이 필요한 센터 업무 알림이 없습니다.",
+    });
   });
 
   it("gives the system administrator a dedicated operations audience",()=>{

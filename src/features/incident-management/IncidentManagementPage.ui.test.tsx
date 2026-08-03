@@ -84,22 +84,24 @@ describe("incident management status filter",()=>{
     render(<IncidentManagementPage/>);
     const status=screen.getByLabelText("처리 상태");
     expect(status).toBeEnabled();
-    fireEvent.change(status,{target:{value:"OPEN"}});
-    expect(status).toHaveValue("OPEN");
+    fireEvent.click(status);
+    fireEvent.click(screen.getByRole("option",{name:/확인·담당 지정/}));
+    expect(status).toHaveTextContent("확인·담당 지정");
 
-    fireEvent.click(screen.getByRole("button",{name:/종료 사건/}));
-    await waitFor(()=>expect(status).toHaveValue("ALL"));
+    fireEvent.click(screen.getByRole("tab",{name:/종료 사건/}));
+    await waitFor(()=>expect(status).toHaveTextContent("전체 상태"));
     expect(status).toBeDisabled();
     expect(window.location.search).not.toContain("status=");
 
-    fireEvent.click(screen.getByRole("button",{name:/보관함/}));
-    expect(status).toHaveValue("ALL");
+    fireEvent.click(screen.getByRole("tab",{name:/보관함/}));
+    expect(status).toHaveTextContent("전체 상태");
     expect(status).toBeDisabled();
 
-    fireEvent.click(screen.getByRole("button",{name:/운영 사건/}));
+    fireEvent.click(screen.getByRole("tab",{name:/운영 사건/}));
     expect(status).toBeEnabled();
-    fireEvent.change(status,{target:{value:"REVIEW"}});
-    expect(status).toHaveValue("REVIEW");
+    fireEvent.click(status);
+    fireEvent.click(screen.getByRole("option",{name:/관제 검토/}));
+    expect(status).toHaveTextContent("관제 검토");
   });
 
   it("normalizes an incompatible popstate query in both UI and URL",async()=>{
@@ -108,7 +110,7 @@ describe("incident management status filter",()=>{
     window.dispatchEvent(new PopStateEvent("popstate"));
 
     const status=screen.getByLabelText("처리 상태");
-    await waitFor(()=>expect(status).toHaveValue("ALL"));
+    await waitFor(()=>expect(status).toHaveTextContent("전체 상태"));
     expect(status).toBeDisabled();
     await waitFor(()=>expect(window.location.search).not.toContain("status="));
   });

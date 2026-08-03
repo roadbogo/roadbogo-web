@@ -29,7 +29,7 @@ export function normalizeUserDirectoryPageSize(value:string|null){
   const parsed=Number(value);
   return USER_DIRECTORY_PAGE_SIZES.includes(parsed as typeof USER_DIRECTORY_PAGE_SIZES[number])?parsed:USER_DIRECTORY_DEFAULT_PAGE_SIZE;
 }
-export type UserListQuery={page:number;size:number;keyword:string;view:UserWorkView;attentionReason:UserAttentionReason|null;role:UserRole|null;accountStatus:AccountStatus|null;organizationPublicId:string|null;organizationUnassigned:boolean;sort:"created_at,desc"|"created_at,asc"};
+export type UserListQuery={page:number;size:number;keyword:string;view:UserWorkView;attentionReason:UserAttentionReason|null;role:UserRole|null;accountStatus:AccountStatus|null;organizationPublicId:string|null;organizationUnassigned:boolean;sort:"created_at,desc"|"created_at,asc"|"name,asc"|"last_login,desc"};
 export type UserListSummary={total:number;operating:number;general:number;active:number;attention:number;unassigned:number;inactive:number;neverLoggedIn:number;withoutOrganization:number};
 export type UserListResult={items:ManagedUser[];summary:UserListSummary;pagination:{page:number;size:number;totalElements:number;totalPages:number}};
 export interface UserManagementAdapter{

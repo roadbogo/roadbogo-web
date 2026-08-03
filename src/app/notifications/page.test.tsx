@@ -2,7 +2,7 @@
 
 import "@testing-library/jest-dom/vitest";
 import React from "react";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthenticatedUser } from "@/components/auth/AuthContext";
 import type { NotificationViewModel } from "@/features/notifications/notificationTypes";
@@ -366,7 +366,7 @@ describe("notifications page audience layout", () => {
     expect(mocks.markRead).not.toHaveBeenCalled();
   });
 
-  it("renders a CONTROL_MANAGER management queue without changing the shared page", () => {
+  it("renders the current CONTROL_MANAGER center inbox with accessible filters", () => {
     mocks.roles=["CONTROL_MANAGER"];
     mocks.primaryRole="CONTROL_MANAGER";
     mocks.primaryRole="CONTROL_MANAGER";
@@ -376,13 +376,15 @@ describe("notifications page audience layout", () => {
     mocks.items=[immediate,action,complete];
     render(<NotificationsPage/>);
 
-    expect(screen.getByRole("heading",{name:"관제센터 알림",level:1})).toBeInTheDocument();
-    expect(screen.getByText("센터 전체 사건에서 확인이 필요한 관리 업무와 주요 상태 변경을 확인합니다.")).toBeInTheDocument();
-    expect(screen.getByRole("tab",{name:/관리 대기열 3/})).toHaveAttribute("aria-selected","true");
-    expect(screen.getByRole("tab",{name:/센터 알림 3/})).toBeInTheDocument();
-    expect(screen.getByLabelText("즉시 확인 1건")).toBeInTheDocument();
-    expect(screen.getByLabelText("조치 필요 1건")).toBeInTheDocument();
-    expect(screen.getByLabelText("완료 확인 1건")).toBeInTheDocument();
+    expect(screen.getByRole("heading",{name:"센터 업무 알림",level:1})).toBeInTheDocument();
+    expect(screen.getByText("관제센터 전체에서 확인이 필요한 사건과 출동 변동입니다.")).toBeInTheDocument();
+    const filters=screen.getByLabelText("센터 업무 알림 유형");
+    expect(within(filters).getByRole("button",{name:"전체"})).toHaveAttribute("aria-pressed","true");
+    expect(within(filters).getByRole("button",{name:"긴급 사건"})).toBeInTheDocument();
+    expect(screen.getByLabelText("센터 업무 알림 목록")).toBeInTheDocument();
+    expect(screen.getByText("신규 위험 사건")).toBeInTheDocument();
+    expect(screen.getByText("출동 요청 거절")).toBeInTheDocument();
+    expect(screen.getByText("현장 조치 완료")).toBeInTheDocument();
     expect(screen.getByText("알림을 선택해 주세요")).toBeInTheDocument();
   });
 
@@ -397,13 +399,12 @@ describe("notifications page audience layout", () => {
       reason:"INCIDENT_PROCESSED",
     }];
     render(<NotificationsPage/>);
-    fireEvent.click(screen.getByRole("tab",{name:/센터 알림 1/}));
     fireEvent.click(screen.getByText("처리 완료 사건"));
     expect(screen.getByText("최근 상태 변경 내용을 확인해 주세요.")).toBeInTheDocument();
     expect(screen.queryByText("신규 사건의 확인 및 배정 상태를 점검해 주세요.")).not.toBeInTheDocument();
   });
 
-  it("excludes processed notifications from the manager queue and keeps counts aligned",()=>{
+  it("keeps processed and informational notifications visible in the center inbox",()=>{
     mocks.roles=["CONTROL_MANAGER"];
     mocks.primaryRole="CONTROL_MANAGER";
     mocks.primaryRole="CONTROL_MANAGER";
@@ -413,23 +414,25 @@ describe("notifications page audience layout", () => {
       {...item("cancelled","단순 출동 취소",false),notification_type:"DISPATCH_CANCELLED",action_required:false,reason:"UPDATE_ONLY"},
     ];
     render(<NotificationsPage/>);
-    expect(screen.getByRole("tab",{name:/관리 대기열 1/})).toBeInTheDocument();
-    expect(screen.getByLabelText("즉시 확인 1건")).toBeInTheDocument();
-    expect(screen.getByText("조치 필요 신규 사건")).toBeInTheDocument();
-    expect(screen.queryByText("처리된 신규 사건")).not.toBeInTheDocument();
-    expect(screen.queryByText("단순 출동 취소")).not.toBeInTheDocument();
+    const list=screen.getByLabelText("센터 업무 알림 목록");
+    expect(within(list).getByText("조치 필요 신규 사건")).toBeInTheDocument();
+    expect(within(list).getByText("처리된 신규 사건")).toBeInTheDocument();
+    expect(within(list).getByText("단순 출동 취소")).toBeInTheDocument();
+    expect(within(list).getAllByRole("listitem")).toHaveLength(3);
   });
 
-  it("counts only actionable new alerts in an older manager queue bundle",async()=>{
+  it("counts only new center alerts matching the active type filter",async()=>{
     mocks.roles=["CONTROL_MANAGER"];
     mocks.primaryRole="CONTROL_MANAGER";
     mocks.primaryRole="CONTROL_MANAGER";
     mocks.items=Array.from({length:6},(_,index)=>({
       ...item(`manager-queue-${index}`,`관리 업무 ${index+1}`,false,new Date(Date.UTC(2026,6,22,7-index)).toISOString()),
       notification_type:"INCIDENT_CREATED" as const,
+      severity:"HIGH" as const,
       reason:"INCIDENT_UNACKNOWLEDGED" as const,
     }));
     const {rerender}=render(<NotificationsPage/>);
+    fireEvent.click(screen.getByRole("button",{name:"긴급 사건"}));
     fireEvent.click(screen.getByRole("button",{name:"이전 알림"}));
 
     mocks.items=[{
@@ -444,6 +447,7 @@ describe("notifications page audience layout", () => {
     mocks.items=[{
       ...item("manager-actionable","조치할 신규 알림",false,"2026-07-22T10:00:00.000Z"),
       notification_type:"INCIDENT_CREATED",
+      severity:"HIGH",
       reason:"INCIDENT_UNACKNOWLEDGED",
     },...mocks.items];
     rerender(<NotificationsPage/>);
@@ -453,7 +457,7 @@ describe("notifications page audience layout", () => {
     expect(screen.queryByText("처리된 신규 알림")).not.toBeInTheDocument();
   });
 
-  it("removes a processed item from an older manager queue snapshot",async()=>{
+  it("keeps a processed item in the older center inbox snapshot",async()=>{
     mocks.roles=["CONTROL_MANAGER"];
     mocks.primaryRole="CONTROL_MANAGER";
     mocks.primaryRole="CONTROL_MANAGER";
@@ -472,9 +476,9 @@ describe("notifications page audience layout", () => {
       reason:"INCIDENT_PROCESSED",
     }:entry);
     rerender(<NotificationsPage/>);
-    await waitFor(()=>expect(screen.queryByText("대기 업무 6")).not.toBeInTheDocument());
-    expect(screen.getByRole("tab",{name:/관리 대기열 5/})).toBeInTheDocument();
-    expect(screen.getAllByRole("listitem")).toHaveLength(5);
+    await waitFor(()=>expect(screen.getByText("대기 업무 6")).toBeInTheDocument());
+    expect(screen.getByLabelText("센터 업무 알림 목록")).toBeInTheDocument();
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
   });
 
   it("keeps tab=unread compatible as the manager center inbox filter",()=>{
@@ -483,8 +487,8 @@ describe("notifications page audience layout", () => {
     mocks.items=[item("manager-read","읽은 센터 알림",true),item("manager-unread","읽지 않은 센터 알림",false)];
     searchParams.set("tab","unread");
     render(<NotificationsPage/>);
-    expect(screen.getByRole("tab",{name:/센터 알림/})).toHaveAttribute("aria-selected","true");
-    expect(screen.getByRole("button",{name:/새 알림 1/})).toHaveAttribute("aria-pressed","true");
+    expect(screen.getByRole("heading",{name:"센터 업무 알림",level:1})).toBeInTheDocument();
+    expect(within(screen.getByLabelText("센터 업무 알림 유형")).getByRole("button",{name:"전체"})).toHaveAttribute("aria-pressed","true");
     expect(screen.queryByText("읽은 센터 알림")).not.toBeInTheDocument();
     expect(screen.getByText("읽지 않은 센터 알림")).toBeInTheDocument();
   });
@@ -508,18 +512,45 @@ describe("notifications page audience layout", () => {
     mocks.roles=[...roles];
     mocks.primaryRole=primaryRole;
     render(<NotificationsPage/>);
-    expect(Boolean(screen.queryByRole("tab",{name:/관리 대기열/}))).toBe(expected);
+    expect(Boolean(screen.queryByRole("heading",{name:"센터 업무 알림",level:1}))).toBe(expected);
+  });
+
+  it("keeps mobile entry in the list until the user selects and closes an alert",async()=>{
+    window.matchMedia=vi.fn().mockReturnValue({matches:true,addEventListener:vi.fn(),removeEventListener:vi.fn()}) as unknown as typeof window.matchMedia;
+    mocks.roles=["SYSTEM_ADMIN"];mocks.primaryRole="SYSTEM_ADMIN";mocks.items=[{...item("mobile-alert","인증 서비스 연결 장애",false),notification_type:"SYSTEM_STATUS",severity:"CRITICAL",admin_category:"SYSTEM"}];
+    render(<NotificationsPage/>);
+    await act(async()=>{});
+    expect(mocks.replace).not.toHaveBeenCalled();
+    fireEvent.click(within(screen.getByRole("option")).getByRole("button"));
+    expect(mocks.push).toHaveBeenLastCalledWith("/notifications?notification=mobile-alert",{scroll:false});
+    searchParams.set("notification","mobile-alert");cleanup();render(<NotificationsPage/>);
+    expect(screen.getByRole("heading",{name:"인증 서비스 연결 장애",level:2})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button",{name:/알림 목록/}));
+    expect(mocks.push).toHaveBeenLastCalledWith("/notifications",{scroll:false});
+    searchParams.delete("notification");cleanup();mocks.replace.mockClear();render(<NotificationsPage/>);await act(async()=>{});
+    expect(mocks.replace).not.toHaveBeenCalled();
+  });
+
+  it("auto-selects once after a mobile viewport becomes desktop",async()=>{
+    let matches=true;let listener:(()=>void)|undefined;
+    window.matchMedia=vi.fn().mockReturnValue({get matches(){return matches},addEventListener:vi.fn((_event,callback)=>{listener=callback}),removeEventListener:vi.fn()}) as unknown as typeof window.matchMedia;
+    mocks.roles=["SYSTEM_ADMIN"];mocks.primaryRole="SYSTEM_ADMIN";mocks.items=[{...item("responsive-alert","인증 서비스 연결 장애",false),notification_type:"SYSTEM_STATUS",severity:"CRITICAL",admin_category:"SYSTEM"}];
+    render(<NotificationsPage/>);await act(async()=>{});expect(mocks.replace).not.toHaveBeenCalled();
+    matches=false;act(()=>listener?.());
+    await waitFor(()=>expect(mocks.replace).toHaveBeenCalledTimes(1));
+    expect(mocks.replace).toHaveBeenCalledWith("/notifications?notification=responsive-alert",{scroll:false});
   });
 
   it("renders a dedicated system administrator operations inbox",()=>{
     mocks.roles=["SYSTEM_ADMIN","CONTROL_MANAGER"];
     mocks.primaryRole="SYSTEM_ADMIN";
-    mocks.items=[{...item("admin-system","인증 서비스 연결 장애",false),notification_type:"SYSTEM_STATUS",admin_category:"SYSTEM",resource:{resource_type:"SYSTEM",resource_public_id:"mock-system",resource_label:"인증 서비스"},resource_label:"인증 서비스",target_path:null,action_required:false,action_label:null,evidence:null}];
+    mocks.items=[{...item("admin-system","인증 서비스 연결 장애",false),notification_type:"SYSTEM_STATUS",severity:"CRITICAL",admin_category:"SYSTEM",resource:{resource_type:"SYSTEM",resource_public_id:"mock-system",resource_label:"인증 서비스"},resource_label:"인증 서비스",target_path:null,action_required:false,action_label:null,evidence:null}];
     render(<NotificationsPage/>);
     expect(screen.getByRole("heading",{name:"운영 알림",level:1})).toBeInTheDocument();
-    expect(screen.getByText("운영 알림 목록")).toBeInTheDocument();
-    expect(screen.getByRole("tab",{name:/시스템 상태/})).toBeInTheDocument();
-    expect(screen.queryByRole("tab",{name:/관리 대기열/})).not.toBeInTheDocument();
+    expect(screen.getByRole("tab",{name:/확인할 알림 1/})).toHaveAttribute("aria-selected","true");
+    expect(screen.getByRole("tab",{name:/변경 기록 0/})).toBeInTheDocument();
+    expect(screen.getByLabelText("운영 알림 작업 공간")).toBeInTheDocument();
+    expect(screen.getByText("인증 서비스 연결 장애")).toBeInTheDocument();
     expect(screen.queryByText(/사건과 출동 관련/)).not.toBeInTheDocument();
   });
 });
