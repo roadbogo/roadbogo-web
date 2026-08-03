@@ -94,18 +94,20 @@ export function SystemAdminNotificationCenter() {
   const source = tab === "pending" ? pendingItems : historyItems;
   const visible = useMemo(() => source.filter(item => itemMatchesFilter(item, filter)), [filter, source]);
   const counts = useMemo(() => Object.fromEntries(filters.map(option => [option.value, source.filter(item => itemMatchesFilter(item, option.value)).length])) as Record<Filter, number>, [source]);
-  const selected = requestedId ? visible.find(item => item.public_id === requestedId) ?? null : null;
+  const requestedItem=requestedId?items.find(item=>item.public_id===requestedId)??null:null;
+  const selected = requestedId ? source.find(item => item.public_id === requestedId) ?? null : null;
+
+  useEffect(()=>{if(!requestedItem)return;const requestedTab=systemAdminQueue(requestedItem)==="change"?"history":"pending";if(requestedTab!==tab)setQuery({tab:requestedTab,type:null,notification:requestedItem.public_id},false)},[requestedItem,setQuery,tab]);
 
   useEffect(() => {
-    if (loading || error || visible.length === 0 || selected) return;
+    if (loading || error || requestedId || visible.length === 0 || selected) return;
     implicitSelection.current = visible[0].public_id;
     setQuery({ tab, type: filter, notification: visible[0].public_id }, false);
-  }, [error, filter, loading, selected, setQuery, tab, visible]);
+  }, [error, filter, loading, requestedId, selected, setQuery, tab, visible]);
   useEffect(() => {
-    if (!requestedId || selected) return;
-    implicitSelection.current = visible[0]?.public_id ?? null;
-    setQuery({ notification: visible[0]?.public_id ?? null }, false);
-  }, [requestedId, selected, setQuery, visible]);
+    if (!requestedId || selected || requestedItem) return;
+    implicitSelection.current = null;
+  }, [requestedId, requestedItem, selected]);
   useEffect(() => {
     if (!requestedId) return;
     const onKey = (event: KeyboardEvent) => {
@@ -121,13 +123,13 @@ export function SystemAdminNotificationCenter() {
     if(!selected||selected.read||implicitSelection.current===selected.public_id||pendingReads.current.has(selected.public_id)||attemptedReads.current.has(selected.public_id))return;
     attemptedReads.current.add(selected.public_id);
     pendingReads.current.add(selected.public_id);
-    void markRead(selected.public_id).finally(()=>pendingReads.current.delete(selected.public_id));
+    void markRead(selected.public_id).then(saved=>{if(!saved)attemptedReads.current.delete(selected.public_id)}).catch(()=>attemptedReads.current.delete(selected.public_id)).finally(()=>pendingReads.current.delete(selected.public_id));
   },[markRead,selected]);
 
   const selectItem = (item: NotificationViewModel, trigger: HTMLButtonElement) => {
     implicitSelection.current = null;
     selectedTrigger.current = trigger;
-    if(!item.read&&!pendingReads.current.has(item.public_id)&&!attemptedReads.current.has(item.public_id)){attemptedReads.current.add(item.public_id);pendingReads.current.add(item.public_id);void markRead(item.public_id).finally(()=>pendingReads.current.delete(item.public_id))}
+    if(!item.read&&!pendingReads.current.has(item.public_id)&&!attemptedReads.current.has(item.public_id)){attemptedReads.current.add(item.public_id);pendingReads.current.add(item.public_id);void markRead(item.public_id).then(saved=>{if(!saved)attemptedReads.current.delete(item.public_id)}).catch(()=>attemptedReads.current.delete(item.public_id)).finally(()=>pendingReads.current.delete(item.public_id))}
     setQuery({ notification: item.public_id });
   };
   const closeMobileDetail = () => {

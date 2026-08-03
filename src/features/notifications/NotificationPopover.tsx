@@ -18,6 +18,7 @@ import {
   resolveNotificationVisualTone,
   severityLabels,
   sortNotificationQueue,
+  systemAdminQueue,
 } from "./notificationDomain";
 import { NotificationRow, NotificationTypeIcon } from "./NotificationRow";
 import type { NotificationViewModel } from "./notificationTypes";
@@ -260,7 +261,7 @@ function SystemAdminNotificationPopover() {
     if (pending.current.has(item.public_id)) return;
     pending.current.add(item.public_id);
     const target = item.admin_category
-      ? `/notifications?notification=${encodeURIComponent(item.public_id)}`
+      ? `/notifications?${systemAdminQueue(item)==="change"?"tab=history&":""}notification=${encodeURIComponent(item.public_id)}`
       : targetFor(item)??`/notifications?notification=${encodeURIComponent(item.public_id)}`;
     if(closeTimer.current!==null)window.clearTimeout(closeTimer.current);
     setOpen(false);
