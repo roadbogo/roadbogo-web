@@ -8,7 +8,7 @@ import { buildIncidentListApiPath, MockIncidentManagementRepository } from "./in
 import type { IncidentListQuery, IncidentManagementItem } from "./incidentManagementTypes";
 
 const baseQuery: IncidentListQuery = {
-  page: 1, size: 10, keyword: "", status: "ALL", risk: "ALL",
+  page: 1, size: 10, keyword: "", status: "ALL", risk: "ALL",quick:"ALL",
   tab: "active", sort: "priority,desc",
 };
 
@@ -109,6 +109,20 @@ describe("incident archive capabilities", () => {
       const last=await repository.list({...baseQuery,page:Math.ceil(total/10)});
       expect(last.items).toHaveLength(total%10||10);
     }
+  });
+
+  it.each([
+    ["IMMEDIATE",(index:number)=>({current_risk_grade:index===24?"CRITICAL":"LOW"})],
+    ["UNASSIGNED",(index:number)=>({assigned_controller:index===24?null:"controller"})],
+    ["REVIEW",(index:number)=>({status:index===24?"UNDER_REVIEW":"NEW"})],
+    ["DISPATCH",(index:number)=>({status:index===24?"DISPATCHED":"NEW"})],
+  ] as const)("applies %s to the full Mock result before pagination",async(quick,change)=>{
+    const template=items().find(item=>!isArchiveEligible(item))!;
+    const fixtures=Array.from({length:25},(_,index)=>({...template,public_id:`quick-${index}`,incident_no:`Q-${index}`,...change(index)})) as IncidentManagementItem[];
+    const result=await new MockIncidentManagementRepository(fixtures).list({...baseQuery,quick});
+    expect(result.totalElements).toBe(1);
+    expect(result.totalPages).toBe(1);
+    expect(result.items[0]?.public_id).toBe("quick-24");
   });
 
   it("allows only CLOSED and FALSE_POSITIVE by default", () => {

@@ -39,14 +39,14 @@ export class ApiIncidentManagementRepository implements IncidentManagementReposi
   readonly mode = "api" as const;
   readonly capabilities = { supportsArchivedIncidentList: false, supportsBulkIncidentArchive: false, supportsBulkIncidentRestore: false };
   async list(query: IncidentListQuery): Promise<IncidentListResult> {
-    if (query.tab === "archived") return { items: [], page: 1, size: query.size, totalElements: 0, totalPages: 0, counts: {} };
+    if (query.tab === "archived") return { items: [], page: 1, size: query.size, totalElements: 0, totalPages: 0, counts: {},quickCounts:{IMMEDIATE:0,UNASSIGNED:0,REVIEW:0,DISPATCH:0} };
     const [list, summary] = await Promise.all([
       apiRequest<IncidentListDto>(buildIncidentListApiPath(query)),
       apiRequest<IncidentSummaryDto>("/incidents/summary"),
     ]);
     return {
       items: list.items.map(mapApiItem), page: list.pagination.page, size: list.pagination.size,
-      totalElements: list.pagination.total_elements, totalPages: list.pagination.total_pages,
+      totalElements: list.pagination.total_elements, totalPages: list.pagination.total_pages,quickCounts:{IMMEDIATE:0,UNASSIGNED:0,REVIEW:0,DISPATCH:0},
       counts: {
         active: summary.total_count - summary.closed_count - summary.false_positive_count,
         closed: summary.closed_count + summary.false_positive_count,
@@ -84,6 +84,7 @@ export class MockIncidentManagementRepository implements IncidentManagementRepos
   async list(query: IncidentListQuery): Promise<IncidentListResult> {
     const all = this.allItems();
     const archivedIds = new Set(this.archived.keys());
+    const base=filterAndSortIncidents(all,{...query,quick:"ALL"},archivedIds);
     const filtered = filterAndSortIncidents(all, query, archivedIds);
     const start = (query.page - 1) * query.size;
     return {
@@ -94,6 +95,7 @@ export class MockIncidentManagementRepository implements IncidentManagementRepos
         closed: all.filter(item => isArchiveEligible(item) && !archivedIds.has(item.public_id)).length,
         archived: archivedIds.size,
       },
+      quickCounts:{IMMEDIATE:base.filter(item=>item.current_risk_grade==="CRITICAL").length,UNASSIGNED:base.filter(item=>!item.assigned_controller).length,REVIEW:base.filter(item=>item.status==="UNDER_REVIEW").length,DISPATCH:base.filter(item=>["DISPATCH_REQUESTED","DISPATCHED","ON_SCENE","ACTION_IN_PROGRESS"].includes(item.status)).length},
     };
   }
 

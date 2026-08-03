@@ -9,6 +9,7 @@ export type IncidentSort =
   | "risk_score,desc";
 export type StatusFilter = "ALL" | "OPEN" | "REVIEW" | "DISPATCH" | "DONE";
 export type RiskFilter = "ALL" | RiskGrade;
+export type IncidentQuickFilter="ALL"|"IMMEDIATE"|"UNASSIGNED"|"REVIEW"|"DISPATCH";
 
 export interface IncidentManagementItem extends DashboardIncident {
   first_detected_at: string;
@@ -28,6 +29,7 @@ export interface IncidentListQuery {
   keyword: string;
   status: StatusFilter;
   risk: RiskFilter;
+  quick:IncidentQuickFilter;
   tab: IncidentListTab;
   from?: string;
   to?: string;
@@ -41,6 +43,7 @@ export interface IncidentListResult {
   totalElements: number;
   totalPages: number;
   counts: { active?: number; closed?: number; archived?: number };
+  quickCounts:{IMMEDIATE:number;UNASSIGNED:number;REVIEW:number;DISPATCH:number};
 }
 
 export interface IncidentManagementCapabilities {

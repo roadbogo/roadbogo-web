@@ -132,7 +132,6 @@ export function IncidentManagementPage() {
   const [archiveSuccess,setArchiveSuccess]=useState<number|null>(null);
   const [refreshing,setRefreshing]=useState(false);
   const [lastRefresh,setLastRefresh]=useState(()=>new Date());
-  const [quickFilter,setQuickFilter]=useState<"ALL"|"IMMEDIATE"|"UNASSIGNED"|"REVIEW"|"DISPATCH">("ALL");
   const headerCheckbox = useRef<HTMLInputElement>(null);
   const dateTriggerRef = useRef<HTMLButtonElement>(null);
   const datePopoverRef = useRef<HTMLDivElement>(null);
@@ -166,7 +165,7 @@ export function IncidentManagementPage() {
   }, []);
   useEffect(() => { void load(query); }, [load, query]);
   useEffect(() => {
-    const sync = () => { const next = queryFromSearchParams(new URLSearchParams(window.location.search)); tabPages.current[next.tab]=next.page; setQuery(next); setQuickFilter("ALL"); setSelected(new Set()); setManagement(false); setArchiveSuccess(null); setDialog(null); setReason(""); };
+    const sync = () => { const next = queryFromSearchParams(new URLSearchParams(window.location.search)); tabPages.current[next.tab]=next.page; setQuery(next); setSelected(new Set()); setManagement(false); setArchiveSuccess(null); setDialog(null); setReason(""); };
     window.addEventListener("popstate", sync); return () => window.removeEventListener("popstate", sync);
   }, []);
   useEffect(() => {
@@ -188,18 +187,8 @@ export function IncidentManagementPage() {
     setSelected(new Set());
   };
   const items = useMemo(() => result?.items ?? [], [result?.items]);
-  const quickCounts=useMemo(()=>({
-    IMMEDIATE:items.filter(item=>item.current_risk_grade==="CRITICAL").length,
-    UNASSIGNED:items.filter(item=>!item.assigned_controller).length,
-    REVIEW:items.filter(item=>item.status==="UNDER_REVIEW").length,
-    DISPATCH:items.filter(item=>["DISPATCH_REQUESTED","DISPATCHED","ON_SCENE","ACTION_IN_PROGRESS"].includes(item.status)).length,
-  }),[items]);
-  const visibleItems=useMemo(()=>items.filter(item=>quickFilter==="ALL"
-    ||quickFilter==="IMMEDIATE"&&item.current_risk_grade==="CRITICAL"
-    ||quickFilter==="UNASSIGNED"&&!item.assigned_controller
-    ||quickFilter==="REVIEW"&&item.status==="UNDER_REVIEW"
-    ||quickFilter==="DISPATCH"&&["DISPATCH_REQUESTED","DISPATCHED","ON_SCENE","ACTION_IN_PROGRESS"].includes(item.status)
-  ),[items,quickFilter]);
+  const quickCounts=result?.quickCounts??{IMMEDIATE:0,UNASSIGNED:0,REVIEW:0,DISPATCH:0};
+  const visibleItems=items;
   const selectable = useMemo(() => visibleItems.filter(item => query.tab === "archived" || isArchiveEligible(item)), [query.tab,visibleItems]);
   const allSelected = selectable.length > 0 && selectable.every(item => selected.has(item.public_id));
   const someSelected = selectable.some(item => selected.has(item.public_id)) && !allSelected;
@@ -214,7 +203,7 @@ export function IncidentManagementPage() {
   const changeTab = (tab: IncidentListTab) => {
     historyMode.current="push";
     setQuery(current=>{tabPages.current[current.tab]=current.page;return{...current,tab,status:statusForIncidentTab(tab,current.status),page:tabPages.current[tab],size:INCIDENT_PAGE_SIZE}});
-    setQuickFilter("ALL"); setManagement(false); setSelected(new Set()); setArchiveSuccess(null);
+    setQuery(current=>({...current,quick:"ALL"}));setManagement(false); setSelected(new Set()); setArchiveSuccess(null);
   };
   const changePage=(page:number)=>{
     if(loading||page===query.page)return;
@@ -312,10 +301,9 @@ export function IncidentManagementPage() {
   };
   const resetFilters = () => {
     setDateDraft({ from: "", to: "" }); setDateError("");
-    setQuickFilter("ALL");
-    updateQuery({ keyword: "", status: "ALL", risk: "ALL", from: undefined, to: undefined, sort: "priority,desc" });
+    updateQuery({ keyword: "", status: "ALL", risk: "ALL",quick:"ALL", from: undefined, to: undefined, sort: "priority,desc" });
   };
-  const filtersApplied=Boolean(query.keyword||query.status!=="ALL"||query.risk!=="ALL"||query.from||query.to||query.sort!=="priority,desc"||quickFilter!=="ALL");
+  const filtersApplied=Boolean(query.keyword||query.status!=="ALL"||query.risk!=="ALL"||query.from||query.to||query.sort!=="priority,desc"||query.quick!=="ALL");
   const refreshList=async()=>{if(refreshing)return;setRefreshing(true);try{await load(query);setLastRefresh(new Date())}finally{setRefreshing(false)}};
   const submitBulk = async () => {
     if (!dialog || !selected.size || submitting) return;
@@ -351,10 +339,10 @@ export function IncidentManagementPage() {
         ["UNASSIGNED","담당 미지정",quickCounts.UNASSIGNED,"warning"],
         ["REVIEW","관제 검토",quickCounts.REVIEW,"review"],
         ["DISPATCH","출동 진행",quickCounts.DISPATCH,"dispatch"],
-      ] as const).map(([value,label,count,tone])=><button type="button" key={value} data-tone={tone} aria-pressed={quickFilter===value} onClick={()=>{setQuickFilter(current=>current===value?"ALL":value);updateQuery({page:1})}}><i aria-hidden="true"/><span>{label}</span><b>{count}</b></button>)}
+      ] as const).map(([value,label,count,tone])=><button type="button" key={value} data-tone={tone} aria-pressed={query.quick===value} onClick={()=>updateQuery({quick:query.quick===value?"ALL":value,page:1})}><i aria-hidden="true"/><span>{label}</span><b>{count}</b></button>)}
     </div>}
     <section className="incident-management-list">
-      <header className="incident-list-toolbar"><div><h2>사건 목록</h2><span>{query.tab==="active"?"운영 중인":query.tab==="closed"?"종료된":"보관된"} 사건 {quickFilter==="ALL"?(result?.totalElements??0):visibleItems.length}건</span>{query.tab === "archived" && <p>운영 목록에서 정리된 종료 사건입니다. 사건 기록은 삭제되지 않았으며 다시 복원할 수 있습니다.</p>}</div>
+      <header className="incident-list-toolbar"><div><h2>사건 목록</h2><span>{query.tab==="active"?"운영 중인":query.tab==="closed"?"종료된":"보관된"} 사건 {result?.totalElements??0}건</span>{query.tab === "archived" && <p>운영 목록에서 정리된 종료 사건입니다. 사건 기록은 삭제되지 않았으며 다시 복원할 수 있습니다.</p>}</div>
         <button type="button" className="management-toggle" onClick={() => management ? exitManagement() : enterManagement()}>
           <Icon name={management ? "close" : "list"}/>{management ? "관리 종료" : "목록 관리"}
         </button>
