@@ -60,6 +60,7 @@ export function RoleManagementWorkspace() {
   const [users, setUsers] = useState<ManagedUser[]>([]), [organizations, setOrganizations] = useState<OrganizationOption[]>([]);
   const [loading, setLoading] = useState(true), [error, setError] = useState(""), [draft, setDraft] = useState<UserRole[]>([]);
   const [saving, setSaving] = useState(false), [saveError, setSaveError] = useState(""), [discardOpen, setDiscardOpen] = useState(false);
+  const [pendingMove,setPendingMove]=useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false), [notice, setNotice] = useState("");
   const [viewSettingsOpen,setViewSettingsOpen]=useState(false),[compactRows,setCompactRows]=useState(false),[pinColumns,setPinColumns]=useState(true);
   const drawerRef = useRef<HTMLElement | null>(null), dialogRef = useRef<HTMLElement | null>(null), listRef = useRef<HTMLElement | null>(null), selectedTrigger = useRef<HTMLElement | null>(null);
@@ -76,7 +77,7 @@ export function RoleManagementWorkspace() {
     Object.entries(values).forEach(([key, value]) => value && !(key === "page" && value === "1") && !(key === "size" && value === "10") && !(key === "tab" && value === "assignment") ? next.set(key, value) : next.delete(key));
     const url = `${pathname}${next.size ? `?${next}` : ""}`;
     const navigate=()=>{if (push) router.push(url, { scroll: false }); else router.replace(url, { scroll: false })};
-    if(dirtyRef.current&&!force){pendingNavigation.current=navigate;setDiscardOpen(true);return}navigate();
+    if(dirtyRef.current&&!force){pendingNavigation.current=navigate;setPendingMove(true);setDiscardOpen(true);return}navigate();
   }, [params, pathname, router]);
   const load = useCallback(async (signal: AbortSignal = new AbortController().signal) => {
     setLoading(true); setError("");
@@ -109,10 +110,12 @@ export function RoleManagementWorkspace() {
   useEffect(() => { if (!notice) return; const timer = window.setTimeout(() => setNotice(""), 3000); return () => window.clearTimeout(timer); }, [notice]);
   useEffect(()=>{if(!viewSettingsOpen)return;const close=(event:PointerEvent)=>{if(!viewSettingsRef.current?.contains(event.target as Node))setViewSettingsOpen(false)};const key=(event:KeyboardEvent)=>{if(event.key==="Escape")setViewSettingsOpen(false)};document.addEventListener("pointerdown",close);document.addEventListener("keydown",key);return()=>{document.removeEventListener("pointerdown",close);document.removeEventListener("keydown",key)}},[viewSettingsOpen]);
 
-  const closeDrawer = () => {const pending=pendingNavigation.current;pendingNavigation.current=null;dirtyRef.current=false;if(pending)pending();else update({ user: null },false,true);requestAnimationFrame(() => selectedTrigger.current?.focus()); };
-  const requestClose = () => { if (dirty) setDiscardOpen(true); else closeDrawer(); };
+  const closeDrawer = () => {const pending=pendingNavigation.current;pendingNavigation.current=null;setPendingMove(false);dirtyRef.current=false;if(pending)pending();else update({ user: null },false,true);requestAnimationFrame(() => selectedTrigger.current?.focus()); };
+  const cancelDiscard=()=>{pendingNavigation.current=null;setPendingMove(false);setDiscardOpen(false)};
+  const requestClose = () => { if (dirty){pendingNavigation.current=null;setPendingMove(false);setDiscardOpen(true)} else closeDrawer(); };
+  useEffect(()=>()=>{pendingNavigation.current=null},[]);
   useEffect(() => {
-    const key = (event: KeyboardEvent) => { if (event.key === "Escape") { if (confirmOpen) setConfirmOpen(false); else if (discardOpen) setDiscardOpen(false); else if (selected) requestClose(); } };
+    const key = (event: KeyboardEvent) => { if (event.key === "Escape") { if (confirmOpen) setConfirmOpen(false); else if (discardOpen) cancelDiscard(); else if (selected) requestClose(); } };
     document.addEventListener("keydown", key); return () => document.removeEventListener("keydown", key);
   });
   const choose = (user: ManagedUser, target: HTMLElement) => { selectedTrigger.current = target; update({ user: user.publicId, tab: "assignment" }, true); };
@@ -158,7 +161,7 @@ export function RoleManagementWorkspace() {
 
     {selected && <><button type="button" className={styles.drawerBackdrop} aria-label="역할 설정 닫기" onClick={requestClose}/><aside ref={drawerRef} className={styles.drawer} role="dialog" aria-modal="true" aria-labelledby="drawer-title" onKeyDown={event => trap(event, drawerRef.current)}><header><div><p>사용자 역할 설정</p><h2 id="drawer-title">역할 관리</h2></div><button type="button" aria-label="역할 설정 닫기" onClick={requestClose}>×</button></header><div className={styles.drawerBody}><section className={styles.userSummary}><span className={styles.avatar}>{selected.userName.charAt(0)}</span><div><h3>{selected.userName}</h3><p>{selected.email}</p><small>{selected.organization?.name ?? "소속 없음"} · {statusLabel[selected.accountStatus]}</small></div></section><section><h3>현재 역할</h3><RoleChipGroup roles={selected.roles}/></section><fieldset className={styles.roleOptions}><legend>변경할 역할</legend>{ROLE_ORDER.map(role => { const meta = ROLE_PRESENTATIONS[role], checked = draft.includes(role); return <label key={role} style={{ "--accent": meta.color.accent, "--surface": meta.color.background, "--border": meta.color.border } as React.CSSProperties}><input type="checkbox" checked={checked} onChange={() => toggle(role)}/><i><RoleIcon kind={role}/></i><span><strong>{meta.label}</strong><small>{meta.shortDescription}</small></span><b aria-hidden="true">{checked ? "✓" : ""}</b></label>; })}</fieldset>{block && <p className={styles.saveError} role="alert">현재 역할 구성은 저장할 수 없습니다. 역할 정책과 진행 중 업무를 확인해 주세요.</p>}{saveError && <p className={styles.saveError} role="alert">{saveError}</p>}</div><footer><button type="button" onClick={requestClose}>취소</button><button type="button" disabled={!dirty || Boolean(block) || saving || !draft.length} onClick={() => setConfirmOpen(true)}>역할 저장</button></footer></aside></>}
     {confirmOpen && selected && change && <div className={styles.confirmBackdrop} onMouseDown={event => event.target === event.currentTarget && setConfirmOpen(false)}><section ref={dialogRef} role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" onKeyDown={event => trap(event, dialogRef.current)}><h2 id="confirm-title">역할을 변경하시겠습니까?</h2><p><strong>{selected.userName}</strong><br/>{selected.email}</p><dl><div><dt>기존 역할</dt><dd><RoleChipGroup roles={selected.roles}/></dd></div><div><dt>변경 역할</dt><dd><RoleChipGroup roles={draft}/></dd></div><div><dt>추가</dt><dd>{change.added.length ? change.added.map(role => <RoleChip key={role} role={role}/>) : "없음"}</dd></div><div><dt>해제</dt><dd>{change.removed.length ? change.removed.map(role => <RoleChip key={role} role={role}/>) : "없음"}</dd></div></dl><p className={styles.sessionNotice}>역할 변경 후 해당 사용자의 기존 로그인 세션이 종료될 수 있습니다.</p><footer><button type="button" autoFocus disabled={saving} onClick={() => setConfirmOpen(false)}>취소</button><button type="button" disabled={saving} onClick={() => void applySave()}>{saving ? "적용 중…" : "변경 적용"}</button></footer></section></div>}
-    {discardOpen && <div className={styles.confirmBackdrop}><section role="alertdialog" aria-modal="true"><h2>변경 사항을 버리시겠습니까?</h2><p>저장하지 않은 역할 변경 내용이 사라집니다.</p><footer><button type="button" autoFocus onClick={() => setDiscardOpen(false)}>계속 편집</button><button type="button" onClick={() => { setDraft(sortRoles(selected?.roles ?? [])); setDiscardOpen(false); closeDrawer(); }}>버리고 닫기</button></footer></section></div>}
+    {discardOpen && <div className={styles.confirmBackdrop} onMouseDown={event=>{if(event.target===event.currentTarget)cancelDiscard()}}><section role="alertdialog" aria-modal="true"><h2>변경 사항을 버리시겠습니까?</h2><p>저장하지 않은 역할 변경 내용이 사라집니다.</p><footer><button type="button" autoFocus onClick={cancelDiscard}>계속 편집</button><button type="button" onClick={() => { setDraft(sortRoles(selected?.roles ?? [])); setDiscardOpen(false); closeDrawer(); }}>{pendingMove?"버리고 이동":"버리고 닫기"}</button></footer></section></div>}
     {notice && <div className={styles.toast} role="status">{notice}</div>}
   </main>;
 }
