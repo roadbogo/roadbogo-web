@@ -63,6 +63,7 @@ export function RoleManagementWorkspace() {
   const [confirmOpen, setConfirmOpen] = useState(false), [notice, setNotice] = useState("");
   const [viewSettingsOpen,setViewSettingsOpen]=useState(false),[compactRows,setCompactRows]=useState(false),[pinColumns,setPinColumns]=useState(true);
   const drawerRef = useRef<HTMLElement | null>(null), dialogRef = useRef<HTMLElement | null>(null), listRef = useRef<HTMLElement | null>(null), selectedTrigger = useRef<HTMLElement | null>(null);
+  const dirtyRef=useRef(false),pendingNavigation=useRef<(()=>void)|null>(null);
   const viewSettingsRef=useRef<HTMLDivElement|null>(null);
   const rawRole = params.get("role"), roleFilter = rawRole && validRoles.has(rawRole as UserRole) ? rawRole as UserRole : null;
   const rawView = params.get("view"), view = rawView && validViews.has(rawView as View) ? rawView as View : "all";
@@ -70,11 +71,12 @@ export function RoleManagementWorkspace() {
   const status = params.get("account_status") === "ACTIVE" || params.get("account_status") === "INACTIVE" ? params.get("account_status") as AccountStatus : null;
   const keyword = (params.get("keyword") ?? "").trim(), organizationId = params.get("organization_public_id"), organizationUnassigned = params.get("organization_unassigned") === "true", selectedId = params.get("user");
   const size = [10, 20, 50].includes(Number(params.get("size"))) ? Number(params.get("size")) : 10, page = Math.max(1, Number(params.get("page")) || 1);
-  const update = useCallback((values: Record<string, string | null>, push = false) => {
+  const update = useCallback((values: Record<string, string | null>, push = false, force = false) => {
     const next = new URLSearchParams(params.toString());
     Object.entries(values).forEach(([key, value]) => value && !(key === "page" && value === "1") && !(key === "size" && value === "10") && !(key === "tab" && value === "assignment") ? next.set(key, value) : next.delete(key));
     const url = `${pathname}${next.size ? `?${next}` : ""}`;
-    if (push) router.push(url, { scroll: false }); else router.replace(url, { scroll: false });
+    const navigate=()=>{if (push) router.push(url, { scroll: false }); else router.replace(url, { scroll: false })};
+    if(dirtyRef.current&&!force){pendingNavigation.current=navigate;setDiscardOpen(true);return}navigate();
   }, [params, pathname, router]);
   const load = useCallback(async (signal: AbortSignal = new AbortController().signal) => {
     setLoading(true); setError("");
@@ -99,6 +101,7 @@ export function RoleManagementWorkspace() {
   const change = selected ? compareRoles(selected.roles, draft) : null, dirty = Boolean(change && hasRoleChanges(change)), block = selected ? validateRoleDraft(selected, draft, activeAdmins) : null;
   const filtersChanged = Boolean(keyword || organizationId || organizationUnassigned || status || roleFilter || view !== "all");
   const organizationValue: OrganizationExplorerValue = organizationUnassigned ? { type: "UNASSIGNED" } : organizationId ? { type: "ORGANIZATION", publicId: organizationId } : { type: "ALL" };
+  useEffect(()=>{dirtyRef.current=dirty},[dirty]);
   useEffect(() => { if (page > totalPages) update({ page: String(totalPages), user: null }); }, [page, totalPages, update]);
   useEffect(() => { if (!loading && selectedId && !selected) { setNotice("선택한 사용자를 찾을 수 없습니다."); update({ user: null }); } }, [loading, selected, selectedId, update]);
   useEffect(() => { setDraft(selected ? sortRoles(selected.roles) : []); setSaveError(""); setDiscardOpen(false); setConfirmOpen(false); }, [selected]);
@@ -106,7 +109,7 @@ export function RoleManagementWorkspace() {
   useEffect(() => { if (!notice) return; const timer = window.setTimeout(() => setNotice(""), 3000); return () => window.clearTimeout(timer); }, [notice]);
   useEffect(()=>{if(!viewSettingsOpen)return;const close=(event:PointerEvent)=>{if(!viewSettingsRef.current?.contains(event.target as Node))setViewSettingsOpen(false)};const key=(event:KeyboardEvent)=>{if(event.key==="Escape")setViewSettingsOpen(false)};document.addEventListener("pointerdown",close);document.addEventListener("keydown",key);return()=>{document.removeEventListener("pointerdown",close);document.removeEventListener("keydown",key)}},[viewSettingsOpen]);
 
-  const closeDrawer = () => { update({ user: null }); requestAnimationFrame(() => selectedTrigger.current?.focus()); };
+  const closeDrawer = () => {const pending=pendingNavigation.current;pendingNavigation.current=null;dirtyRef.current=false;if(pending)pending();else update({ user: null },false,true);requestAnimationFrame(() => selectedTrigger.current?.focus()); };
   const requestClose = () => { if (dirty) setDiscardOpen(true); else closeDrawer(); };
   useEffect(() => {
     const key = (event: KeyboardEvent) => { if (event.key === "Escape") { if (confirmOpen) setConfirmOpen(false); else if (discardOpen) setDiscardOpen(false); else if (selected) requestClose(); } };
@@ -120,7 +123,7 @@ export function RoleManagementWorkspace() {
     try {
       const updated = await adapter.updateUserRoles(selected.publicId, { roles: sortRoles(draft), reason: "시스템 관리자 역할 배정 변경" });
       setUsers(current => current.map(user => user.publicId === updated.publicId ? updated : user));
-      setConfirmOpen(false); setNotice(`${updated.userName} 사용자의 역할이 변경되었습니다.`); closeDrawer();
+      dirtyRef.current=false;setConfirmOpen(false); setNotice(`${updated.userName} 사용자의 역할이 변경되었습니다.`); closeDrawer();
     } catch (caught) { setSaveError(caught instanceof Error ? caught.message : "역할을 변경하지 못했습니다."); setConfirmOpen(false); }
     finally { setSaving(false); }
   };
