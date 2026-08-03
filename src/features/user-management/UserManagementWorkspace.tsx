@@ -86,7 +86,8 @@ export function UserManagementWorkspace({styles}:{styles:Styles}){
   const [notice,setNotice]=useState("");
   const [deactivationOpen,setDeactivationOpen]=useState(false);
   const [deactivationDirty,setDeactivationDirty]=useState(false);
-  const listController=useRef<AbortController|null>(null),detailController=useRef<AbortController|null>(null);
+  const [pendingDeactivationId,setPendingDeactivationId]=useState<string|null>(null);
+  const listController=useRef<AbortController|null>(null),detailController=useRef<AbortController|null>(null),deactivationController=useRef<AbortController|null>(null),preloadedDetail=useRef<ManagedUser|null>(null);
   const listTop=useRef<HTMLElement|null>(null),lastSelected=useRef<HTMLButtonElement|null>(null),inspectorRef=useRef<HTMLElement|null>(null),deactivationDialogRef=useRef<HTMLDivElement|null>(null),filterTrigger=useRef<HTMLButtonElement|null>(null),composing=useRef(false);
 
   const updateQuery=useCallback((updates:Record<string,string|null>,mode:"replace"|"push"="replace")=>{
@@ -122,12 +123,14 @@ export function UserManagementWorkspace({styles}:{styles:Styles}){
   useEffect(()=>{
     setTab(requestedTab==="roles"?"roles":"basic");setRoleEditing(false);setDetailMissing(false);setInspectorMode("view");setDraft(null);setEditErrors({});setSaveError("");
     if(!selectedId){setDetail(null);return}
+    if(preloadedDetail.current?.publicId===selectedId){setDetail(preloadedDetail.current);preloadedDetail.current=null;setDetailLoading(false);return}
     detailController.current?.abort();const controller=new AbortController();detailController.current=controller;setDetailLoading(true);
     void adapter.getUserDetail(selectedId,controller.signal).then(next=>{if(!controller.signal.aborted){setDetail(next);setDetailMissing(!next)}}).catch(error=>{if(!(error instanceof DOMException&&error.name==="AbortError"))setDetailMissing(true)}).finally(()=>{if(!controller.signal.aborted)setDetailLoading(false)});
     return()=>controller.abort();
   },[adapter,requestedTab,selectedId]);
   useEffect(()=>{const close=(event:KeyboardEvent)=>{if(event.key!=="Escape"||!selectedId)return;const dirty=Boolean(detail&&draft&&Object.keys(buildUserUpdatePatch(detail,draft)).length);if(dirty&&!window.confirm("저장하지 않은 변경사항이 있습니다.\n수정을 취소하고 변경사항을 버리시겠습니까?"))return;updateQuery({user:null})};document.addEventListener("keydown",close);return()=>document.removeEventListener("keydown",close)},[detail,draft,selectedId,updateQuery]);
   useEffect(()=>{if(!deactivationOpen)return;const previousOverflow=document.body.style.overflow;document.body.dataset.dialogOpen="true";document.body.style.overflow="hidden";window.requestAnimationFrame(()=>deactivationDialogRef.current?.querySelector<HTMLElement>("button:not([disabled]),input:not([disabled]),textarea:not([disabled])")?.focus());return()=>{delete document.body.dataset.dialogOpen;document.body.style.overflow=previousOverflow}},[deactivationOpen]);
+  useEffect(()=>{if(pendingDeactivationId&&selectedId===pendingDeactivationId&&detail?.publicId===pendingDeactivationId){setPendingDeactivationId(null);setDeactivationOpen(true)}},[detail,pendingDeactivationId,selectedId]);
 
   const chips=[
     query.attentionReason?["issue",query.attentionReason==="unassigned"?"역할 미지정":query.attentionReason==="never-logged-in"?"로그인 기록 없음":"소속 미지정"]:null,
@@ -141,7 +144,8 @@ export function UserManagementWorkspace({styles}:{styles:Styles}){
   const editDirty=Boolean(detail&&draft&&Object.keys(buildUserUpdatePatch(detail,draft)).length);
   const confirmDiscard=()=>!editDirty||window.confirm("저장하지 않은 변경사항이 있습니다.\n수정을 취소하고 변경사항을 버리시겠습니까?");
   const confirmDeactivationDiscard=()=>!deactivationOpen||!deactivationDirty||window.confirm("입력한 비활성화 사유가 저장되지 않습니다. 사용자 정보로 돌아갈까요?");
-  const choose=(item:ManagedUser,eventTarget:HTMLButtonElement)=>{if(!confirmDiscard()||!confirmDeactivationDiscard())return;setDeactivationOpen(false);lastSelected.current=eventTarget;updateQuery({user:selectedId===item.publicId?null:item.publicId},"push")};
+  const cancelDeactivationRequest=()=>{deactivationController.current?.abort();deactivationController.current=null;preloadedDetail.current=null;setPendingDeactivationId(null)};
+  const choose=(item:ManagedUser,eventTarget:HTMLButtonElement)=>{if(!confirmDiscard()||!confirmDeactivationDiscard())return;cancelDeactivationRequest();setDeactivationOpen(false);lastSelected.current=eventTarget;updateQuery({user:selectedId===item.publicId?null:item.publicId},"push")};
   const openUserDetails=(item:ManagedUser,eventTarget:HTMLButtonElement)=>{
     if(!confirmDiscard()||!confirmDeactivationDiscard())return;
     setMenuUserId(null);setDeactivationOpen(false);setTab("basic");setRoleEditing(false);lastSelected.current=eventTarget;
@@ -152,7 +156,8 @@ export function UserManagementWorkspace({styles}:{styles:Styles}){
     setMenuUserId(null);setDeactivationOpen(false);setTab("roles");setRoleEditing(false);lastSelected.current=eventTarget;
     updateQuery({user:item.publicId,tab:"roles"},"push");
   };
-  const closeInspector=()=>{if(!confirmDiscard()||!confirmDeactivationDiscard())return;setDeactivationOpen(false);updateQuery({user:null});window.requestAnimationFrame(()=>lastSelected.current?.focus())};
+  const openDeactivationReview=async(item:ManagedUser,eventTarget:HTMLButtonElement)=>{if(!confirmDiscard()||!confirmDeactivationDiscard())return;cancelDeactivationRequest();const controller=new AbortController();deactivationController.current=controller;setMenuUserId(null);setPendingDeactivationId(null);setDeactivationOpen(false);lastSelected.current=eventTarget;try{const user=await adapter.getUserDetail(item.publicId,controller.signal);if(controller.signal.aborted||deactivationController.current!==controller)return;if(!user){setNotice("사용자 정보를 불러오지 못했습니다.");return}preloadedDetail.current=user;setDetail(user);setDeactivationDirty(false);setPendingDeactivationId(user.publicId);updateQuery({user:user.publicId,tab:null},"push")}catch(error){if(!(error instanceof DOMException&&error.name==="AbortError"))setNotice("사용자 정보를 불러오지 못했습니다.")}finally{if(deactivationController.current===controller)deactivationController.current=null}};
+  const closeInspector=()=>{if(!confirmDiscard()||!confirmDeactivationDiscard())return;cancelDeactivationRequest();setDeactivationOpen(false);updateQuery({user:null});window.requestAnimationFrame(()=>lastSelected.current?.focus())};
   const canWrite=currentUser?.apiPermissions.includes("USER.WRITE")??false;
   const canManageRoles=currentUser?.apiPermissions.includes("ROLE.MANAGE")??false;
   const hasConditions=Boolean(query.attentionReason||query.keyword||query.role||query.accountStatus||query.organizationPublicId||query.organizationUnassigned||query.sort!=="created_at,desc");
@@ -167,7 +172,7 @@ export function UserManagementWorkspace({styles}:{styles:Styles}){
   const isAttention=query.view==="attention";
   const sortLabels:Record<UserListQuery["sort"],string>={"created_at,desc":"최근 등록순","created_at,asc":"오래된 등록순","name,asc":"이름순","last_login,desc":"최근 로그인순"};
   const filterCount=chips.filter(([key])=>!["keyword","sort"].includes(key)).length;
-  return <main className={styles.page} onClick={()=>menuUserId&&setMenuUserId(null)}>
+  return <main className={styles.page} onClickCapture={event=>{const button=(event.target as HTMLElement).closest<HTMLButtonElement>(`.${styles.menuDanger}`);if(!button)return;event.stopPropagation();const item=result?.items.find(candidate=>candidate.publicId===menuUserId);if(item)void openDeactivationReview(item,button)}} onClick={()=>menuUserId&&setMenuUserId(null)}>
     <header className={styles.heading}><div><h1>사용자 관리</h1><p>운영 계정과 일반 사용자를 조회하고 권한과 상태를 관리합니다.</p></div>{canWrite&&<Link className={styles.newAccount} href="/admin/users/new"><UserPlusIcon/>운영 계정 등록</Link>}</header>
     <nav className={styles.userTabs} aria-label="사용자 구분" role="tablist">{(["all","operating","general","attention"] as UserWorkView[]).map(view=><button type="button" role="tab" aria-selected={query.view===view} key={view} onClick={()=>updateQuery({view:view==="all"?null:view,issue:null,page:null,user:null})}><span>{view==="all"?"전체":viewLabels[view]}</span> <b>{result?.summary[view==="all"?"total":view]??"—"}</b></button>)}</nav>
     {query.view==="attention"&&result&&<section className={styles.attentionFilters} aria-label="검토 필요 조건">{attentionFilters.map(item=><button type="button" key={item.key} aria-pressed={query.attentionReason===item.key} onClick={()=>updateQuery({issue:query.attentionReason===item.key?null:item.key,page:null,user:null})}>{item.label} <b>{item.count}</b></button>)}</section>}
