@@ -39,7 +39,10 @@ describe("system administrator operating inbox",()=>{
     expect(systemAdminQueue({...warning,read:true,action_required:false,action_label:null,reason:"UPDATE_ONLY",state_label:"상태 업데이트",resource_label:"운영 계정"} as NotificationViewModel)).toBe("attention");
   });
   it("keeps read state independent from unresolved administrator work",()=>{
-    const unresolved=mockSystemAdminNotifications.slice(0,4).map(item=>systemAdminQueue({...item,read:true}));
+    const unresolved=mockSystemAdminNotifications.slice(0,4).map(item=>{
+      const readItem={...item,read:true};
+      return systemAdminQueue(readItem);
+    });
     expect(unresolved).toEqual(["immediate","attention","attention","immediate"]);
   });
   it("splits the seven administrator mocks into pending work and completed history",()=>{
