@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import {cleanup, render, screen} from "@testing-library/react";
+import {cleanup, fireEvent, render, screen, waitFor} from "@testing-library/react";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 
 const dashboardAdapter=vi.hoisted(()=>({load:vi.fn()}));
@@ -11,10 +11,10 @@ vi.mock("./adminDashboardAdapter",()=>({
   createAdminDashboardAdapter:()=>({load:dashboardAdapter.load}),
 }));
 vi.mock("./adminConsoleViewModel",()=>({
-  createAdminConsoleViewModel:(snapshot:{systemHealth?:{status:string;api:string;database:string}})=>({
+  createAdminConsoleViewModel:(snapshot:{accountSummary?:object|null;systemHealth?:{status:string;api:string;database:string}})=>({
     checkedAt:"2026-07-29T03:01:00.000Z",
     health:{overall:snapshot.systemHealth?.status??"healthy",api:snapshot.systemHealth?.api??"healthy",database:snapshot.systemHealth?.database??"healthy"},
-    accountSummary:{totalUsers:12,activeUsers:9,inactiveUsers:3,usersWithoutRoles:1,multipleRoleUsers:1,attentionCount:3,todayChangeCount:2},
+    accountSummary:snapshot.accountSummary===null?null:{totalUsers:12,activeUsers:9,inactiveUsers:3,usersWithoutRoles:1,multipleRoleUsers:1,attentionCount:3,todayChangeCount:2},
     issues:[
       {key:"ROLE_UNASSIGNED",title:"역할이 지정되지 않은 활성 계정",description:"운영 역할 지정이 필요합니다.",affectedUsers:[{name:"김관리"}],target:{href:"/admin/roles?view=unassigned"}},
       {key:"NO_LOGIN_HISTORY",title:"로그인 기록이 없는 운영 계정",description:"실제 사용 여부를 확인해야 합니다.",affectedUsers:[{name:"이운영"}],target:{href:"/admin/users?view=attention&issue=never-logged-in"}},
@@ -69,11 +69,32 @@ describe("AdminDashboard workbench",()=>{
   });
 
   it("disables refresh and announces loading state",async()=>{
-    render(<AdminDashboard classNames={styles}/>);
+    const{container}=render(<AdminDashboard classNames={styles}/>);
+    expect(container.querySelector(".operationSummary .skeleton")).toBeTruthy();
     const refresh=screen.getByRole("button",{name:/갱신 중/});
     expect(refresh.hasAttribute("disabled")).toBe(true);
     expect(screen.getByRole("main").getAttribute("aria-busy")).toBe("true");
     await screen.findByRole("button",{name:"새로고침"});
+  });
+
+  it("replaces the summary skeleton with an unavailable state after loading",async()=>{
+    dashboardAdapter.load.mockResolvedValue({generatedAt:"2026-07-29T03:01:00.000Z",accountSummary:null,systemHealth:{status:"healthy",api:"healthy",database:"healthy"},partialErrors:["계정 데이터 API가 연결되지 않았습니다."]});
+    const{container}=render(<AdminDashboard classNames={styles}/>);
+    expect(await screen.findByText("운영 요약을 표시할 수 없습니다.")).toBeTruthy();
+    expect(screen.getByText("계정 데이터 연결 후 운영 지표가 표시됩니다.")).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toContain("일부 관리 정보를 확인하지 못했습니다.");
+    expect(container.querySelector(".operationSummary .skeleton")).toBeNull();
+    expect(screen.getByRole("heading",{name:"운영 상태"})).toBeTruthy();
+  });
+
+  it("keeps an existing summary visible when a refresh fails",async()=>{
+    dashboardAdapter.load.mockResolvedValueOnce({generatedAt:"2026-07-29T03:01:00.000Z",systemHealth:{status:"healthy",api:"healthy",database:"healthy"},partialErrors:[]}).mockRejectedValueOnce(new Error("refresh failed"));
+    render(<AdminDashboard classNames={styles}/>);
+    await screen.findByRole("link",{name:/활성 계정.*9 \/ 12명/});
+    fireEvent.click(screen.getByRole("button",{name:"새로고침"}));
+    await waitFor(()=>expect(screen.getByRole("button",{name:"새로고침"}).hasAttribute("disabled")).toBe(false));
+    expect(screen.getByRole("link",{name:/활성 계정.*9 \/ 12명/})).toBeTruthy();
+    expect(screen.queryByText("운영 요약을 표시할 수 없습니다.")).toBeNull();
   });
 
   it("announces unavailable health without reporting a successful refresh",async()=>{

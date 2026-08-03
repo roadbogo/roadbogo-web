@@ -8,3 +8,5 @@
 @media(max-width:767px){.page{padding:22px 14px 42px}.heading{gap:15px;padding:18px}.headingCopy h1{font-size:32px}.headingActions{align-items:flex-start;flex-direction:column}.connection>span{gap:2px}.operationSummary{grid-template-columns:repeat(2,minmax(0,1fr))}.operationSummary>a{min-height:92px;border-bottom:1px solid #e2e9e8}.operationSummary>a:nth-child(odd){border-left:0}.workspaceGrid{gap:16px}.queue>header,.activities>header{padding:18px 16px 14px}.taskList article{padding:16px}.taskList footer{align-items:flex-start;flex-direction:column}.taskList footer a{width:100%;box-sizing:border-box}.activityList{padding-inline:16px}}
 @media(max-width:430px){.activities>header{align-items:stretch;flex-direction:column}.activities>header a{width:100%;box-sizing:border-box}.taskCopy p{font-size:12px}}
 @media(prefers-reduced-motion:reduce){.taskList article,.taskList article::before{transition:none}.refreshAction:disabled svg{animation:none}}
+.connection[data-status=unavailable]>i{background:#87949b}
+.summaryUnavailable{grid-column:1/-1;padding:24px 20px}.summaryUnavailable strong{color:#193345}.summaryUnavailable p{margin:5px 0 0;color:#667e8c;font-size:13px}

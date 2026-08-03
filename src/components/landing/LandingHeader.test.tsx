@@ -42,12 +42,14 @@ describe("LandingHeader mobile navigation",()=>{
     expect(trigger).toHaveAttribute("aria-expanded","false");
 
     fireEvent.click(trigger);
+    expect(trigger).toHaveAccessibleName("메뉴 닫기");
     expect(trigger).toHaveAttribute("aria-expanded","true");
     expect(container.querySelector("#landing-sidebar")).toHaveClass("is-open");
     expect(container.querySelector(".landing-sidebar-backdrop")).toHaveClass("is-open");
 
     fireEvent.keyDown(document,{key:"Escape"});
     await waitFor(()=>expect(trigger).toHaveFocus());
+    expect(trigger).toHaveAccessibleName("메뉴 열기");
     expect(trigger).toHaveAttribute("aria-expanded","false");
     expect(container.querySelector("#landing-sidebar")).toHaveClass("is-collapsed");
   });
@@ -65,9 +67,11 @@ describe("LandingHeader mobile navigation",()=>{
     expect(screen.getByRole("link",{name:"실시간 관제 보기"})).toBeInTheDocument();
 
     fireEvent.click(trigger);
+    expect(trigger).toHaveAccessibleName("메뉴 닫기");
     expect(container.querySelector("#landing-sidebar")).toHaveClass("is-open");
     fireEvent.keyDown(document,{key:"Escape"});
     await waitFor(()=>expect(trigger).toHaveFocus());
+    expect(trigger).toHaveAccessibleName("메뉴 열기");
     expect(container.querySelector("#landing-sidebar")).toHaveClass("is-collapsed");
   });
 });

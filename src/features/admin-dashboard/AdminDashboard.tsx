@@ -43,7 +43,7 @@ export function AdminDashboard({classNames:styles}:{classNames:Styles}){
     {data&&data.partialErrors.length>0&&<div className={styles.error} role="alert">{data.systemHealth.status==="unavailable"?"운영 상태를 확인하지 못했습니다.":"일부 관리 정보를 확인하지 못했습니다."}</div>}
 
     <section className={styles.operationSummary} aria-label="운영 요약">
-      {!summary?<Skeleton styles={styles} rows={1}/>:<>
+      {loading&&!summary?<Skeleton styles={styles} rows={1}/>:!summary?<div className={styles.summaryUnavailable}><strong>운영 요약을 표시할 수 없습니다.</strong><p>계정 데이터 연결 후 운영 지표가 표시됩니다.</p></div>:<>
         <Link href="/admin/users?view=attention" data-tone="warning"><span>확인 필요</span><b>{summary.attentionCount}건</b><small>우선 검토</small></Link>
         <Link href="/admin/users?account_status=ACTIVE" data-tone="active"><span>활성 계정</span><b>{summary.activeUsers} / {summary.totalUsers}명</b><small>운영 중</small></Link>
         <Link href="/admin/users?view=inactive" data-tone="neutral"><span>비활성 계정</span><b>{summary.inactiveUsers}명</b><small>상태 확인</small></Link>
