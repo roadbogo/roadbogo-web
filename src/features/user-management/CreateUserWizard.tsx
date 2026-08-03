@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import {useCallback,useEffect,useMemo,useState} from "react";
+import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {useRouter} from "next/navigation";
 import {getRoleLabel} from "@/lib/auth/roleLabels";
 import type {UserRole} from "@/types/auth";
@@ -11,7 +11,7 @@ import {RoleBadgeGroup} from "./RolePresentation";
 import {ROLE_PRESENTATIONS} from "./rolePresentationConfig";
 import {RoleIcon} from "./RoleIcon";
 
-type Styles=Record<string,string>;type Availability="idle"|"checking"|"available"|"duplicate";
+type Styles=Record<string,string>;type Availability="idle"|"checking"|"available"|"duplicate"|"error";
 type Form={userName:string;email:string;phone:string;password:string;confirm:string;organizationId:string;primaryRole:UserRole|null;additional:UserRole[];responderCode:string;dutyStatus:ResponderDutyStatus;coverageArea:string;dispatchEnabled:boolean};
 const roleOptions:UserRole[]=["SYSTEM_ADMIN","CONTROL_MANAGER","CONTROLLER","RESPONDER"];
 const initial:Form={userName:"",email:"",phone:"",password:"",confirm:"",organizationId:"",primaryRole:null,additional:[],responderCode:"",dutyStatus:"AVAILABLE",coverageArea:"",dispatchEnabled:true};
@@ -23,6 +23,7 @@ export function CreateUserWizard({styles}:{styles:Styles}){
  const router=useRouter(),repo=useMemo(()=>createUserManagementAdapter(),[]);
  const[form,setForm]=useState<Form>(initial),[organizations,setOrganizations]=useState<OrganizationOption[]>([]),[orgLoading,setOrgLoading]=useState(true),[orgError,setOrgError]=useState("");
  const[emailState,setEmailState]=useState<Availability>("idle"),[codeState,setCodeState]=useState<Availability>("idle"),[showPassword,setShowPassword]=useState(false),[showConfirm,setShowConfirm]=useState(false),[additionalOpen,setAdditionalOpen]=useState(false);
+ const emailRequest=useRef(0),codeRequest=useRef(0);
  const[step,setStep]=useState<1|2|3>(1),[exitOpen,setExitOpen]=useState(false),[busy,setBusy]=useState(false),[submitError,setSubmitError]=useState(""),[submitted,setSubmitted]=useState(false),[touched,setTouched]=useState<Set<string>>(new Set());
  const roles=useMemo(()=>form.primaryRole?[...new Set([form.primaryRole,...form.additional.filter(role=>role!==form.primaryRole)])]:[],[form.primaryRole,form.additional]);
  const responder=roles.includes("RESPONDER"),organization=organizations.find(item=>item.publicId===form.organizationId);
@@ -31,8 +32,8 @@ export function CreateUserWizard({styles}:{styles:Styles}){
  const dirty=Object.entries(form).some(([key,value])=>key==="dispatchEnabled"?value!==true:key==="dutyStatus"?value!=="AVAILABLE":Array.isArray(value)?value.length>0:Boolean(value));
  const loadOrganizations=useCallback(()=>{const controller=new AbortController();setOrgLoading(true);setOrgError("");repo.listOrganizations(controller.signal).then(setOrganizations).catch(error=>{if(!(error instanceof DOMException&&error.name==="AbortError"))setOrgError("소속 기관을 불러오지 못했습니다.")}).finally(()=>setOrgLoading(false));return controller},[repo]);
  useEffect(()=>{const controller=loadOrganizations();return()=>controller.abort()},[loadOrganizations]);
- useEffect(()=>{if(!emailPattern.test(form.email)||form.email.length>254){setEmailState("idle");return}setEmailState("checking");const timer=setTimeout(()=>void repo.checkEmailAvailability(form.email).then(result=>setEmailState(result.available?"available":"duplicate")),350);return()=>clearTimeout(timer)},[form.email,repo]);
- useEffect(()=>{if(!responder||!/^[A-Z0-9-]{3,20}$/.test(form.responderCode)){setCodeState("idle");return}setCodeState("checking");const timer=setTimeout(()=>void repo.checkResponderCodeAvailability(form.responderCode).then(result=>setCodeState(result.available?"available":"duplicate")),350);return()=>clearTimeout(timer)},[form.responderCode,responder,repo]);
+ useEffect(()=>{const request=++emailRequest.current,value=form.email;if(!emailPattern.test(value)||value.length>254){setEmailState("idle");return}setEmailState("checking");const timer=setTimeout(()=>void repo.checkEmailAvailability(value).then(result=>{if(emailRequest.current===request&&form.email===value)setEmailState(result.available?"available":"duplicate")}).catch(()=>{if(emailRequest.current===request)setEmailState("error")}),350);return()=>{clearTimeout(timer);emailRequest.current+=1}},[form.email,repo]);
+ useEffect(()=>{const request=++codeRequest.current,value=form.responderCode;if(!responder||!/^[A-Z0-9-]{3,20}$/.test(value)){setCodeState("idle");return}setCodeState("checking");const timer=setTimeout(()=>void repo.checkResponderCodeAvailability(value).then(result=>{if(codeRequest.current===request&&form.responderCode===value)setCodeState(result.available?"available":"duplicate")}).catch(()=>{if(codeRequest.current===request)setCodeState("error")}),350);return()=>{clearTimeout(timer);codeRequest.current+=1}},[form.responderCode,responder,repo]);
  useEffect(()=>{const warn=(event:BeforeUnloadEvent)=>{if(dirty){event.preventDefault();event.returnValue=""}};addEventListener("beforeunload",warn);return()=>removeEventListener("beforeunload",warn)},[dirty]);
  const set=<K extends keyof Form>(key:K,value:Form[K])=>setForm(current=>({...current,[key]:value}));
  const touch=(key:string)=>setTouched(current=>new Set(current).add(key));
@@ -47,6 +48,7 @@ export function CreateUserWizard({styles}:{styles:Styles}){
  const submit=async()=>{if(!ready||busy)return;setBusy(true);setSubmitError("");try{const created=await repo.createUser({email:form.email.trim().toLowerCase(),password:form.password,userName:form.userName.trim(),phone:normalizeAdminPhone(form.phone)||undefined,organizationPublicId:form.organizationId,roles,responderProfile:responder?{responderCode:form.responderCode.trim().toUpperCase(),dutyStatus:form.dutyStatus,coverageArea:form.coverageArea.trim()||null,isDispatchEnabled:form.dispatchEnabled}:undefined});router.push(`/admin/users/${created.publicId}?created=1`)}catch(error){const managed=error as UserManagementError,id=managed.code==="USER_EMAIL_DUPLICATE"?"new-user-email":managed.code==="RESPONDER_CODE_DUPLICATE"?"new-responder-code":null;setSubmitError(error instanceof Error?error.message:"사용자를 등록하지 못했습니다.");if(id){goStep(id==="new-user-email"?1:2);setTimeout(()=>{document.getElementById(id)?.focus();document.getElementById(id)?.scrollIntoView({block:"center"})},0)}}finally{setBusy(false)}};
  const requiredComplete=[validity.role,validity.organization,validity.name,validity.email,validity.password,validity.confirm].filter(Boolean).length;
  return <main className={styles.page}>
+  {(emailState==="error"||codeState==="error")&&<p role="alert" className={styles.submitError}>중복 확인에 실패했습니다. 입력값을 다시 확인하거나 변경해 재시도해 주세요.</p>}
   <header className={styles.header}><div><nav aria-label="현재 위치"><Link href="/admin/users">사용자 관리</Link><span>/</span><b>운영 사용자 등록</b></nav><h1>운영 사용자 등록</h1><p>업무에 필요한 계정과 역할, 소속 정보를 설정합니다.</p></div><button className={styles.back} type="button" onClick={requestLeave}>사용자 목록</button></header>
   <div className={styles.singleForm}>
    <nav className={styles.stepProgress} aria-label="운영 계정 등록 단계">{(["기본 정보","계정 및 업무 설정","등록 정보 검토"] as const).map((label,index)=>{const number=(index+1) as 1|2|3;return <button type="button" key={label} aria-current={step===number?"step":undefined} data-complete={step>number} disabled={number>step} onClick={()=>number<step&&goStep(number)}><span>{number}</span><b>{label}</b></button>})}</nav>
