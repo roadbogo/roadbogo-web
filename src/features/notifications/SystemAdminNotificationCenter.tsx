@@ -69,6 +69,8 @@ export function SystemAdminNotificationCenter() {
   const [lastRefresh, setLastRefresh] = useState(() => new Date());
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const selectedTrigger = useRef<HTMLButtonElement | null>(null);
+  const implicitSelection = useRef<string | null>(null);
+  const attemptedReads = useRef(new Set<string>());
   const pendingReads=useRef(new Set<string>());
 
   const setQuery = useCallback((updates: Record<string, string | null>, push = true) => {
@@ -96,10 +98,12 @@ export function SystemAdminNotificationCenter() {
 
   useEffect(() => {
     if (loading || error || visible.length === 0 || selected) return;
+    implicitSelection.current = visible[0].public_id;
     setQuery({ tab, type: filter, notification: visible[0].public_id }, false);
   }, [error, filter, loading, selected, setQuery, tab, visible]);
   useEffect(() => {
     if (!requestedId || selected) return;
+    implicitSelection.current = visible[0]?.public_id ?? null;
     setQuery({ notification: visible[0]?.public_id ?? null }, false);
   }, [requestedId, selected, setQuery, visible]);
   useEffect(() => {
@@ -114,13 +118,16 @@ export function SystemAdminNotificationCenter() {
     return () => window.removeEventListener("keydown", onKey);
   }, [requestedId, setQuery]);
   useEffect(()=>{
-    if(!selected||selected.read||pendingReads.current.has(selected.public_id))return;
+    if(!selected||selected.read||implicitSelection.current===selected.public_id||pendingReads.current.has(selected.public_id)||attemptedReads.current.has(selected.public_id))return;
+    attemptedReads.current.add(selected.public_id);
     pendingReads.current.add(selected.public_id);
     void markRead(selected.public_id).finally(()=>pendingReads.current.delete(selected.public_id));
   },[markRead,selected]);
 
   const selectItem = (item: NotificationViewModel, trigger: HTMLButtonElement) => {
+    implicitSelection.current = null;
     selectedTrigger.current = trigger;
+    if(!item.read&&!pendingReads.current.has(item.public_id)&&!attemptedReads.current.has(item.public_id)){attemptedReads.current.add(item.public_id);pendingReads.current.add(item.public_id);void markRead(item.public_id).finally(()=>pendingReads.current.delete(item.public_id))}
     setQuery({ notification: item.public_id });
   };
   const closeMobileDetail = () => {
