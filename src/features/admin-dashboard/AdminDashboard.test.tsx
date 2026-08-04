@@ -17,11 +17,11 @@ const allIssues=[
 ] as const;
 
 vi.mock("./adminConsoleViewModel",()=>({
-  createAdminConsoleViewModel:(snapshot:{accountSummary?:object|null;scenario?:"empty"|"without-login";systemHealth?:{status:string;api:string;database:string}})=>({
+  createAdminConsoleViewModel:(snapshot:{users?:unknown[]|null;accountSummary?:object|null;scenario?:"empty"|"without-login";systemHealth?:{status:string;api:string;database:string}})=>({
     checkedAt:"2026-07-29T03:01:00.000Z",
     health:{overall:snapshot.systemHealth?.status??"healthy",api:snapshot.systemHealth?.api??"healthy",database:snapshot.systemHealth?.database??"healthy"},
     accountSummary:snapshot.accountSummary===null?null:{totalUsers:12,activeUsers:9,inactiveUsers:3,usersWithoutRoles:1,multipleRoleUsers:1,attentionCount:3,todayChangeCount:2},
-    issues:snapshot.scenario==="empty"?[]:snapshot.scenario==="without-login"?allIssues.filter(issue=>issue.key!=="NO_LOGIN_HISTORY"):allIssues,
+    issues:snapshot.users===null||snapshot.scenario==="empty"?[]:snapshot.scenario==="without-login"?allIssues.filter(issue=>issue.key!=="NO_LOGIN_HISTORY"):allIssues,
     recentChanges:[{id:"change-1",action:"역할 변경",target:"김관리",detail:"관제 담당자 → 관제센터 책임자",actor:"로컬 시스템 관리자",occurredAt:"2026-07-29T03:01:00.000Z"}],
     roleCoverage:[],
   }),
@@ -87,13 +87,34 @@ describe("AdminDashboard management workbench",()=>{
     expect(screen.getByRole("heading",{name:"역할이 지정되지 않은 활성 계정"})).toBeTruthy();
   });
 
-  it("hides the full audit-log action without AUDIT.READ",async()=>{
+  it("supports roving focus and selection with tab keyboard commands",async()=>{
+    render(<AdminDashboard classNames={styles}/>);
+    await screen.findByRole("button",{name:/역할이 지정되지 않은 활성 계정/});
+    const detail=screen.getByRole("tab",{name:"작업 상세"}),activity=screen.getByRole("tab",{name:"최근 관리 활동"});
+    expect(detail).toHaveAttribute("tabindex","0");
+    expect(activity).toHaveAttribute("tabindex","-1");
+    detail.focus();
+    fireEvent.keyDown(detail,{key:"ArrowRight"});
+    expect(activity).toHaveFocus();
+    expect(activity).toHaveAttribute("aria-selected","true");
+    expect(activity).toHaveAttribute("tabindex","0");
+    fireEvent.keyDown(activity,{key:"Home"});
+    expect(detail).toHaveFocus();
+    expect(detail).toHaveAttribute("aria-selected","true");
+    fireEvent.keyDown(detail,{key:"End"});
+    expect(activity).toHaveFocus();
+    fireEvent.keyDown(activity,{key:"ArrowLeft"});
+    expect(detail).toHaveFocus();
+    expect(detail).toHaveAttribute("aria-selected","true");
+  });
+
+  it("hides every audit-log action without AUDIT.READ",async()=>{
     authState.permissions=["USER.READ_ALL"];
     render(<AdminDashboard classNames={styles}/>);
     await screen.findByRole("button",{name:/역할이 지정되지 않은 활성 계정/});
     fireEvent.click(screen.getByRole("tab",{name:"최근 관리 활동"}));
     expect(screen.queryByRole("link",{name:"전체 감사 로그"})).toBeNull();
-    expect(screen.getByRole("link",{name:"오늘 변경"})).toBeTruthy();
+    expect(screen.queryByRole("link",{name:"오늘 변경"})).toBeNull();
   });
 
   it("shows coordinated empty states when there are no management tasks",async()=>{
@@ -105,12 +126,19 @@ describe("AdminDashboard management workbench",()=>{
     expect(screen.getByText("새로운 관리 항목이 발생하면 이곳에서 상세 내용을 확인할 수 있습니다.")).toBeTruthy();
   });
 
-  it("shows a skeleton only while loading and an unavailable summary afterward",async()=>{
-    dashboardAdapter.load.mockResolvedValue(snapshot({accountSummary:null,partialErrors:["계정 데이터 API가 연결되지 않았습니다."]}));
+  it("separates unavailable account data from a healthy empty state",async()=>{
+    dashboardAdapter.load.mockResolvedValue(snapshot({users:null,accountSummary:{totalUsers:12},partialErrors:["계정 데이터 API가 연결되지 않았습니다."]}));
     const{container}=render(<AdminDashboard classNames={styles}/>);
     expect(container.querySelector(".operationSummary .skeleton")).toBeTruthy();
     expect(await screen.findByText("운영 요약을 표시할 수 없습니다.")).toBeTruthy();
     expect(screen.getByText("계정 데이터 연결 후 운영 지표가 표시됩니다.")).toBeTruthy();
+    expect(screen.getAllByText("계정 데이터를 확인할 수 없습니다.")).toHaveLength(2);
+    expect(screen.getAllByText("데이터 연결 상태를 확인한 후 다시 시도해 주세요.")).toHaveLength(2);
+    expect(screen.queryByText("현재 확인할 관리 작업이 없습니다.")).toBeNull();
+    expect(screen.queryByText("계정과 권한 운영 상태가 정상입니다.")).toBeNull();
+    expect(screen.queryByText(/역할 미배정/)).toBeNull();
+    expect(screen.queryByText(/사용 검토/)).toBeNull();
+    expect(screen.queryByText(/비활성 상태/)).toBeNull();
     expect(screen.getByRole("alert")).toHaveTextContent("일부 관리 정보를 확인하지 못했습니다.");
     expect(container.querySelector(".operationSummary .skeleton")).toBeNull();
   });
