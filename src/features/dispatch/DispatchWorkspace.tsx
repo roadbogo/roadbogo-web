@@ -8,6 +8,7 @@ import { formatRiskGrade } from "@/features/control-dashboard/dashboardDomain";
 import { createDispatchAdapter } from "./dispatchAdapterFactory";
 import { canExecuteDispatchAction,canRespondToDispatch,dispatchProgressAction,dispatchProgressIndex,dispatchProgressStatuses,dispatchStatusCopy,formatDispatchKst,getNextDispatchAction,validateRejectionReason,type DispatchProgressAction } from "./dispatchDomain";
 import type { DispatchDetail, DispatchItem } from "./dispatchTypes";
+import {notifyDispatchChanged} from "./dispatchSync";
 import "./dispatch.css";
 import "./dispatchProgress.css";
 
@@ -45,10 +46,10 @@ export function DispatchWorkspace({initialPublicId=""}:{initialPublicId?:string}
     try {
       const page = await adapter.list({ page: 1, size: 20, activeOnly });
       setItems(page.items);
-      setSelectedId((current) => page.items.some((item) => item.publicId === current) ? current : page.items[0]?.publicId ?? "");
+      setSelectedId((current) => initialPublicId || current || page.items[0]?.publicId || "");
     } catch { setError("출동 목록을 불러오지 못했습니다."); }
     finally { setLoading(false); }
-  }, [activeOnly]);
+  }, [activeOnly, initialPublicId]);
 
   const loadDetail = useCallback(async (publicId: string) => {
     if (!publicId) { setDetail(null); return; }
@@ -78,6 +79,7 @@ export function DispatchWorkspace({initialPublicId=""}:{initialPublicId?:string}
         : await adapter.reject(detail.publicId, detail.versionNo, reason.trim(), key, detail);
       if (result.ok) {
         setDetail(result.detail);
+        notifyDispatchChanged();
         setNotice(result.syncWarning ? "처리는 완료됐지만 최신 상세 정보를 다시 불러오지 못했습니다." : action === "accept" ? "출동 요청을 수락했습니다." : "출동 요청을 거절했습니다.");
         setRejecting(false); setReason("");
         await loadList();
@@ -102,7 +104,7 @@ export function DispatchWorkspace({initialPublicId=""}:{initialPublicId?:string}
         :action==="markEnRoute"?await adapter.markEnRoute(detail.publicId,detail.versionNo,key,detail)
         :action==="arrive"?await adapter.arrive(detail.publicId,detail.versionNo,key,detail)
         :await adapter.startAction(detail.publicId,detail.versionNo,key,detail);
-      if(result.ok){setDetail(result.detail);const success:Record<DispatchProgressAction,string>={depart:"출발 상태를 등록했습니다.",markEnRoute:"이동 중 상태를 등록했습니다.",arrive:"현장 도착을 등록했습니다.",startAction:"현장 조치를 시작했습니다."};setNotice(result.syncWarning?"처리는 완료됐지만 최신 상세 정보를 다시 불러오지 못했습니다.":success[action]);setProgressDialog(null);await loadList();setSelectedId(result.detail.publicId)}
+      if(result.ok){setDetail(result.detail);notifyDispatchChanged();const success:Record<DispatchProgressAction,string>={depart:"출발 상태를 등록했습니다.",markEnRoute:"이동 중 상태를 등록했습니다.",arrive:"현장 도착을 등록했습니다.",startAction:"현장 조치를 시작했습니다."};setNotice(result.syncWarning?"처리는 완료됐지만 최신 상세 정보를 다시 불러오지 못했습니다.":success[action]);setProgressDialog(null);await loadList();setSelectedId(result.detail.publicId)}
       else{setDetail(result.latest);setNotice(errorCopy[result.code]??"출동 상태를 변경하지 못했습니다.");setProgressDialog(null)}
     }catch{setNotice("요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.")}
     finally{busyRef.current=false;setBusy(false)}
@@ -121,7 +123,7 @@ export function DispatchWorkspace({initialPublicId=""}:{initialPublicId?:string}
         </div>
         <aside className="dispatch-detail">
           {detailLoading ? <p className="dispatch-state" role="status">출동 상세를 불러오는 중입니다.</p>
-            : !detail ? <p className="dispatch-state">확인할 출동을 선택해 주세요.</p>
+            : !detail ? <p className="dispatch-state">{selectedId ? "출동 정보를 확인할 수 없습니다." : "확인할 출동을 선택해 주세요."}</p>
             : <><header><div><span>DISPATCH DETAIL</span><h2>{detail.incident.incidentNo}</h2></div><b>{dispatchStatusCopy[detail.status]}</b></header>
               <dl><div><dt>사건 유형</dt><dd>{detail.incident.objectCategory} · {formatRiskGrade(detail.incident.riskGrade)}</dd></div><div><dt>CCTV</dt><dd>{detail.incident.cctvName}</dd></div><div><dt>위치</dt><dd>{detail.incident.roadName}<br />{detail.incident.roadSectionName}</dd></div><div><dt>요청 시각</dt><dd>{formatDispatchKst(detail.requestedAt)} KST</dd></div><div><dt>요청 관제자</dt><dd>{detail.assignedBy.name}</dd></div></dl>
               {detail.requestMessage && <section><span>관제 요청</span><p>{detail.requestMessage}</p></section>}

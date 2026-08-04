@@ -111,6 +111,32 @@ describe("DispatchWorkspace progress", () => {
     expect(await screen.findByText("출발 상태를 등록했습니다.")).toBeTruthy();
   });
 
+  it("keeps a directly addressed dispatch even when it is absent from the first list page",async()=>{
+    const listed={...baseDetail,publicId:"dispatch-listed",incident:{...baseDetail.incident,incidentNo:"INC-LISTED"}};
+    mocks.adapter=adapterFor(listed);
+    vi.mocked(mocks.adapter.detail).mockImplementation(async id=>id===baseDetail.publicId?baseDetail:listed);
+    render(<DispatchWorkspace initialPublicId={baseDetail.publicId}/>);
+    expect(await screen.findByText("INC-1")).toBeTruthy();
+    expect(mocks.adapter.detail).toHaveBeenCalledWith(baseDetail.publicId);
+    expect(screen.getByRole("option",{name:/INC-LISTED/}).getAttribute("aria-selected")).toBe("false");
+  });
+
+  it("does not substitute the first list item when a directly addressed dispatch is missing",async()=>{
+    const listed={...baseDetail,publicId:"dispatch-listed",incident:{...baseDetail.incident,incidentNo:"INC-LISTED"}};
+    mocks.adapter=adapterFor(listed);
+    vi.mocked(mocks.adapter.detail).mockImplementation(async id=>id===baseDetail.publicId?null:listed);
+    render(<DispatchWorkspace initialPublicId={baseDetail.publicId}/>);
+    expect(await screen.findByText("출동 정보를 확인할 수 없습니다.")).toBeTruthy();
+    expect(mocks.adapter.detail).toHaveBeenCalledWith(baseDetail.publicId);
+    expect(mocks.adapter.detail).not.toHaveBeenCalledWith(listed.publicId);
+  });
+
+  it("selects the first item on the ordinary list route",async()=>{
+    render(<DispatchWorkspace/>);
+    expect(await screen.findByText("INC-1")).toBeTruthy();
+    expect(mocks.adapter.detail).toHaveBeenCalledWith(baseDetail.publicId);
+  });
+
   it("stops at action-in-progress and explains a missing permission", async () => {
     mocks.adapter = adapterFor({ ...baseDetail, status: "ACTION_IN_PROGRESS" });
     const view = render(<DispatchWorkspace />);
