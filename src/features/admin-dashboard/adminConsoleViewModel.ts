@@ -30,7 +30,7 @@ export function createAdminConsoleViewModel(snapshot:AdminDashboardSnapshot):Adm
   const allChanges=(snapshot.recentChanges??[]).slice().sort((a,b)=>Date.parse(b.occurredAt)-Date.parse(a.occurredAt));
   const snapshotDay=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Seoul"}).format(new Date(snapshot.generatedAt));
   const todayChangeCount=allChanges.filter(change=>new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Seoul"}).format(new Date(change.occurredAt))===snapshotDay).length;
-  const recentChanges=allChanges.slice(0,5);
+  const recentChanges=allChanges;
   const roleCoverage=snapshot.roleCounts?ROLE_ORDER.filter(roleCode=>roleCode!=="GENERAL_USER").map(roleCode=>({roleCode,roleName:ROLE_PRESENTATIONS[roleCode].label,assignedUserCount:snapshot.roleCounts![roleCode]??0})):[];
   return{checkedAt:snapshot.generatedAt,health:{overall:snapshot.systemHealth.status,api:snapshot.systemHealth.api,database:snapshot.systemHealth.database},accountSummary:snapshot.accountSummary?{totalUsers:snapshot.accountSummary.totalUsers,activeUsers:snapshot.accountSummary.activeUsers,inactiveUsers:snapshot.accountSummary.inactiveUsers,usersWithoutRoles:unassigned.length,multipleRoleUsers,attentionCount:attentionUsers.size,todayChangeCount}:null,issues,recentChanges,roleCoverage};
 }

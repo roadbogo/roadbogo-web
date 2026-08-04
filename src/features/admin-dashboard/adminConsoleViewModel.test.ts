@@ -23,11 +23,11 @@ describe("admin console view model",()=>{
   expect(view.issues).toEqual([]);
  expect(view.recentChanges).toEqual([]);
  });
- it("limits the recent change feed to the latest five entries",()=>{
+ it("keeps every recent change sorted newest first for UI pagination",()=>{
   const changes=Array.from({length:6},(_,index)=>({...mockAdminDashboardSnapshot.recentChanges![0],id:`change-${index}`,occurredAt:new Date(Date.UTC(2026,6,29,index)).toISOString()}));
   const view=createAdminConsoleViewModel({...mockAdminDashboardSnapshot,recentChanges:changes});
-  expect(view.recentChanges).toHaveLength(5);
-  expect(view.recentChanges.map(change=>change.id)).toEqual(["change-5","change-4","change-3","change-2","change-1"]);
+  expect(view.recentChanges).toHaveLength(6);
+  expect(view.recentChanges.map(change=>change.id)).toEqual(["change-5","change-4","change-3","change-2","change-1","change-0"]);
  });
  it("keeps role connections, unassigned users, and multi-role users as separate counts",()=>{
   const view=createAdminConsoleViewModel(mockAdminDashboardSnapshot);
