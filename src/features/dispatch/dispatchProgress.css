@@ -1,0 +1,136 @@
+.dispatch-progress {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dispatch-progress li {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  min-width: 0;
+  color: #70828a;
+  text-align: center;
+}
+
+.dispatch-progress li:not(:last-child)::after {
+  position: absolute;
+  top: 14px;
+  left: calc(50% + 18px);
+  width: calc(100% - 36px);
+  height: 2px;
+  background: #d9e2df;
+  content: "";
+}
+
+.dispatch-progress li[data-state="complete"]:not(:last-child)::after {
+  background: #26999e;
+}
+
+.dispatch-progress i {
+  position: relative;
+  z-index: 1;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 2px solid #cad7d4;
+  border-radius: 50%;
+  background: #fff;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.dispatch-progress li[data-state="complete"] i,
+.dispatch-progress li[data-state="current"] i {
+  border-color: #26999e;
+  background: #26999e;
+  color: #fff;
+}
+
+.dispatch-progress span {
+  font-size: 12px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.dispatch-progress small {
+  font-size: 10px;
+}
+
+.dispatch-current-task {
+  display: grid;
+  gap: 7px;
+  border-radius: 10px;
+}
+
+.dispatch-current-task strong {
+  font-size: 17px;
+}
+
+.dispatch-current-task button {
+  min-height: 48px;
+  margin-top: 4px;
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(100deg, #3c6fe8, #26999e);
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+}
+
+.dispatch-current-task button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.dispatch-current-task small {
+  color: #7a5960;
+  font-size: 12px;
+}
+
+.dispatch-progress-dialog > div {
+  margin-top: 20px;
+}
+
+@media (max-width: 600px) {
+  .dispatch-progress {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .dispatch-progress li {
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    align-items: center;
+    justify-items: start;
+    text-align: left;
+  }
+
+  .dispatch-progress li:not(:last-child)::after {
+    top: 30px;
+    bottom: -8px;
+    left: 14px;
+    width: 2px;
+    height: auto;
+  }
+
+  .dispatch-progress small {
+    justify-self: end;
+  }
+
+  .dispatch-dialog-backdrop {
+    align-items: end;
+    padding: 12px;
+  }
+
+  .dispatch-dialog {
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    border-radius: 16px 16px 10px 10px;
+  }
+}

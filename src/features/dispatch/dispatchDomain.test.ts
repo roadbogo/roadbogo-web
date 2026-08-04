@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildDispatchListQuery, canRespondToDispatch, dispatchStatusCopy, validateRejectionReason } from "./dispatchDomain";
+import {
+  buildDispatchListQuery,
+  canExecuteDispatchAction,
+  canRespondToDispatch,
+  dispatchStatusCopy,
+  getNextDispatchAction,
+  validateRejectionReason,
+} from "./dispatchDomain";
 
 describe("dispatch domain", () => {
   it("uses the backend list defaults and supports a status filter", () => {
@@ -16,5 +23,25 @@ describe("dispatch domain", () => {
     expect(validateRejectionReason("현장 접근 불가")).toBeNull();
     expect(canRespondToDispatch("REQUESTED", 0, ["DISPATCH.UPDATE_OWN"])).toBe(true);
     expect(canRespondToDispatch("REQUESTED", -1, ["DISPATCH.UPDATE_OWN"])).toBe(false);
+  });
+
+  it.each([
+    ["ACCEPTED", "depart"],
+    ["DEPARTED", "markEnRoute"],
+    ["EN_ROUTE", "arrive"],
+    ["ARRIVED", "startAction"],
+    ["ACTION_IN_PROGRESS", null],
+    ["ACTION_COMPLETED", null],
+    ["CANCELLED", null],
+  ] as const)("maps %s to its only next action", (status, action) => {
+    expect(getNextDispatchAction(status)).toBe(action);
+  });
+
+  it("requires an owned-update permission, a valid version, and an idle command", () => {
+    expect(canExecuteDispatchAction("ACCEPTED", 0, ["DISPATCH.UPDATE_OWN"])).toBe(true);
+    expect(canExecuteDispatchAction("ACCEPTED", -1, ["DISPATCH.UPDATE_OWN"])).toBe(false);
+    expect(canExecuteDispatchAction("ACCEPTED", 0, [])).toBe(false);
+    expect(canExecuteDispatchAction("ACCEPTED", 0, ["DISPATCH.UPDATE_OWN"], true)).toBe(false);
+    expect(canExecuteDispatchAction("ACTION_IN_PROGRESS", 3, ["DISPATCH.UPDATE_OWN"])).toBe(false);
   });
 });

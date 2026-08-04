@@ -38,4 +38,44 @@ describe("ApiDispatchAdapter", () => {
     expect(apiRequest).toHaveBeenCalledTimes(2);
     expect(apiRequest.mock.calls.filter(([url])=>String(url).endsWith(`/${action}`))).toHaveLength(1);
   });
+
+  it.each([
+    ["depart", "depart", "DEPARTED", "departedAt"],
+    ["markEnRoute", "en-route", "EN_ROUTE", "enRouteAt"],
+    ["arrive", "arrive", "ARRIVED", "arrivedAt"],
+    ["startAction", "start-action", "ACTION_IN_PROGRESS", "actionStartedAt"],
+  ] as const)("posts %s to its own progress endpoint and merges the timestamp", async (method, endpoint, status, timestampField) => {
+    const occurredAt = "2026-07-21T02:00:00Z";
+    apiRequest.mockResolvedValueOnce({
+      dispatch: { public_id: dispatchDto.public_id, previous_status: dispatchDto.status, status, occurred_at: occurredAt, version_no: 1 },
+      incident: { public_id: dispatchDto.incident.public_id, status: dispatchDto.incident.status, version_no: 2 },
+    }).mockRejectedValueOnce(new TypeError("refresh failed"));
+    const current = (await import("./dispatchMapper")).mapDispatchDetail(dispatchDto);
+    const key = crypto.randomUUID();
+    const result = await new ApiDispatchAdapter()[method](dispatchDto.public_id, 0, key, current);
+
+    expect(apiRequest.mock.calls[0][0]).toContain(`/dispatches/${dispatchDto.public_id}/${endpoint}`);
+    expect(apiRequest.mock.calls[0][1]).toMatchObject({ method: "POST", idempotencyKey: key, body: { expected_version_no: 0 } });
+    expect(result).toMatchObject({ ok: true, detail: { status, versionNo: 1, [timestampField]: occurredAt }, syncWarning: "DETAIL_REFRESH_FAILED" });
+  });
+
+  it("does not resubmit a progress command after a version conflict", async () => {
+    const { ApiError } = await import("@/lib/apiClient");
+    apiRequest.mockRejectedValueOnce(new ApiError("DISPATCH_VERSION_CONFLICT", "conflict", null, null, 409))
+      .mockResolvedValueOnce({ ...dispatchDto, status: "ACCEPTED", version_no: 4 });
+    const result = await new ApiDispatchAdapter().depart(dispatchDto.public_id, 3, "same-key");
+    expect(result).toMatchObject({ ok: false, code: "DISPATCH_VERSION_CONFLICT", latest: { versionNo: 4 } });
+    expect(apiRequest).toHaveBeenCalledTimes(2);
+  });
+  it("uses the action report, file, link, and complete contracts",async()=>{
+    const current=(await import("./dispatchMapper")).mapDispatchDetail({...dispatchDto,status:"ACTION_IN_PROGRESS",version_no:4});
+    apiRequest.mockResolvedValueOnce({}).mockResolvedValueOnce({...dispatchDto,status:"ACTION_IN_PROGRESS",version_no:4});
+    await new ApiDispatchAdapter().saveActionReport(dispatchDto.public_id,"현장 조치",4,"report-key",current);
+    expect(apiRequest.mock.calls[0]).toEqual([`/dispatches/${dispatchDto.public_id}/action-report`,expect.objectContaining({method:"PUT",idempotencyKey:"report-key",body:{detail:"현장 조치",expected_version_no:4}})]);
+    apiRequest.mockReset().mockResolvedValueOnce({file_public_id:"file-public-id"});
+    const file=new File(["image"],"before.jpg",{type:"image/jpeg"});await new ApiDispatchAdapter().uploadActionFile(file,"ACTION_BEFORE","client-file","upload-key");
+    const uploadOptions=apiRequest.mock.calls[0][1];expect(apiRequest.mock.calls[0][0]).toBe("/files");expect(uploadOptions).toMatchObject({method:"POST",idempotencyKey:"upload-key",body:expect.any(FormData)});expect(uploadOptions.headers).toBeUndefined();expect(uploadOptions.body.get("purpose_code")).toBe("ACTION_BEFORE");
+    apiRequest.mockReset().mockResolvedValueOnce({});await new ApiDispatchAdapter().linkActionFile(dispatchDto.public_id,"file-public-id","ACTION_BEFORE",0,"link-key");expect(apiRequest.mock.calls[0][1]).toMatchObject({method:"POST",idempotencyKey:"link-key",body:{file_public_id:"file-public-id",purpose_code:"ACTION_BEFORE",display_order:0}});
+    apiRequest.mockReset().mockResolvedValueOnce({}).mockResolvedValueOnce({...dispatchDto,status:"ACTION_COMPLETED",version_no:5,action_completed_at:"2026-07-21T03:00:00Z"});await new ApiDispatchAdapter().completeAction(dispatchDto.public_id,4,"complete-key",current);expect(apiRequest.mock.calls[0][1]).toMatchObject({method:"POST",idempotencyKey:"complete-key",body:{expected_version_no:4}});
+  });
 });
