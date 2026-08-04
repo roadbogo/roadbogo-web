@@ -1,2 +1,2 @@
-import { DispatchWorkspace } from "@/features/dispatch/DispatchWorkspace";
-export default function DispatchPage(){return <DispatchWorkspace/>}
+import {DispatchHub} from "@/features/dispatch/DispatchHub";
+export default async function DispatchPage({searchParams}:{searchParams:Promise<{view?:string}>}){const{view}=await searchParams;return <DispatchHub initialView={view}/>}
