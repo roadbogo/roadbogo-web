@@ -1,4 +1,5 @@
 import { createMockDashboardSnapshot } from "@/features/control-dashboard/mockDashboardAdapter";
+import { getMockFieldActionRuntime,resetMockFieldActionRuntime } from "@/features/control-dashboard/mockFieldActionRuntime";
 import type { DashboardIncident, IncidentStatus } from "@/features/control-dashboard/dashboardTypes";
 import { resetMockIncidentRuntime, updateMockDispatchRuntime, updateMockIncidentRuntime } from "@/features/control-dashboard/mockIncidentRuntimeState";
 import { availableMemoTypes } from "./incidentDetailDomain";
@@ -41,13 +42,14 @@ const responders:DispatchResponderOption[]=[{public_id:"mock-responder-1",displa
 function appendHistory(record:IncidentDetailRecord,{label,actorName,occurredAt,detail}:{label:string;actorName:string|null;occurredAt:string;detail:string|null}):IncidentHistory[]{
   return [...record.histories,{public_id:`history-${record.incident.public_id}-${Date.now()}-${record.histories.length}`,event_type:"INCIDENT_UPDATED",label,actor_name:actorName,occurred_at:occurredAt,detail}];
 }
-export function createMockIncidentDetailRecord(public_id:string){const value=records.get(public_id);return value?structuredClone(value):null}
+export function createMockIncidentDetailRecord(public_id:string):IncidentDetailRecord|null{const value=records.get(public_id);if(!value)return null;const runtime=getMockFieldActionRuntime(public_id);if(!runtime)return structuredClone(value);const merged:IncidentDetailRecord={...value,incident:{...value.incident,status:value.incident.status==="CLOSED"?"CLOSED":"ACTION_COMPLETED",updated_at:runtime.completedAt},dispatch:{public_id:runtime.dispatchPublicId,incident_public_id:runtime.incidentPublicId,status:"ACTION_COMPLETED",responder_label:runtime.responderLabel,requested_at:value.dispatch?.requested_at??runtime.completedAt,updated_at:runtime.completedAt},field_action:{action_type:runtime.actionType,detail:runtime.detail,before_image_url:runtime.beforeImageUrl,after_image_url:runtime.afterImageUrl,completed_at:runtime.completedAt}};records.set(public_id,merged);return structuredClone(merged)}
 export function resetMockIncidentDetailRuntime(){
   records.clear();
   for(const [publicId,record] of initialRecords)records.set(publicId,structuredClone(record));
 }
 export function resetAllMockOperationsRuntime(){
   resetMockIncidentRuntime();
+  resetMockFieldActionRuntime();
   resetMockIncidentDetailRuntime();
 }
 export class MockIncidentDetailAdapter implements IncidentDetailAdapter{
