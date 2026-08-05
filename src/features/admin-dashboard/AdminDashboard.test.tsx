@@ -17,12 +17,12 @@ const allIssues=[
 ] as const;
 
 vi.mock("./adminConsoleViewModel",()=>({
-  createAdminConsoleViewModel:(snapshot:{users?:unknown[]|null;accountSummary?:object|null;scenario?:"empty"|"without-login";systemHealth?:{status:string;api:string;database:string}})=>({
+  createAdminConsoleViewModel:(snapshot:{users?:unknown[]|null;accountSummary?:object|null;recentChanges?:unknown[]|null;scenario?:"empty"|"without-login";systemHealth?:{status:string;api:string;database:string}})=>({
     checkedAt:"2026-07-29T03:01:00.000Z",
     health:{overall:snapshot.systemHealth?.status??"healthy",api:snapshot.systemHealth?.api??"healthy",database:snapshot.systemHealth?.database??"healthy"},
     accountSummary:snapshot.accountSummary===null?null:{totalUsers:12,activeUsers:9,inactiveUsers:3,usersWithoutRoles:1,multipleRoleUsers:1,attentionCount:3,todayChangeCount:2},
     issues:snapshot.users===null||snapshot.scenario==="empty"?[]:snapshot.scenario==="without-login"?allIssues.filter(issue=>issue.key!=="NO_LOGIN_HISTORY"):allIssues,
-    recentChanges:[{id:"change-1",action:"역할 변경",target:"김관리",detail:"관제 담당자 → 관제센터 책임자",actor:"로컬 시스템 관리자",occurredAt:"2026-07-29T03:01:00.000Z"}],
+    recentChanges:snapshot.recentChanges===null?[]:snapshot.recentChanges??[{id:"change-1",action:"역할 변경",target:"감사대상 전용",detail:"관제 담당자 → 관제센터 책임자",actor:"로컬 시스템 관리자",occurredAt:"2026-07-29T03:01:00.000Z"}],
     roleCoverage:[],
   }),
 }));
@@ -108,13 +108,58 @@ describe("AdminDashboard management workbench",()=>{
     expect(detail).toHaveAttribute("aria-selected","true");
   });
 
-  it("hides every audit-log action without AUDIT.READ",async()=>{
+  it("hides the activity tab, audit data, and audit links without AUDIT.READ",async()=>{
     authState.permissions=["USER.READ_ALL"];
     render(<AdminDashboard classNames={styles}/>);
     await screen.findByRole("button",{name:/역할이 지정되지 않은 활성 계정/});
-    fireEvent.click(screen.getByRole("tab",{name:"최근 관리 활동"}));
+    expect(screen.queryByRole("tab",{name:"최근 관리 활동"})).toBeNull();
+    expect(screen.getByRole("tab",{name:"작업 상세"})).toHaveAttribute("tabindex","0");
+    expect(screen.queryByText("감사대상 전용")).toBeNull();
+    expect(screen.queryByText("관제 담당자에서 관제센터 책임자로 변경")).toBeNull();
+    expect(screen.queryByText(/로컬 시스템 관리자/)).toBeNull();
     expect(screen.queryByRole("link",{name:"전체 감사 로그"})).toBeNull();
     expect(screen.queryByRole("link",{name:"오늘 변경"})).toBeNull();
+    expect(screen.getByRole("heading",{name:"역할이 지정되지 않은 활성 계정"})).toBeTruthy();
+  });
+
+  it("distinguishes unavailable audit data from a healthy empty activity list",async()=>{
+    dashboardAdapter.load.mockResolvedValue(snapshot({recentChanges:null}));
+    const first=render(<AdminDashboard classNames={styles}/>);
+    await screen.findByRole("button",{name:/역할이 지정되지 않은 활성 계정/});
+    fireEvent.click(screen.getByRole("tab",{name:"최근 관리 활동"}));
+    expect(screen.getByText("감사 기록을 확인할 수 없습니다.")).toBeTruthy();
+    expect(screen.getByText("감사 데이터 연결 상태를 확인한 후 다시 시도해 주세요.")).toBeTruthy();
+    expect(screen.queryByText("아직 기록된 관리자 활동이 없습니다.")).toBeNull();
+    expect(screen.queryByRole("link",{name:"오늘 변경"})).toBeNull();
+    expect(screen.queryByRole("link",{name:"전체 감사 로그"})).toBeNull();
+    first.unmount();
+    dashboardAdapter.load.mockResolvedValue(snapshot({recentChanges:[]}));
+    render(<AdminDashboard classNames={styles}/>);
+    await screen.findByRole("button",{name:/역할이 지정되지 않은 활성 계정/});
+    fireEvent.click(screen.getByRole("tab",{name:"최근 관리 활동"}));
+    expect(screen.getByText("아직 기록된 관리자 활동이 없습니다.")).toBeTruthy();
+    expect(screen.queryByText("감사 기록을 확인할 수 없습니다.")).toBeNull();
+  });
+
+  it("shows each management CTA only with its destination permission",async()=>{
+    authState.permissions=["ROLE.MANAGE","USER.READ_ALL"];
+    render(<AdminDashboard classNames={styles}/>);
+    await screen.findByRole("button",{name:/역할이 지정되지 않은 활성 계정/});
+    expect(screen.getByRole("link",{name:"역할 배정"})).toHaveAttribute("href","/admin/roles?view=unassigned");
+    fireEvent.click(screen.getByRole("button",{name:/로그인 기록이 없는 운영 계정/}));
+    expect(screen.getByRole("link",{name:"검토 대상 보기"})).toHaveAttribute("href","/admin/users?view=attention&issue=never-logged-in");
+    fireEvent.click(screen.getByRole("button",{name:/비활성 계정/}));
+    expect(screen.getByRole("link",{name:"비활성 계정 보기"})).toHaveAttribute("href","/admin/users?view=inactive");
+    cleanup();
+    authState.permissions=[];
+    const{container}=render(<AdminDashboard classNames={styles}/>);
+    await screen.findByRole("button",{name:/역할이 지정되지 않은 활성 계정/});
+    expect(screen.queryByRole("link",{name:"역할 배정"})).toBeNull();
+    expect(container.querySelector(".issueDetail > footer")).toBeNull();
+    fireEvent.click(screen.getByRole("button",{name:/로그인 기록이 없는 운영 계정/}));
+    expect(screen.queryByRole("link",{name:"검토 대상 보기"})).toBeNull();
+    fireEvent.click(screen.getByRole("button",{name:/비활성 계정/}));
+    expect(screen.queryByRole("link",{name:"비활성 계정 보기"})).toBeNull();
   });
 
   it("shows coordinated empty states when there are no management tasks",async()=>{
