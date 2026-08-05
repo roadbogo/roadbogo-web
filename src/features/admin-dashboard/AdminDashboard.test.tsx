@@ -111,7 +111,7 @@ describe("AdminDashboard management workbench",()=>{
   it("hides the activity tab, audit data, and audit links without AUDIT.READ",async()=>{
     authState.permissions=["USER.READ_ALL"];
     render(<AdminDashboard classNames={styles}/>);
-    await screen.findByRole("button",{name:/역할이 지정되지 않은 활성 계정/});
+    await screen.findByRole("button",{name:/로그인 기록이 없는 운영 계정/});
     expect(screen.queryByRole("tab",{name:"최근 관리 활동"})).toBeNull();
     expect(screen.getByRole("tab",{name:"작업 상세"})).toHaveAttribute("tabindex","0");
     expect(screen.queryByText("감사대상 전용")).toBeNull();
@@ -119,7 +119,7 @@ describe("AdminDashboard management workbench",()=>{
     expect(screen.queryByText(/로컬 시스템 관리자/)).toBeNull();
     expect(screen.queryByRole("link",{name:"전체 감사 로그"})).toBeNull();
     expect(screen.queryByRole("link",{name:"오늘 변경"})).toBeNull();
-    expect(screen.getByRole("heading",{name:"역할이 지정되지 않은 활성 계정"})).toBeTruthy();
+    expect(screen.getByRole("heading",{name:"로그인 기록이 없는 운영 계정"})).toBeTruthy();
   });
 
   it("distinguishes unavailable audit data from a healthy empty activity list",async()=>{
@@ -150,16 +150,75 @@ describe("AdminDashboard management workbench",()=>{
     expect(screen.getByRole("link",{name:"검토 대상 보기"})).toHaveAttribute("href","/admin/users?view=attention&issue=never-logged-in");
     fireEvent.click(screen.getByRole("button",{name:/비활성 계정/}));
     expect(screen.getByRole("link",{name:"비활성 계정 보기"})).toHaveAttribute("href","/admin/users?view=inactive");
-    cleanup();
+  });
+
+  it("exposes only role-management work and its affected account with ROLE.MANAGE",async()=>{
+    authState.permissions=["ROLE.MANAGE"];
+    const{container}=render(<AdminDashboard classNames={styles}/>);
+    await screen.findByRole("link",{name:"역할 배정"});
+    expect(container.querySelectorAll(".taskList button")).toHaveLength(1);
+    expect(container.querySelector('[data-kind="ROLE_UNASSIGNED"]')).toBeTruthy();
+    expect(screen.getByText("1개 업무 유형")).toBeTruthy();
+    expect(screen.getByRole("region",{name:"업무 중심 운영 요약"})).toHaveTextContent("확인 대상1명");
+    expect(screen.queryByText("operator@roadbogo.kr")).toBeNull();
+    expect(screen.queryByText("inactive@roadbogo.kr")).toBeNull();
+    expect(screen.queryByText("사용 검토")).toBeNull();
+    expect(screen.queryByText("비활성 상태")).toBeNull();
+  });
+
+  it("exposes only user-management work with USER.READ_ALL",async()=>{
+    authState.permissions=["USER.READ_ALL"];
+    const{container}=render(<AdminDashboard classNames={styles}/>);
+    await screen.findByRole("link",{name:"검토 대상 보기"});
+    expect(container.querySelectorAll(".taskList button")).toHaveLength(2);
+    expect(container.querySelector('[data-kind="ROLE_UNASSIGNED"]')).toBeNull();
+    expect(screen.getByText("2개 업무 유형")).toBeTruthy();
+    expect(screen.getByRole("region",{name:"업무 중심 운영 요약"})).toHaveTextContent("확인 대상2명");
+    expect(screen.queryByText("admin-long-address@roadbogo.kr")).toBeNull();
+    expect(screen.queryByText("역할 미배정")).toBeNull();
+  });
+
+  it("shows a permission-specific empty state without leaking task data",async()=>{
     authState.permissions=[];
     const{container}=render(<AdminDashboard classNames={styles}/>);
-    await screen.findByRole("button",{name:/역할이 지정되지 않은 활성 계정/});
-    expect(screen.queryByRole("link",{name:"역할 배정"})).toBeNull();
+    expect(await screen.findAllByText("현재 권한으로 확인 가능한 관리 작업이 없습니다.")).toHaveLength(2);
+    expect(screen.getAllByText("필요한 관리 권한을 확인해 주세요.")).toHaveLength(2);
+    expect(container.querySelectorAll(".taskList button")).toHaveLength(0);
+    expect(container.querySelector(".issueDetail")).toBeNull();
     expect(container.querySelector(".issueDetail > footer")).toBeNull();
-    fireEvent.click(screen.getByRole("button",{name:/로그인 기록이 없는 운영 계정/}));
-    expect(screen.queryByRole("link",{name:"검토 대상 보기"})).toBeNull();
-    fireEvent.click(screen.getByRole("button",{name:/비활성 계정/}));
-    expect(screen.queryByRole("link",{name:"비활성 계정 보기"})).toBeNull();
+    expect(screen.queryByText("admin-long-address@roadbogo.kr")).toBeNull();
+    expect(screen.queryByText("operator@roadbogo.kr")).toBeNull();
+    expect(screen.queryByText("inactive@roadbogo.kr")).toBeNull();
+    expect(screen.queryByText("계정과 권한 운영 상태가 정상입니다.")).toBeNull();
+    expect(screen.getByRole("region",{name:"업무 중심 운영 요약"})).toHaveTextContent("확인 대상0명");
+  });
+
+  it("falls back synchronously when the selected task permission disappears",async()=>{
+    const view=render(<AdminDashboard classNames={styles}/>);
+    const loginIssue=await screen.findByRole("button",{name:/로그인 기록이 없는 운영 계정/});
+    fireEvent.click(loginIssue);
+    expect(screen.getByText("operator@roadbogo.kr")).toBeTruthy();
+    authState.permissions=["ROLE.MANAGE"];
+    view.rerender(<AdminDashboard classNames={styles}/>);
+    expect(screen.queryByText("operator@roadbogo.kr")).toBeNull();
+    expect(screen.getByRole("button",{name:/역할이 지정되지 않은 활성 계정/})).toHaveAttribute("aria-pressed","true");
+    expect(screen.getByText("admin-long-address@roadbogo.kr")).toBeTruthy();
+  });
+
+  it("corrects the active audit tab during render and restores focus when AUDIT.READ disappears",async()=>{
+    const view=render(<AdminDashboard classNames={styles}/>);
+    await screen.findByRole("button",{name:/역할이 지정되지 않은 활성 계정/});
+    const activity=screen.getByRole("tab",{name:"최근 관리 활동"});
+    fireEvent.click(activity);
+    activity.focus();
+    authState.permissions=["ROLE.MANAGE","USER.READ_ALL"];
+    view.rerender(<AdminDashboard classNames={styles}/>);
+    const detail=screen.getByRole("tab",{name:"작업 상세"});
+    expect(screen.queryByRole("tab",{name:"최근 관리 활동"})).toBeNull();
+    expect(detail).toHaveAttribute("aria-selected","true");
+    expect(detail).toHaveAttribute("tabindex","0");
+    expect(screen.getByRole("tabpanel",{name:"작업 상세"})).toBeTruthy();
+    await waitFor(()=>expect(detail).toHaveFocus());
   });
 
   it("shows coordinated empty states when there are no management tasks",async()=>{

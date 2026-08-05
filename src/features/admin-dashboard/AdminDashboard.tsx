@@ -34,20 +34,23 @@ const changeSentence=(detail:string)=>{const separator=detail.includes("→")?"�
 function Skeleton({styles,rows=3}:{styles:Styles;rows?:number}){return <div className={styles.skeleton} aria-hidden="true">{Array.from({length:rows},(_,index)=><i key={index}/>)}</div>}
 
 export function AdminDashboard({classNames:styles}:{classNames:Styles}){
-  const{user}=useAuth(),permissions=new Set(user?.apiPermissions??[]);
+  const{user}=useAuth(),permissions=useMemo(()=>new Set(user?.apiPermissions??[]),[user]);
   const adapter=useMemo(()=>createAdminDashboardAdapter(),[]);
   const[data,setData]=useState<AdminDashboardSnapshot|null>(null),[loading,setLoading]=useState(true),[failed,setFailed]=useState(false),[announcement,setAnnouncement]=useState("관리 현황을 확인하고 있습니다.");
-  const[selectedKey,setSelectedKey]=useState<IssueKey|null>(null),[panelTab,setPanelTab]=useState<PanelTab>("detail");
+  const[selectedKey,setSelectedKey]=useState<IssueKey|null>(null),[panelTab,setPanelTab]=useState<PanelTab>("detail"),[focusedPanelTab,setFocusedPanelTab]=useState<PanelTab|null>(null);
   const inFlight=useRef(false),abort=useRef<AbortController|null>(null);
   const tabRefs=useRef<Record<PanelTab,HTMLButtonElement|null>>({detail:null,activity:null});
   const load=useCallback(async()=>{if(inFlight.current)return;inFlight.current=true;setLoading(true);setFailed(false);setAnnouncement("관리 현황을 갱신하고 있습니다.");abort.current?.abort();const next=new AbortController();abort.current=next;try{const snapshot=await adapter.load(next.signal);setData(snapshot);setAnnouncement(snapshot.systemHealth.status==="unavailable"||snapshot.partialErrors.length?"관리 현황 일부를 확인하지 못했습니다.":`관리 현황을 ${time(snapshot.generatedAt)}에 갱신했습니다.`)}catch(error){if(!(error instanceof DOMException&&error.name==="AbortError")){setFailed(true);setAnnouncement("관리 현황을 갱신하지 못했습니다.")}}finally{inFlight.current=false;setLoading(false)}},[adapter]);
   useEffect(()=>{const timer=setTimeout(()=>void load(),0);return()=>{clearTimeout(timer);abort.current?.abort()}},[load]);
   const view=useMemo(()=>data?createAdminConsoleViewModel(data):null,[data]),summary=view?.accountSummary,overall=view?.health.overall;
   const usersAvailable=Boolean(data&&data.users!==null),canReadAudit=permissions.has("AUDIT.READ"),auditDataAvailable=Boolean(data&&data.recentChanges!==null);
-  const selectedIssue=view?.issues.find(issue=>issue.key===selectedKey)??view?.issues[0]??null;
-  useEffect(()=>{if(!view)return;setSelectedKey(current=>current&&view.issues.some(issue=>issue.key===current)?current:view.issues[0]?.key??null)},[view]);
-  const issueCount=(key:IssueKey)=>view?.issues.find(issue=>issue.key===key)?.affectedUsers.length??0;
-  useEffect(()=>{if(!canReadAudit&&panelTab==="activity")setPanelTab("detail")},[canReadAudit,panelTab]);
+  const visibleIssues=useMemo(()=>view?.issues.filter(issue=>permissions.has(issueActionPermission[issue.key]))??[],[permissions,view]);
+  const selectedIssue=visibleIssues.find(issue=>issue.key===selectedKey)??visibleIssues[0]??null;
+  const visibleAttentionCount=new Set(visibleIssues.flatMap(issue=>issue.affectedUsers.map(account=>account.publicId))).size;
+  const activePanelTab:PanelTab=canReadAudit?panelTab:"detail";
+  useEffect(()=>{if(!view)return;setSelectedKey(current=>current&&visibleIssues.some(issue=>issue.key===current)?current:visibleIssues[0]?.key??null)},[view,visibleIssues]);
+  const issueCount=(key:IssueKey)=>visibleIssues.find(issue=>issue.key===key)?.affectedUsers.length??0;
+  useEffect(()=>{if(!canReadAudit&&panelTab==="activity"){setPanelTab("detail");if(focusedPanelTab==="activity")tabRefs.current.detail?.focus()}},[canReadAudit,focusedPanelTab,panelTab]);
   const handleTabKeyDown=(event:ReactKeyboardEvent<HTMLButtonElement>,current:PanelTab)=>{const order:PanelTab[]=canReadAudit?["detail","activity"]:["detail"],index=order.indexOf(current);let next:PanelTab|null=null;if(event.key==="ArrowLeft")next=order[(index-1+order.length)%order.length];if(event.key==="ArrowRight")next=order[(index+1)%order.length];if(event.key==="Home")next=order[0];if(event.key==="End")next=order[order.length-1];if(!next)return;event.preventDefault();setPanelTab(next);tabRefs.current[next]?.focus()};
 
   return <main className={styles.page} aria-busy={loading}>
@@ -63,17 +66,17 @@ export function AdminDashboard({classNames:styles}:{classNames:Styles}){
 
     <section className={styles.operationSummary} aria-label="업무 중심 운영 요약">
       {loading&&(!summary||!usersAvailable)?<Skeleton styles={styles} rows={1}/>:!summary||!usersAvailable?<div className={styles.summaryUnavailable}><strong>운영 요약을 표시할 수 없습니다.</strong><p>계정 데이터 연결 후 운영 지표가 표시됩니다.</p></div>:<>
-        <div data-tone="attention"><WorkIcon name="attention"/><span>확인 대상</span><b>{summary.attentionCount}명</b></div>
-        <div data-tone="role"><WorkIcon name="shield"/><span>역할 미배정</span><b>{issueCount("ROLE_UNASSIGNED")}명</b></div>
-        <div data-tone="review"><WorkIcon name="search"/><span>사용 검토</span><b>{issueCount("NO_LOGIN_HISTORY")}명</b></div>
-        <div data-tone="inactive"><WorkIcon name="inactive"/><span>비활성 상태</span><b>{issueCount("INACTIVE_ACCOUNT")}명</b></div>
+        <div data-tone="attention"><WorkIcon name="attention"/><span>확인 대상</span><b>{visibleAttentionCount}명</b></div>
+        {permissions.has("ROLE.MANAGE")&&<div data-tone="role"><WorkIcon name="shield"/><span>역할 미배정</span><b>{issueCount("ROLE_UNASSIGNED")}명</b></div>}
+        {permissions.has("USER.READ_ALL")&&<div data-tone="review"><WorkIcon name="search"/><span>사용 검토</span><b>{issueCount("NO_LOGIN_HISTORY")}명</b></div>}
+        {permissions.has("USER.READ_ALL")&&<div data-tone="inactive"><WorkIcon name="inactive"/><span>비활성 상태</span><b>{issueCount("INACTIVE_ACCOUNT")}명</b></div>}
       </>}
     </section>
 
     <div className={styles.workspaceGrid}>
       <section className={styles.queue} aria-labelledby="queue-title">
-        <header><div><h2 id="queue-title">관리 작업</h2><p>확인이 필요한 계정과 권한 업무입니다.</p></div>{view&&usersAvailable&&<b>{view.issues.length}개 업무 유형</b>}</header>
-        {!view?<Skeleton styles={styles}/>:!usersAvailable?<div className={styles.empty}><strong>계정 데이터를 확인할 수 없습니다.</strong><p>데이터 연결 상태를 확인한 후 다시 시도해 주세요.</p></div>:view.issues.length===0?<div className={styles.empty}><strong>현재 확인할 관리 작업이 없습니다.</strong><p>계정과 권한 운영 상태가 정상입니다.</p></div>:<div className={styles.taskList}>{view.issues.map(issue=>{const presentation=issuePresentation[issue.key],selected=selectedIssue?.key===issue.key;return <button type="button" key={issue.key} data-kind={issue.key} aria-pressed={selected} onClick={()=>{setSelectedKey(issue.key);setPanelTab("detail")}}>
+        <header><div><h2 id="queue-title">관리 작업</h2><p>확인이 필요한 계정과 권한 업무입니다.</p></div>{view&&usersAvailable&&<b>{visibleIssues.length}개 업무 유형</b>}</header>
+        {!view?<Skeleton styles={styles}/>:!usersAvailable?<div className={styles.empty}><strong>계정 데이터를 확인할 수 없습니다.</strong><p>데이터 연결 상태를 확인한 후 다시 시도해 주세요.</p></div>:view.issues.length===0?<div className={styles.empty}><strong>현재 확인할 관리 작업이 없습니다.</strong><p>계정과 권한 운영 상태가 정상입니다.</p></div>:visibleIssues.length===0?<div className={styles.empty}><strong>현재 권한으로 확인 가능한 관리 작업이 없습니다.</strong><p>필요한 관리 권한을 확인해 주세요.</p></div>:<div className={styles.taskList}>{visibleIssues.map(issue=>{const presentation=issuePresentation[issue.key],selected=selectedIssue?.key===issue.key;return <button type="button" key={issue.key} data-kind={issue.key} aria-pressed={selected} onClick={()=>{setSelectedKey(issue.key);setPanelTab("detail")}}>
           <span className={styles.taskIcon}><WorkIcon name={presentation.icon}/></span>
           <span className={styles.taskContent}><span><em>{presentation.state}</em><strong>{issue.title}</strong></span><small>{representative(issue)} · {presentation.area}</small><p>{issue.description}</p></span>
           <b>{issue.affectedUsers.length}명</b>
@@ -81,8 +84,8 @@ export function AdminDashboard({classNames:styles}:{classNames:Styles}){
       </section>
 
       <section className={styles.inspector} aria-label="관리 작업 검토">
-        <nav className={styles.panelTabs} aria-label="관리 작업 패널" role="tablist"><button ref={node=>{tabRefs.current.detail=node}} id="admin-task-detail-tab" type="button" aria-controls="admin-task-detail-panel" aria-selected={panelTab==="detail"} role="tab" tabIndex={panelTab==="detail"?0:-1} onClick={()=>setPanelTab("detail")} onKeyDown={event=>handleTabKeyDown(event,"detail")}>작업 상세</button>{canReadAudit&&<button ref={node=>{tabRefs.current.activity=node}} id="admin-activity-tab" type="button" aria-controls="admin-activity-panel" aria-selected={panelTab==="activity"} role="tab" tabIndex={panelTab==="activity"?0:-1} onClick={()=>setPanelTab("activity")} onKeyDown={event=>handleTabKeyDown(event,"activity")}>최근 관리 활동</button>}</nav>
-        {!view?<Skeleton styles={styles}/>:canReadAudit&&panelTab==="activity"?<div id="admin-activity-panel" className={styles.activityPanel} role="tabpanel" aria-labelledby="admin-activity-tab">
+        <nav className={styles.panelTabs} aria-label="관리 작업 패널" role="tablist"><button ref={node=>{tabRefs.current.detail=node}} id="admin-task-detail-tab" type="button" aria-controls="admin-task-detail-panel" aria-selected={activePanelTab==="detail"} role="tab" tabIndex={activePanelTab==="detail"?0:-1} onFocus={()=>setFocusedPanelTab("detail")} onBlur={()=>setFocusedPanelTab(null)} onClick={()=>setPanelTab("detail")} onKeyDown={event=>handleTabKeyDown(event,"detail")}>작업 상세</button>{canReadAudit&&<button ref={node=>{tabRefs.current.activity=node}} id="admin-activity-tab" type="button" aria-controls="admin-activity-panel" aria-selected={activePanelTab==="activity"} role="tab" tabIndex={activePanelTab==="activity"?0:-1} onFocus={()=>setFocusedPanelTab("activity")} onBlur={()=>setFocusedPanelTab(null)} onClick={()=>setPanelTab("activity")} onKeyDown={event=>handleTabKeyDown(event,"activity")}>최근 관리 활동</button>}</nav>
+        {!view?<Skeleton styles={styles}/>:activePanelTab==="activity"?<div id="admin-activity-panel" className={styles.activityPanel} role="tabpanel" aria-labelledby="admin-activity-tab">
           {!auditDataAvailable?<div className={styles.empty}><strong>감사 기록을 확인할 수 없습니다.</strong><p>감사 데이터 연결 상태를 확인한 후 다시 시도해 주세요.</p></div>:view.recentChanges.length?<ol className={styles.activityList}>{view.recentChanges.map(change=><li key={change.id} data-action={change.action}><i aria-hidden="true"/><div><span><strong>{change.action}</strong><time dateTime={change.occurredAt}>{time(change.occurredAt)}</time></span><b>{change.target}</b><p>{changeSentence(change.detail)}</p><small>실행자 · {change.actor??"정보 없음"}</small></div></li>)}</ol>:<div className={styles.empty}>아직 기록된 관리자 활동이 없습니다.</div>}
           {auditDataAvailable&&<footer className={styles.auditActions}><Link href="/admin/audit-logs?range=today"><WorkIcon name="audit"/>오늘 변경</Link><Link href="/admin/audit-logs"><WorkIcon name="audit"/>전체 감사 로그</Link></footer>}
         </div>:!usersAvailable?<div id="admin-task-detail-panel" className={styles.emptyDetail} role="tabpanel" aria-labelledby="admin-task-detail-tab"><strong>계정 데이터를 확인할 수 없습니다.</strong><p>데이터 연결 상태를 확인한 후 다시 시도해 주세요.</p></div>:selectedIssue?<div id="admin-task-detail-panel" className={styles.issueDetail} role="tabpanel" aria-labelledby="admin-task-detail-tab" aria-live="polite" data-kind={selectedIssue.key}>
@@ -91,7 +94,7 @@ export function AdminDashboard({classNames:styles}:{classNames:Styles}){
           <section><h3>영향 계정</h3><ul className={styles.affectedUsers}>{selectedIssue.affectedUsers.slice(0,5).map(account=><li key={account.publicId}><div><strong>{account.name}</strong><span>{account.accountStatus==="ACTIVE"?"활성":"비활성"}</span></div><a href={`mailto:${account.email}`}>{account.email}</a><p>{account.organization}</p><small>{account.context}</small></li>)}</ul>{selectedIssue.affectedUsers.length>5&&<p className={styles.remainingUsers}>외 {selectedIssue.affectedUsers.length-5}명의 영향 계정이 있습니다.</p>}</section>
           <section className={styles.recommendation}><h3>권장 조치</h3><p>{selectedIssue.recommendedAction}</p></section>
           {selectedIssue.target&&permissions.has(issueActionPermission[selectedIssue.key])&&<footer><Link href={selectedIssue.target.href}><WorkIcon name={issuePresentation[selectedIssue.key].icon}/>{issuePresentation[selectedIssue.key].action}</Link></footer>}
-        </div>:<div id="admin-task-detail-panel" className={styles.emptyDetail} role="tabpanel" aria-labelledby="admin-task-detail-tab"><strong>처리할 작업이 없습니다.</strong><p>새로운 관리 항목이 발생하면 이곳에서 상세 내용을 확인할 수 있습니다.</p></div>}
+        </div>:<div id="admin-task-detail-panel" className={styles.emptyDetail} role="tabpanel" aria-labelledby="admin-task-detail-tab"><strong>{view.issues.length>0?"현재 권한으로 확인 가능한 관리 작업이 없습니다.":"처리할 작업이 없습니다."}</strong><p>{view.issues.length>0?"필요한 관리 권한을 확인해 주세요.":"새로운 관리 항목이 발생하면 이곳에서 상세 내용을 확인할 수 있습니다."}</p></div>}
       </section>
     </div>
     <span className={styles.liveRegion} role="status" aria-live="polite">{announcement}</span>
