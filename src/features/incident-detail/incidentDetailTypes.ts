@@ -13,18 +13,19 @@ export interface IncidentMemo{public_id:string;incident_public_id:string;memo_ty
 export interface IncidentMemoRequest {incident_public_id:string;memo_type:IncidentMemoType;content:string;actor_public_id:string;actor_name:string}
 export interface IncidentMemoUpdateRequest extends IncidentMemoRequest{memo_public_id:string;actor_permissions:string[]}
 export interface IncidentMemoDeleteRequest{incident_public_id:string;memo_public_id:string;reason:string;actor_public_id:string;actor_name:string;actor_permissions:string[]}
-export interface FieldAction {action_type:string;detail:string;before_image_url:string|null;after_image_url:string|null;completed_at:string}
+export interface FieldAction {action_type:string;detail:string;before_image_url:string|null;after_image_url:string|null;completed_at:string;photo_preview_expired?:boolean}
 export interface IncidentDetailRecord {
   incident:DashboardIncident;cctv:DashboardCctv;evidences:IncidentEvidence[];dispatch:DashboardDispatch|null;
-  histories:IncidentHistory[];field_action:FieldAction|null;decision:{result:string;reason:string;decided_by:string;decided_at:string}|null;
-  controller_note:string|null;memos:IncidentMemo[];request_message:string|null;
+  histories:IncidentHistory[];field_action:FieldAction|null;field_action_supported?:boolean;decision:{result:string;reason:string;decided_by:string;decided_at:string}|null;
+  controller_note:string|null;memos:IncidentMemo[];request_message:string|null;closed_at?:string|null;
 }
 export type IncidentDecisionType="REAL_RISK"|"FALSE_POSITIVE"|"NEEDS_REVIEW"|"NO_DISPATCH";
 export interface IncidentDecisionPayload{decision_type:IncidentDecisionType;decision_reason:string}
+export interface IncidentClosePayload{closure_note:string}
 export interface DispatchResponderOption{public_id:string;display_name:string;organization_name:string|null;available:boolean}
 export interface IncidentDispatchAssignmentRequest{incident_public_id:string;responder_public_id:string;expected_version_no:number;idempotency_key:string;request_message:string|null}
 export type IncidentCommandAction="acknowledge"|"claim"|"review"|"release"|"decide"|"assign"|"close";
-export interface IncidentActionRequest {incident_public_id:string;expected_version_no:number;action:IncidentCommandAction;idempotency_key:string;payload?:IncidentDecisionPayload|Record<string,unknown>}
+export interface IncidentActionRequest {incident_public_id:string;expected_version_no:number;action:IncidentCommandAction;idempotency_key:string;payload?:IncidentDecisionPayload|IncidentClosePayload|Record<string,unknown>}
 export type ApiIncidentCommandErrorCode=
   |"INCIDENT_VERSION_CONFLICT"
   |"INCIDENT_ALREADY_CLAIMED"
@@ -37,8 +38,8 @@ export type ApiIncidentCommandErrorCode=
   |"DISPATCH_IDEMPOTENCY_CONFLICT";
 export type MockIncidentCommandErrorCode="INCIDENT_CLAIM_CONFLICT"|"FORBIDDEN"|"INVALID_TRANSITION";
 export type IncidentActionResult=
-  |{ok:true;status:DashboardIncident["status"];version_no:number;record?:IncidentDetailRecord}
-  |{ok:false;code:ApiIncidentCommandErrorCode|MockIncidentCommandErrorCode;latest:IncidentDetailRecord;controller_name?:string|null};
+  |{ok:true;status:DashboardIncident["status"];version_no:number;record?:IncidentDetailRecord;closed_at?:string}
+  |{ok:false;code:ApiIncidentCommandErrorCode|MockIncidentCommandErrorCode;latest:IncidentDetailRecord|null;sync_failed?:boolean;controller_name?:string|null};
 export interface IncidentDetailAdapter {
   readonly mode:"api"|"mock";
   readonly supportsRelease:boolean;

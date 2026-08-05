@@ -18,6 +18,7 @@ export interface IncidentEvidenceListDto{items:IncidentEvidenceDto[];pagination:
 export interface IncidentHistoryDto{public_id:string;from_status:IncidentStatus|null;to_status:IncidentStatus;actor_type:"USER"|"SYSTEM"|"DEVICE";actor:PublicUserDto|null;change_source:"MANUAL"|"SYSTEM"|"DEVICE"|"AUTO";reason_code:string|null;reason_text:string|null;changed_at:string}
 export interface IncidentHistoryListDto{items:IncidentHistoryDto[];pagination:PaginationDto}
 export interface IncidentCommandResponseDto{public_id:string;status:IncidentStatus;version_no:number}
+export interface IncidentCloseResponseDto{incident_public_id:string;previous_status:"ACTION_COMPLETED";status:"CLOSED";closure_code:"FIELD_ACTION_COMPLETED";closed_by:PublicUserDto;closed_at:string;version_no:number}
 export type ResponderDutyStatus="AVAILABLE"|"BUSY"|"OFF_DUTY"|"UNAVAILABLE";
 export interface ResponderListItemDto {
  public_id:string;

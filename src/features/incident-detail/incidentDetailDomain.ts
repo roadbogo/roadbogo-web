@@ -99,17 +99,19 @@ const action: Record<IncidentStatus, { key: IncidentCommandAction | "view_dispat
   ACTION_IN_PROGRESS: { key: "view_field", label: "조치 진행 확인" }, ACTION_COMPLETED: { key: "close", label: "사건 최종 종료" }, CLOSED: null,
 };
 
-export function resolvePrimaryIncidentAction(incident: DashboardIncident, user: { public_id: string; permissions: string[] }) {
+export function resolvePrimaryIncidentAction(incident: DashboardIncident, user: { public_id: string; permissions: string[]; roles?:string[] }) {
   const candidate = action[incident.status];
   if (!candidate) return null;
   const required = permission[incident.status];
   if (required && !user.permissions.includes(required)) return null;
-  if (incident.assigned_controller && incident.assigned_controller.public_id !== user.public_id && ["CLAIMED", "UNDER_REVIEW", "DISPATCH_REQUESTED"].includes(incident.status)) return null;
+  const controllerManager=user.roles?.some(role=>role==="CONTROL_MANAGER"||role==="SYSTEM_ADMIN")??false;
+  if (incident.assigned_controller && incident.assigned_controller.public_id !== user.public_id && ["CLAIMED", "UNDER_REVIEW", "DISPATCH_REQUESTED", "ACTION_COMPLETED"].includes(incident.status) && !controllerManager) return null;
+  if (incident.status==="ACTION_COMPLETED"&&!incident.assigned_controller&&!controllerManager)return null;
   if (!Number.isInteger(incident.version_no) || incident.version_no < 0) return null;
   return candidate;
 }
 
-const apiSupportedActions = new Set<IncidentCommandAction>(["acknowledge", "claim", "review", "decide", "assign"]);
+const apiSupportedActions = new Set<IncidentCommandAction>(["acknowledge", "claim", "review", "decide", "assign", "close"]);
 export function isIncidentActionSupported(mode:"api"|"mock",key:IncidentCommandAction|"view_dispatch"|"view_field"){
   return mode === "mock" || apiSupportedActions.has(key as IncidentCommandAction);
 }

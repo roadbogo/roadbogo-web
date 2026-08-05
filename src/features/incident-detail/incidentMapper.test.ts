@@ -4,6 +4,8 @@ const evidence={detection_public_id:null,evidence_type:"PRIMARY",is_representati
 const history={public_id:"h",from_status:null,to_status:"NEW",actor_type:"SYSTEM",actor:null,change_source:"SYSTEM",reason_code:null,reason_text:null,changed_at:"2026-07-20T00:00:00.000Z"}satisfies IncidentHistoryDto;
 describe("incident detail mapper",()=>{it("combines detail, evidence, and history without exposing backend DTOs",()=>{const record=mapIncidentDetailRecord(detail,[evidence],[history]);expect(record.incident).toMatchObject({class_code:null,class_name:null,representative_confidence:null});expect(record.evidences[0]).toMatchObject({detection_public_id:"evidence-0",confidence:null,class_name:null});expect(record.histories[0]).toMatchObject({label:"미확인",actor_name:null});expect(record.dispatch).toBeNull()})});
 
+it("preserves the backend closure timestamp on the detail record",()=>{const record=mapIncidentDetailRecord({...detail,status:"CLOSED",timeline:{...detail.timeline,closed_at:"2026-07-21T01:00:00Z"}},[evidence],[history]);expect(record.closed_at).toBe("2026-07-21T01:00:00Z")});
+
 describe("representative evidence mapping",()=>{
  it("prefers the annotated image and maps a valid normalized bbox",()=>{
   const mapped=mapIncidentDetail({...detail,representative_evidence:{detection_public_id:"d",original_image_url:"/original.jpg",annotated_image_url:"/annotated.jpg",bbox:{x:.1,y:.2,width:.3,height:.4}}});
