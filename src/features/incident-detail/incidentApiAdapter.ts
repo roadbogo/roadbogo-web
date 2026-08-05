@@ -1,6 +1,6 @@
 import { ApiError, apiRequest } from "@/lib/apiClient";
-import type { IncidentActionRequest, IncidentActionResult, IncidentDetailAdapter, IncidentDetailRecord, IncidentDecisionPayload, IncidentDispatchAssignmentRequest, IncidentMemo, IncidentMemoRequest } from "./incidentDetailTypes";
-import type { IncidentCommandResponseDto, IncidentDetailDto, IncidentDispatchResponseDto, IncidentEvidenceListDto, IncidentHistoryListDto, ResponderListDto } from "./incidentApiTypes";
+import type { IncidentActionRequest, IncidentActionResult, IncidentClosePayload, IncidentDetailAdapter, IncidentDetailRecord, IncidentDecisionPayload, IncidentDispatchAssignmentRequest, IncidentMemo, IncidentMemoRequest } from "./incidentDetailTypes";
+import type { IncidentCloseResponseDto, IncidentCommandResponseDto, IncidentDetailDto, IncidentDispatchResponseDto, IncidentEvidenceListDto, IncidentHistoryListDto, ResponderListDto } from "./incidentApiTypes";
 import { mapDispatchResponder, mapIncidentDetailRecord } from "./incidentMapper";
 
 const commandErrorCodes=["INCIDENT_VERSION_CONFLICT","INCIDENT_ALREADY_CLAIMED","INCIDENT_NOT_ASSIGNED_CONTROLLER","INCIDENT_INVALID_STATE_TRANSITION"] as const;
@@ -32,17 +32,19 @@ export class ApiIncidentDetailAdapter implements IncidentDetailAdapter{
  }
 
  async act(request:IncidentActionRequest):Promise<IncidentActionResult>{
-  if(!["acknowledge","claim","review","decide"].includes(request.action))throw new Error("UNSUPPORTED_INCIDENT_COMMAND");
+  if(!["acknowledge","claim","review","decide","close"].includes(request.action))throw new Error("UNSUPPORTED_INCIDENT_COMMAND");
   if(!Number.isInteger(request.expected_version_no)||request.expected_version_no<0)throw new Error("INVALID_INCIDENT_VERSION");
   const id=encodeURIComponent(request.incident_public_id);
   try{
-   const isDecision=request.action==="decide";
+   const isDecision=request.action==="decide",isClose=request.action==="close";
    const decision=request.payload as IncidentDecisionPayload|undefined;
+   const closure=request.payload as IncidentClosePayload|undefined;
    if(isDecision&&(!decision||!["REAL_RISK","FALSE_POSITIVE","NEEDS_REVIEW","NO_DISPATCH"].includes(decision.decision_type)||!decision.decision_reason.trim()))throw new Error("INVALID_INCIDENT_DECISION");
-   const response=await apiRequest<IncidentCommandResponseDto>(isDecision?`/incidents/${id}/decisions`:`/incidents/${id}/${request.action}`,{
+   if(isClose&&!closure?.closure_note.trim())throw new Error("INVALID_INCIDENT_CLOSURE_NOTE");
+   const response=await apiRequest<IncidentCommandResponseDto|IncidentCloseResponseDto>(isDecision?`/incidents/${id}/decisions`:`/incidents/${id}/${request.action}`,{
     method:"POST",
     idempotencyKey:request.idempotency_key,
-    body:isDecision?{decision_type:decision!.decision_type,decision_reason:decision!.decision_reason.trim(),expected_version_no:request.expected_version_no}:{expected_version_no:request.expected_version_no},
+    body:isDecision?{decision_type:decision!.decision_type,decision_reason:decision!.decision_reason.trim(),expected_version_no:request.expected_version_no}:isClose?{closure_code:"FIELD_ACTION_COMPLETED",closure_note:closure!.closure_note.trim(),expected_version_no:request.expected_version_no}:{expected_version_no:request.expected_version_no},
    });
    return{ok:true,status:response.status,version_no:response.version_no};
   }catch(error){

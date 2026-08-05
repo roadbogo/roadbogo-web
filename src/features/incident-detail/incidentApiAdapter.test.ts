@@ -69,6 +69,27 @@ describe("ApiIncidentDetailAdapter commands",()=>{
     expect(request).not.toHaveBeenCalled();
   });
 
+  it("closes an action-completed incident with the backend contract",async()=>{
+    request.mockResolvedValue({incident_public_id:incidentPublicId,previous_status:"ACTION_COMPLETED",status:"CLOSED",closure_code:"FIELD_ACTION_COMPLETED",closed_by:{public_id:"controller-id",user_name:"관제자"},closed_at:"2026-07-21T01:00:00Z",version_no:9});
+    const adapter=new ApiIncidentDetailAdapter();
+    const result=await adapter.act({incident_public_id:incidentPublicId,expected_version_no:8,action:"close",idempotency_key:"close-key",payload:{closure_note:"  현장 조치 결과 확인 완료  "}});
+    expect(result).toMatchObject({ok:true,status:"CLOSED",version_no:9});
+    expect(request).toHaveBeenCalledWith(`/incidents/${incidentPublicId}/close`,{method:"POST",idempotencyKey:"close-key",body:{closure_code:"FIELD_ACTION_COMPLETED",closure_note:"현장 조치 결과 확인 완료",expected_version_no:8}});
+  });
+
+  it("does not send close without the required closure note",async()=>{
+    const adapter=new ApiIncidentDetailAdapter();
+    await expect(adapter.act({incident_public_id:incidentPublicId,expected_version_no:8,action:"close",idempotency_key:"close-key",payload:{closure_note:" "}})).rejects.toThrow("INVALID_INCIDENT_CLOSURE_NOTE");
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("surfaces a close permission failure without fabricating a successful state",async()=>{
+    request.mockRejectedValue(new ApiError("AUTH_PERMISSION_DENIED","권한이 없습니다.",null,"trace",403));
+    const adapter=new ApiIncidentDetailAdapter();
+    await expect(adapter.act({incident_public_id:incidentPublicId,expected_version_no:8,action:"close",idempotency_key:"close-key",payload:{closure_note:"현장 조치 결과 확인 완료"}})).rejects.toMatchObject({code:"AUTH_PERMISSION_DENIED",httpStatus:403});
+    expect(request).toHaveBeenCalledOnce();
+  });
+
   it("lists assignable responders and maps nullable organizations",async()=>{
     const adapter=new ApiIncidentDetailAdapter();
     request.mockResolvedValue({items:[
