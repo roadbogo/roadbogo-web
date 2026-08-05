@@ -49,8 +49,9 @@ export class ApiIncidentDetailAdapter implements IncidentDetailAdapter{
    return{ok:true,status:response.status,version_no:response.version_no};
   }catch(error){
    if(!(error instanceof ApiError)||!commandErrorCodes.some(code=>code===error.code))throw error;
-   const latest=await this.get(request.incident_public_id);
-   if(!latest)throw error;
+   let latest:IncidentDetailRecord|null=null;
+   try{latest=await this.get(request.incident_public_id)}catch{return{ok:false,code:error.code as typeof commandErrorCodes[number],latest:null,sync_failed:true}}
+   if(!latest)return{ok:false,code:error.code as typeof commandErrorCodes[number],latest:null,sync_failed:true};
    const controllerName=typeof error.details?.controller_name==="string"
     ?error.details.controller_name
     :typeof error.details?.claimed_by_name==="string"

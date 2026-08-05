@@ -90,6 +90,25 @@ describe("ApiIncidentDetailAdapter commands",()=>{
     expect(request).toHaveBeenCalledOnce();
   });
 
+  it.each([
+    ["INCIDENT_VERSION_CONFLICT","CLOSED"],
+    ["INCIDENT_INVALID_STATE_TRANSITION","ACTION_COMPLETED"],
+  ] as const)("reloads the latest incident after close error %s",async(code,status)=>{
+    request.mockRejectedValue(new ApiError(code,"conflict",{current_status:status},"trace",409));
+    const adapter=new ApiIncidentDetailAdapter();
+    const refreshed={...latest,incident:{...latest.incident,status,version_no:11}} as IncidentDetailRecord;
+    vi.spyOn(adapter,"get").mockResolvedValue(refreshed);
+    const result=await adapter.act({incident_public_id:incidentPublicId,expected_version_no:8,action:"close",idempotency_key:"close-key",payload:{closure_note:"현장 조치 확인 완료"}});
+    expect(result).toMatchObject({ok:false,code,latest:{incident:{status,version_no:11}}});
+  });
+
+  it("keeps the close conflict and marks synchronization failure when latest detail also fails",async()=>{
+    request.mockRejectedValue(new ApiError("INCIDENT_VERSION_CONFLICT","conflict",null,"trace",409));
+    const adapter=new ApiIncidentDetailAdapter();
+    vi.spyOn(adapter,"get").mockRejectedValue(new TypeError("detail unavailable"));
+    await expect(adapter.act({incident_public_id:incidentPublicId,expected_version_no:8,action:"close",idempotency_key:"close-key",payload:{closure_note:"현장 조치 확인 완료"}})).resolves.toMatchObject({ok:false,code:"INCIDENT_VERSION_CONFLICT",latest:null,sync_failed:true});
+  });
+
   it("lists assignable responders and maps nullable organizations",async()=>{
     const adapter=new ApiIncidentDetailAdapter();
     request.mockResolvedValue({items:[

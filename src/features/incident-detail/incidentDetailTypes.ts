@@ -13,7 +13,7 @@ export interface IncidentMemo{public_id:string;incident_public_id:string;memo_ty
 export interface IncidentMemoRequest {incident_public_id:string;memo_type:IncidentMemoType;content:string;actor_public_id:string;actor_name:string}
 export interface IncidentMemoUpdateRequest extends IncidentMemoRequest{memo_public_id:string;actor_permissions:string[]}
 export interface IncidentMemoDeleteRequest{incident_public_id:string;memo_public_id:string;reason:string;actor_public_id:string;actor_name:string;actor_permissions:string[]}
-export interface FieldAction {action_type:string;detail:string;before_image_url:string|null;after_image_url:string|null;completed_at:string}
+export interface FieldAction {action_type:string;detail:string;before_image_url:string|null;after_image_url:string|null;completed_at:string;photo_preview_expired?:boolean}
 export interface IncidentDetailRecord {
   incident:DashboardIncident;cctv:DashboardCctv;evidences:IncidentEvidence[];dispatch:DashboardDispatch|null;
   histories:IncidentHistory[];field_action:FieldAction|null;field_action_supported?:boolean;decision:{result:string;reason:string;decided_by:string;decided_at:string}|null;
@@ -39,7 +39,7 @@ export type ApiIncidentCommandErrorCode=
 export type MockIncidentCommandErrorCode="INCIDENT_CLAIM_CONFLICT"|"FORBIDDEN"|"INVALID_TRANSITION";
 export type IncidentActionResult=
   |{ok:true;status:DashboardIncident["status"];version_no:number;record?:IncidentDetailRecord}
-  |{ok:false;code:ApiIncidentCommandErrorCode|MockIncidentCommandErrorCode;latest:IncidentDetailRecord;controller_name?:string|null};
+  |{ok:false;code:ApiIncidentCommandErrorCode|MockIncidentCommandErrorCode;latest:IncidentDetailRecord|null;sync_failed?:boolean;controller_name?:string|null};
 export interface IncidentDetailAdapter {
   readonly mode:"api"|"mock";
   readonly supportsRelease:boolean;
