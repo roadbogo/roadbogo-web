@@ -46,7 +46,7 @@ export class ApiIncidentDetailAdapter implements IncidentDetailAdapter{
     idempotencyKey:request.idempotency_key,
     body:isDecision?{decision_type:decision!.decision_type,decision_reason:decision!.decision_reason.trim(),expected_version_no:request.expected_version_no}:isClose?{closure_code:"FIELD_ACTION_COMPLETED",closure_note:closure!.closure_note.trim(),expected_version_no:request.expected_version_no}:{expected_version_no:request.expected_version_no},
    });
-   return{ok:true,status:response.status,version_no:response.version_no};
+   return{ok:true,status:response.status,version_no:response.version_no,...(isClose?{closed_at:(response as IncidentCloseResponseDto).closed_at}:{})};
   }catch(error){
    if(!(error instanceof ApiError)||!commandErrorCodes.some(code=>code===error.code))throw error;
    let latest:IncidentDetailRecord|null=null;

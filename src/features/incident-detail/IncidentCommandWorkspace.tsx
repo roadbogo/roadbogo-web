@@ -23,7 +23,7 @@ import { evidenceFocusModeUrl, evidenceFocusSelectionUrl, evidenceFocusUrl, inci
 import { getIncidentRefreshChanges, resolveEvidenceSelection } from "./incidentRefresh";
 import { getEvidenceOverlayBbox } from "./incidentEvidencePresentation";
 import { currentIncidentWorkStage, getIncidentWorkStages, incidentWorkStageFlow, type IncidentWorkStage } from "./incidentWorkStages";
-import {closureConflictRefreshWarning,refreshIncidentAfterClosure} from "./incidentClosureSync";
+import {applyClosureCommandResult,closureConflictRefreshWarning,refreshIncidentAfterClosure} from "./incidentClosureSync";
 import type { DispatchResponderOption, IncidentClosePayload, IncidentCommandAction, IncidentDecisionPayload, IncidentDetailRecord, IncidentEvidence, IncidentMemo, IncidentMemoType } from "./incidentDetailTypes";
 import "@/components/landing/landing.css";
 import "./incidentDetail.css";
@@ -307,7 +307,7 @@ export function IncidentCommandWorkspace({ publicId, invalidIdentifier = false }
         ? await adapter.assignDispatch({ incident_public_id: record.incident.public_id, responder_public_id: payload.responder_public_id, request_message: payload.request_message.trim() || null, expected_version_no: record.incident.version_no, idempotency_key: idempotencyKey })
         : await adapter.act({ incident_public_id: record.incident.public_id, expected_version_no: record.incident.version_no, action, idempotency_key: idempotencyKey, payload: payload ?? (action === "close" ? {closure_note:"현장 조치 완료 상태를 확인하고 사건을 종료합니다."} : action === "claim" || action === "release" ? { actor_public_id: user?.publicId ?? "", actor_name: user?.name ?? "관제 담당자" } : undefined) });
       if (result.ok) {
-        setRecord(current => current ? { ...current, incident: { ...current.incident, status: result.status, version_no: result.version_no } } : current);
+        setRecord(current => current ? action==="close"?applyClosureCommandResult(current,result):{ ...current, incident: { ...current.incident, status: result.status, version_no: result.version_no } } : current);
         const successMessage:Partial<Record<IncidentCommandAction,string>>={acknowledge:"사건을 확인했습니다.",release:"사건 담당이 해제되었습니다.",review:"사건 검토를 시작했습니다.",decide:"위험 판정을 반영했습니다.",assign:"출동 담당자를 배정했습니다.",close:"사건 종료를 확인했습니다."};
         if(action==="close"){
           setDialog(null);setToastSuccess(true);setToast(successMessage.close!);setSyncMessage("");

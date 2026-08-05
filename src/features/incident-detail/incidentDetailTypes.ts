@@ -17,7 +17,7 @@ export interface FieldAction {action_type:string;detail:string;before_image_url:
 export interface IncidentDetailRecord {
   incident:DashboardIncident;cctv:DashboardCctv;evidences:IncidentEvidence[];dispatch:DashboardDispatch|null;
   histories:IncidentHistory[];field_action:FieldAction|null;field_action_supported?:boolean;decision:{result:string;reason:string;decided_by:string;decided_at:string}|null;
-  controller_note:string|null;memos:IncidentMemo[];request_message:string|null;
+  controller_note:string|null;memos:IncidentMemo[];request_message:string|null;closed_at?:string|null;
 }
 export type IncidentDecisionType="REAL_RISK"|"FALSE_POSITIVE"|"NEEDS_REVIEW"|"NO_DISPATCH";
 export interface IncidentDecisionPayload{decision_type:IncidentDecisionType;decision_reason:string}
@@ -38,7 +38,7 @@ export type ApiIncidentCommandErrorCode=
   |"DISPATCH_IDEMPOTENCY_CONFLICT";
 export type MockIncidentCommandErrorCode="INCIDENT_CLAIM_CONFLICT"|"FORBIDDEN"|"INVALID_TRANSITION";
 export type IncidentActionResult=
-  |{ok:true;status:DashboardIncident["status"];version_no:number;record?:IncidentDetailRecord}
+  |{ok:true;status:DashboardIncident["status"];version_no:number;record?:IncidentDetailRecord;closed_at?:string}
   |{ok:false;code:ApiIncidentCommandErrorCode|MockIncidentCommandErrorCode;latest:IncidentDetailRecord|null;sync_failed?:boolean;controller_name?:string|null};
 export interface IncidentDetailAdapter {
   readonly mode:"api"|"mock";
